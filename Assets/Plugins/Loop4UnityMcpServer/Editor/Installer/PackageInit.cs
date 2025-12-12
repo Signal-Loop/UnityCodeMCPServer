@@ -8,7 +8,7 @@ namespace LoopMcpServer.Editor.Installer
     public static class PackageInit
     {
         private const string SOURCE_FOLDER = "Editor/STDIO~";
-        private const string TARGET_FOLDER = "Assets/Plugins/Loop4UnityMcpServer/STDIO~";
+        private const string TARGET_FOLDER = "Assets/Plugins/Loop4UnityMcpServer/Editor/STDIO~";
 
         static PackageInit()
         {
