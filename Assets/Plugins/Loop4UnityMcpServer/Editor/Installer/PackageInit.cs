@@ -1,9 +1,8 @@
 using UnityEditor;
 using System.IO;
-using LoopMcpServer.Editor.Installer;
 using UnityEngine;
 
-namespace LoopMcpServer.Editor.Installation
+namespace LoopMcpServer.Editor.Installer
 {
     [InitializeOnLoad]
     public static class PackageInit
@@ -23,8 +22,9 @@ namespace LoopMcpServer.Editor.Installation
             // Reliability: Find the package path dynamically.
             // This works even if the package is in PackageCache, Embedded, or Local.
             var packageInfo = UnityEditor.PackageManager.PackageInfo.FindForAssembly(typeof(PackageInit).Assembly);
-            
-            if (packageInfo == null) {
+
+            if (packageInfo == null)
+            {
                 Debug.LogWarning("[PackageInit] PackageInfo not found. Skipping installation.");
                 // Fallback or just return if not found (e.g. during script reloads)
                 return;
@@ -38,6 +38,7 @@ namespace LoopMcpServer.Editor.Installation
             IFileSystem fileSystem = new EditorFileSystem();
             PackageInstaller installer = new PackageInstaller(fileSystem);
 
+            Debug.Log($"[PackageInit] Installing from {sourcePath} to {targetPath}");
             // Execute
             bool installed = installer.Install(sourcePath, targetPath);
             Debug.Log("[PackageInit] Package installation process completed.");
