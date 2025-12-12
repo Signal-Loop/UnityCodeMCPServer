@@ -1,0 +1,33 @@
+{
+    "name": "com.signal-loop.loop4unitymcpserver",
+    "version": "0.0.1-preview",
+    "displayName": "Loop4Unity MCP Server",
+    "description": "MCP server for Unity that allows executing C# code in Unity Editor.",
+    "unity": "2022.3",
+    "author": {
+        "name": "Tomasz Borycki",
+        "url": "https://www.signal-loop.com"
+    },
+    "samples": [
+        {
+            "displayName": "Sample Tools",
+            "description": "Sample tools for Loop4Unity MCP Server.",
+            "path": "Samples~/SampleTools"
+        },
+        {
+            "displayName": "Sample Resources",
+            "description": "Sample resources for Loop4Unity MCP Server.",
+            "path": "Samples~/SampleResources"
+        },
+        {
+            "displayName": "Sample Prompts",
+            "description": "Sample prompts for Loop4Unity MCP Server.",
+            "path": "Samples~/SamplePrompts"
+        }
+    ],
+    "keywords": [
+        "mcp",
+        "ai"
+    ],
+    "license": "MIT"
+}
