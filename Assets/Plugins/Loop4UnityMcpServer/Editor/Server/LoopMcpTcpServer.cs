@@ -286,13 +286,6 @@ namespace LoopMcpServer.Server
 
             string pathToStdio = System.IO.Path.GetFullPath("Assets/Plugins/Loop4UnityMcpServer/Editor/STDIO~").Replace("\\", "/");
 
-            var packageInfo = UnityEditor.PackageManager.PackageInfo.FindForAssembly(typeof(LoopMcpTcpServer).Assembly);
-            if (packageInfo != null)
-            {
-                string packageRoot = packageInfo.resolvedPath;
-                pathToStdio = System.IO.Path.Combine(packageRoot, "/Editor/STDIO~");
-            }
-
             string template = $@"{{
   ""mcpServers"": {{
     ""unity"": {{
