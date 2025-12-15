@@ -11,7 +11,7 @@ using LoopMcpServer.Settings;
 using UnityEditor;
 using UnityEngine;
 
-namespace LoopMcpServer.Server
+namespace LoopMcpServer.Servers.Tcp
 {
     /// <summary>
     /// TCP Server that handles MCP protocol connections.
