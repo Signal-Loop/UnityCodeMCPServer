@@ -115,30 +115,6 @@ uv run --directory "C:/path/to/STDIO~" loop-mcp-stdio --retry-time 3 --retry-cou
 3. **Unity → Bridge (TCP):** Unity Tcp Server responds back to Bridge
 4. **Bridge → MCP Client (STDIO):** Bridge writes response to stdout
 
-## Troubleshooting
-
-### Connection Refused
-
-**Error:** `Connection refused to localhost:21088`
-
-**Solutions:**
-
-1. Ensure Unity Editor is running
-2. Check that LoopMcpServer is enabled (see Unity Console for `[LoopMcp]` logs)
-3. Verify the port matches in both Unity settings and bridge arguments
-
-### uv Command Not Found
-
-**Error:** `'uv' is not recognized as a command`
-
-**Solution:** Install uv using the commands in the Prerequisites section, then restart your terminal.
-
-### Python Version Issues
-
-**Error:** `Python 3.10+ required`
-
-**Solution:** uv will automatically download and use the correct Python version. If using pip, ensure you have Python 3.10+ installed.
-
 ## Development
 
 ### Running Tests
