@@ -260,7 +260,7 @@ namespace LoopMcpServer.Servers.Tcp
         /// <summary>
         /// Force refresh the registry (useful after adding new tools/prompts/resources)
         /// </summary>
-        [MenuItem("Tools/LoopMcpServer/Refresh Registry")]
+        [MenuItem("Tools/LoopMcpServer/STDIO/Refresh Registry")]
         public static void RefreshRegistry()
         {
             _registry?.DiscoverAndRegisterAll();
@@ -270,7 +270,7 @@ namespace LoopMcpServer.Servers.Tcp
         /// <summary>
         /// Restart the server
         /// </summary>
-        [MenuItem("Tools/LoopMcpServer/Restart Server")]
+        [MenuItem("Tools/LoopMcpServer/STDIO/Restart Server")]
         public static void RestartServer()
         {
             RestartServerAsync().Forget();
@@ -279,7 +279,7 @@ namespace LoopMcpServer.Servers.Tcp
         /// <summary>
         /// Log MCP configuration to console
         /// </summary>
-        [MenuItem("Tools/LoopMcpServer/Log MCP Configuration")]
+        [MenuItem("Tools/LoopMcpServer/STDIO/Log MCP Configuration")]
         public static void LogMcpConfiguration()
         {
             var settings = LoopMcpServerSettings.Instance;

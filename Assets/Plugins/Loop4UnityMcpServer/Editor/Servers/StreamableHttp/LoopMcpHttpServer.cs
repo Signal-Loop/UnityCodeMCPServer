@@ -321,31 +321,6 @@ namespace LoopMcpServer.Servers.StreamableHttp
 }}";
 
             Debug.Log($"{McpProtocol.LogPrefix} [HTTP] MCP Configuration (Streamable HTTP):\n{template}");
-
-            // Also log alternative with stdio proxy if needed
-            string pathToStdio = System.IO.Path.GetFullPath("Assets/Plugins/Loop4UnityMcpServer/Editor/STDIO~").Replace("\\", "/");
-
-            string proxyTemplate = $@"
-Alternative with STDIO proxy (if client doesn't support HTTP transport):
-{{
-  ""mcpServers"": {{
-    ""unity-http-proxy"": {{
-      ""command"": ""uv"",
-      ""args"": [
-        ""run"",
-        ""--directory"",
-        ""{pathToStdio}"",
-        ""loop-mcp-stdio"",
-        ""--transport"",
-        ""http"",
-        ""--url"",
-        ""http://127.0.0.1:{settings.HttpPort}{McpHttpTransport.EndpointPath}""
-      ]
-    }}
-  }}
-}}";
-
-            Debug.Log($"{McpProtocol.LogPrefix} [HTTP] {proxyTemplate}");
         }
 
         #endregion
