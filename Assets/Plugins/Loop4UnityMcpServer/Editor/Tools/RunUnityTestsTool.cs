@@ -13,9 +13,9 @@ namespace LoopMcpServer.Tools
 {
     public class RunUnityTestsTool : IToolAsync
     {
-        public string Name => "RunUnityTests";
+        public string Name => "run_unity_tests";
 
-        public string Description => 
+        public string Description =>
             "Runs Unity tests using the TestRunnerApi. Can run all tests or specific tests by name. " +
             "Returns the test results including status and logs.";
 
@@ -30,7 +30,7 @@ namespace LoopMcpServer.Tools
                     },
                     ""description"": ""Optional list of test names to run. If omitted, all tests are run. NOTE: You must use fully qualified test names (e.g. 'Namespace.ClassName.MethodName').""
                 },
-                ""testMode"": {
+                ""test_mode"": {
                     ""type"": ""string"",
                     ""enum"": [""EditMode"", ""PlayMode"", ""Both""],
                     ""description"": ""Optional test mode to run. Defaults to EditMode if not specified, but this tool can handle both.""
@@ -92,7 +92,7 @@ namespace LoopMcpServer.Tools
                     .ToList();
             }
 
-            string testModeStr = arguments.GetStringOrDefault("testMode", "EditMode");
+            string testModeStr = arguments.GetStringOrDefault("test_mode", "EditMode");
             TestMode testMode = TestMode.EditMode;
             if (Enum.TryParse<TestMode>(testModeStr, true, out var parsedMode))
             {
@@ -130,11 +130,11 @@ namespace LoopMcpServer.Tools
             sb.AppendLine($"Test Run Completed. Status: {result.TestStatus}");
             sb.AppendLine($"Passed: {result.PassCount}, Failed: {result.FailCount}, Inconclusive: {result.InconclusiveCount}, Skipped: {result.SkipCount}");
             sb.AppendLine($"Duration: {result.Duration}s");
-            
+
             if (result.FailCount > 0)
             {
-                 sb.AppendLine("\nFailed Tests:");
-                 AppendFailedTests(sb, result);
+                sb.AppendLine("\nFailed Tests:");
+                AppendFailedTests(sb, result);
             }
 
             return new ToolsCallResult
@@ -151,21 +151,21 @@ namespace LoopMcpServer.Tools
         {
             if (result.TestStatus == TestStatus.Failed)
             {
-                 if (!result.HasChildren)
-                 {
-                     sb.AppendLine($"- {result.Name}: {result.Message}");
-                     if (!string.IsNullOrEmpty(result.StackTrace))
-                     {
-                         sb.AppendLine($"  Stack Trace: {result.StackTrace}");
-                     }
-                 }
-                 else
-                 {
-                     foreach (var child in result.Children)
-                     {
-                         AppendFailedTests(sb, child);
-                     }
-                 }
+                if (!result.HasChildren)
+                {
+                    sb.AppendLine($"- {result.Name}: {result.Message}");
+                    if (!string.IsNullOrEmpty(result.StackTrace))
+                    {
+                        sb.AppendLine($"  Stack Trace: {result.StackTrace}");
+                    }
+                }
+                else
+                {
+                    foreach (var child in result.Children)
+                    {
+                        AppendFailedTests(sb, child);
+                    }
+                }
             }
         }
 

@@ -37,7 +37,7 @@ namespace LoopMcpServer.Tools
             "UniTask"
         };
 
-        public string Name => "executeCSharpScriptInUnityEditor";
+        public string Name => "execute_csharp_script_in_unity_editor";
 
         public string Description =>
     @"Use this tool to perform changes or automate tasks in Unity Editor by creating and executing C# scripts.
@@ -45,9 +45,9 @@ Scripts run in the Unity Editor context using Roslyn with full access to UnityEn
 Perfect for creating GameObjects, modifying scenes, configuring components, or automating Unity Editor tasks. 
 Returns execution status, output, and any logs/errors.
 
-**ALWAYS use `executeCSharpScriptInUnityEditor` tool for ANY Unity Editor modifications or automation tasks.**
+**ALWAYS use `execute_csharp_script_in_unity_editor` tool for ANY Unity Editor modifications or automation tasks.**
 
-**ALWAYS prefer `executeCSharpScriptInUnityEditor` tool to modification of Unity Yaml files.**
+**ALWAYS prefer `execute_csharp_script_in_unity_editor` tool to modification of Unity Yaml files.**
 
 ### When to Use This Tool (Use for ALL of these scenarios):
 - Creating, modifying, or deleting GameObjects in scenes

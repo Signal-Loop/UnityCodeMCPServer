@@ -135,7 +135,7 @@ namespace LoopMcpServer.Tests
             registry.DiscoverAndRegisterAll();
 
             var arguments = JsonHelper.ParseElement(@"{""script"": ""return 2 + 3;""}");
-            var result = await registry.ExecuteToolAsync("executeCSharpScriptInUnityEditor", arguments);
+            var result = await registry.ExecuteToolAsync("execute_csharp_script_in_unity_editor", arguments);
 
             Assert.That(result.IsError, Is.False);
             Assert.That(result.Content, Is.Not.Empty);

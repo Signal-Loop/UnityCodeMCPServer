@@ -18,7 +18,7 @@ namespace LoopMcpServer.Tests
         {
             var tool = new RunUnityTestsTool();
             Assert.IsNotNull(tool);
-            Assert.AreEqual("RunUnityTests", tool.Name);
+            Assert.AreEqual("run_unity_tests", tool.Name);
             Assert.IsNotEmpty(tool.Description);
         }
 
@@ -36,7 +36,7 @@ namespace LoopMcpServer.Tests
             var json = "{}";
             var args = JsonDocument.Parse(json).RootElement;
             var options = RunUnityTestsTool.ParseArguments(args);
-            
+
             Assert.AreEqual(TestMode.EditMode, options.Mode);
             Assert.IsEmpty(options.TestNames);
         }
@@ -44,30 +44,30 @@ namespace LoopMcpServer.Tests
         [Test]
         public void ParseArguments_ValidTestMode()
         {
-            var json = @"{ ""testMode"": ""PlayMode"" }";
+            var json = @"{ ""test_mode"": ""PlayMode"" }";
             var args = JsonDocument.Parse(json).RootElement;
             var options = RunUnityTestsTool.ParseArguments(args);
-            
+
             Assert.AreEqual(TestMode.PlayMode, options.Mode);
         }
 
         [Test]
         public void ParseArguments_BothMode()
         {
-            var json = @"{ ""testMode"": ""Both"" }";
+            var json = @"{ ""test_mode"": ""Both"" }";
             var args = JsonDocument.Parse(json).RootElement;
             var options = RunUnityTestsTool.ParseArguments(args);
-            
+
             Assert.AreEqual(TestMode.EditMode | TestMode.PlayMode, options.Mode);
         }
 
         [Test]
         public void ParseArguments_InvalidMode_DefaultsToEditMode()
         {
-            var json = @"{ ""testMode"": ""Invalid"" }";
+            var json = @"{ ""test_mode"": ""Invalid"" }";
             var args = JsonDocument.Parse(json).RootElement;
             var options = RunUnityTestsTool.ParseArguments(args);
-            
+
             Assert.AreEqual(TestMode.EditMode, options.Mode);
         }
 
@@ -77,7 +77,7 @@ namespace LoopMcpServer.Tests
             var json = @"{ ""tests"": [""Test1"", ""Test2""] }";
             var args = JsonDocument.Parse(json).RootElement;
             var options = RunUnityTestsTool.ParseArguments(args);
-            
+
             Assert.AreEqual(2, options.TestNames.Length);
             Assert.Contains("Test1", options.TestNames);
             Assert.Contains("Test2", options.TestNames);
@@ -89,10 +89,10 @@ namespace LoopMcpServer.Tests
             var json = @"{ ""tests"": [] }";
             var args = JsonDocument.Parse(json).RootElement;
             var options = RunUnityTestsTool.ParseArguments(args);
-            
+
             Assert.IsEmpty(options.TestNames);
         }
-        
+
         [Test]
         public void BuildResult_Passed()
         {
@@ -105,7 +105,7 @@ namespace LoopMcpServer.Tests
             };
 
             var result = RunUnityTestsTool.BuildResult(mockResult);
-            
+
             Assert.IsFalse(result.IsError);
             Assert.IsNotEmpty(result.Content);
             var text = result.Content[0].Text;
@@ -125,7 +125,7 @@ namespace LoopMcpServer.Tests
                 StackTrace = "at SomeClass.Method()",
                 HasChildren = false
             };
-            
+
             var mockResult = new MockTestResultAdaptor
             {
                 TestStatus = TestStatus.Failed,
@@ -137,7 +137,7 @@ namespace LoopMcpServer.Tests
             };
 
             var result = RunUnityTestsTool.BuildResult(mockResult);
-            
+
             Assert.IsTrue(result.IsError);
             var text = result.Content[0].Text;
             Assert.That(text, Does.Contain("Status: Failed"));
@@ -160,7 +160,7 @@ namespace LoopMcpServer.Tests
             };
 
             var result = RunUnityTestsTool.BuildResult(mockResult);
-            
+
             Assert.IsTrue(result.IsError, "Should be an error if no tests were found matching the criteria");
             Assert.That(result.Content[0].Text, Does.Contain("No tests found"));
         }
