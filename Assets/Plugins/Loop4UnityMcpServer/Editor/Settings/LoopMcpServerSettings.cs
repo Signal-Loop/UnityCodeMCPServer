@@ -18,7 +18,6 @@ namespace LoopMcpServer.Settings
         [SerializeField]
         private int _backlog = 10;
 
-        [Header("Timeouts")]
         [Tooltip("Read timeout in milliseconds (0 = infinite)")]
         [SerializeField]
         private int _readTimeoutMs = 30000;
@@ -27,7 +26,6 @@ namespace LoopMcpServer.Settings
         [SerializeField]
         private int _writeTimeoutMs = 30000;
 
-        [Header("Logging")]
         [Tooltip("Enable verbose logging for debugging")]
         [SerializeField]
         private bool _verboseLogging;
