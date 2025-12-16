@@ -98,52 +98,58 @@ class UnityTcpClient:
 
     async def send_request(self, request: dict[str, Any]) -> dict[str, Any]:
         """Send a JSON-RPC request to Unity and return the response."""
-        async with self._lock:
-            if not self.writer or not self.reader:
-                if not await self.connect():
-                    return {
-                        "jsonrpc": "2.0",
-                        "id": request.get("id"),
-                        "error": {
-                            "code": -32000,
-                            "message": "Failed to connect to Unity server",
-                        },
-                    }
+        last_error = None
+        
+        for attempt in range(self.retry_count):
+            async with self._lock:
+                if not self.writer or not self.reader:
+                    if not await self.connect():
+                        last_error = "Failed to connect"
+                        # connect() already retries internally, so if it fails, 
+                        # we might as well count this as a failed attempt.
+                
+                if self.writer and self.reader:
+                    try:
+                        message = json.dumps(request).encode("utf-8")
+                        length_prefix = struct.pack(">I", len(message))
+                        self.writer.write(length_prefix + message)
+                        await self.writer.drain()
 
-            try:
-                assert self.writer is not None
-                assert self.reader is not None
+                        logger.debug(f"Sent: {request}")
 
-                message = json.dumps(request).encode("utf-8")
-                length_prefix = struct.pack(">I", len(message))
-                self.writer.write(length_prefix + message)
-                await self.writer.drain()
+                        length_data = await self.reader.readexactly(4)
+                        response_length = struct.unpack(">I", length_data)[0]
+                        response_data = await self.reader.readexactly(response_length)
+                        response = json.loads(response_data.decode("utf-8"))
 
-                logger.debug(f"Sent: {request}")
+                        logger.debug(f"Received: {response}")
+                        return response
 
-                length_data = await self.reader.readexactly(4)
-                response_length = struct.unpack(">I", length_data)[0]
-                response_data = await self.reader.readexactly(response_length)
-                response = json.loads(response_data.decode("utf-8"))
+                    except (asyncio.IncompleteReadError, ConnectionResetError, BrokenPipeError, ConnectionRefusedError, OSError) as e:
+                        logger.warning(f"Connection error during request (attempt {attempt + 1}/{self.retry_count}): {e}")
+                        await self.disconnect()
+                        last_error = str(e)
+                    except Exception as e:
+                        logger.error(f"Error sending request: {e}")
+                        return {
+                            "jsonrpc": "2.0",
+                            "id": request.get("id"),
+                            "error": {"code": -32603, "message": f"Internal error: {e}"},
+                        }
 
-                logger.debug(f"Received: {response}")
-                return response
+            # Wait before retrying if we haven't exhausted attempts
+            if attempt < self.retry_count - 1:
+                logger.info(f"Retrying request in {self.retry_time} seconds...")
+                await asyncio.sleep(self.retry_time)
 
-            except (asyncio.IncompleteReadError, ConnectionResetError, BrokenPipeError) as e:
-                logger.error(f"Connection error: {e}")
-                await self.disconnect()
-                return {
-                    "jsonrpc": "2.0",
-                    "id": request.get("id"),
-                    "error": {"code": -32000, "message": f"Connection error: {e}"},
-                }
-            except Exception as e:
-                logger.error(f"Error sending request: {e}")
-                return {
-                    "jsonrpc": "2.0",
-                    "id": request.get("id"),
-                    "error": {"code": -32603, "message": f"Internal error: {e}"},
-                }
+        return {
+            "jsonrpc": "2.0",
+            "id": request.get("id"),
+            "error": {
+                "code": -32000,
+                "message": f"Failed to communicate with Unity after {self.retry_count} attempts. Last error: {last_error}",
+            },
+        }
 
 
 def create_server(unity_client: UnityTcpClient) -> Server:
@@ -416,7 +422,7 @@ def main():
     parser.add_argument("--host", default="localhost", help="Unity TCP Server host")
     parser.add_argument("--port", type=int, default=21088, help="Unity TCP Server port")
     parser.add_argument("--retry-time", type=float, default=2.0, help="Seconds between connection retries")
-    parser.add_argument("--retry-count", type=int, default=5, help="Maximum number of connection retries")
+    parser.add_argument("--retry-count", type=int, default=15, help="Maximum number of connection retries")
     parser.add_argument("--verbose", action="store_true", help="Enable verbose logging")
     parser.add_argument("--quiet", action="store_true", help="Suppress logging")
 

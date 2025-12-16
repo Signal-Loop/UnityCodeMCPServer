@@ -137,23 +137,69 @@ class TestUnityTcpClient:
         response = await unity_client.send_request(request)
 
         assert response == expected_response
-
     @pytest.mark.asyncio
-    async def test_send_request_connection_error(self, unity_client):
-        """Test request when not connected and connection fails."""
+    async def test_send_request_connection_error_retries_success(self, unity_client):
+        """Test request retry success after initial connection error."""
+        mock_reader_success = MockStreamReader()
+        expected_response = {
+            "jsonrpc": "2.0",
+            "id": "test",
+            "result": {"success": True},
+        }
+        mock_reader_success.set_response(expected_response)
+        
+        mock_writer_success = MockStreamWriter()
+
+        # Mock connect to first fail (or connect but writer fails), then succeed
+        # In this test we simulate a writer failure during send
+        unity_client.writer = AsyncMock(spec=MockStreamWriter)
+        unity_client.reader = AsyncMock(spec=MockStreamReader)
+        
+        # Setup the writer to raise an error on the first write/drain
+        unity_client.writer.drain.side_effect = [ConnectionResetError("Reset"), None]
+        
+        # For the reconnection
         with patch("asyncio.open_connection", new_callable=AsyncMock) as mock_open:
-            mock_open.side_effect = ConnectionRefusedError("Connection refused")
+            mock_open.return_value = (mock_reader_success, mock_writer_success)
 
             request = {
                 "jsonrpc": "2.0",
                 "id": "test",
-                "method": "tools/list",
+                "method": "test_method",
             }
 
             response = await unity_client.send_request(request)
 
+            assert response == expected_response
+            # Should have attempted to reconnect
+            assert mock_open.called
+
+    @pytest.mark.asyncio
+    async def test_send_request_retry_exhausted(self, unity_client):
+        """Test request retry exhaustion."""
+        unity_client.retry_count = 2
+        unity_client.retry_time = 0.01
+
+        # Mock writer that always fails
+        unity_client.writer = AsyncMock(spec=MockStreamWriter)
+        unity_client.reader = AsyncMock(spec=MockStreamReader)
+        unity_client.writer.drain.side_effect = ConnectionResetError("Always fails")
+
+        # Mock connect to also fail (or succeed but then write fails again)
+        # Let's say connect succeeds but write fails immediately
+        mock_reader = MockStreamReader()
+        mock_writer = AsyncMock(spec=MockStreamWriter)
+        mock_writer.drain.side_effect = ConnectionResetError("Always fails")
+
+        with patch("asyncio.open_connection", new_callable=AsyncMock) as mock_open:
+            mock_open.return_value = (mock_reader, mock_writer)
+
+            request = {"jsonrpc": "2.0", "id": "test", "method": "test"}
+            response = await unity_client.send_request(request)
+
             assert "error" in response
             assert response["error"]["code"] == -32000
+            assert "Failed to communicate" in response["error"]["message"]
 
 
 class TestMessageFraming:
