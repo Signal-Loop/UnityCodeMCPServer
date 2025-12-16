@@ -20,6 +20,7 @@ namespace LoopMcpServer.Registry
         private readonly Dictionary<string, IToolAsync> _asyncTools = new Dictionary<string, IToolAsync>();
         private readonly Dictionary<string, IPrompt> _prompts = new Dictionary<string, IPrompt>();
         private readonly Dictionary<string, IResource> _resources = new Dictionary<string, IResource>();
+        private bool _verboseLogging;
 
         public IReadOnlyDictionary<string, ITool> SyncTools => _syncTools;
         public IReadOnlyDictionary<string, IToolAsync> AsyncTools => _asyncTools;
@@ -29,8 +30,9 @@ namespace LoopMcpServer.Registry
         /// <summary>
         /// Discovers and registers all implementations of ITool, IToolAsync, IPrompt, and IResource
         /// </summary>
-        public void DiscoverAndRegisterAll()
+        public void DiscoverAndRegisterAll(bool verboseLogging = false)
         {
+            _verboseLogging = verboseLogging;
             _syncTools.Clear();
             _asyncTools.Clear();
             _prompts.Clear();
@@ -54,7 +56,10 @@ namespace LoopMcpServer.Registry
                 }
             }
 
-            Debug.Log($"{McpProtocol.LogPrefix} Registry initialized: {_syncTools.Count} sync tools, {_asyncTools.Count} async tools, {_prompts.Count} prompts, {_resources.Count} resources");
+            if (_verboseLogging)
+            {
+                Debug.Log($"{McpProtocol.LogPrefix} Registry initialized: {_syncTools.Count} sync tools, {_asyncTools.Count} async tools, {_prompts.Count} prompts, {_resources.Count} resources");
+            }
         }
 
         private void DiscoverInAssembly(Assembly assembly)
@@ -104,7 +109,10 @@ namespace LoopMcpServer.Registry
                 return;
             }
             _syncTools[instance.Name] = instance;
-            Debug.Log($"{McpProtocol.LogPrefix} Registered sync tool: {instance.Name}");
+            if (_verboseLogging)
+            {
+                Debug.Log($"{McpProtocol.LogPrefix} Registered sync tool: {instance.Name}");
+            }
         }
 
         private void RegisterAsyncTool(Type type)
@@ -116,7 +124,10 @@ namespace LoopMcpServer.Registry
                 return;
             }
             _asyncTools[instance.Name] = instance;
-            Debug.Log($"{McpProtocol.LogPrefix} Registered async tool: {instance.Name}");
+            if (_verboseLogging)
+            {
+                Debug.Log($"{McpProtocol.LogPrefix} Registered async tool: {instance.Name}");
+            }
         }
 
         private void RegisterPrompt(Type type)
@@ -128,7 +139,10 @@ namespace LoopMcpServer.Registry
                 return;
             }
             _prompts[instance.Name] = instance;
-            Debug.Log($"{McpProtocol.LogPrefix} Registered prompt: {instance.Name}");
+            if (_verboseLogging)
+            {
+                Debug.Log($"{McpProtocol.LogPrefix} Registered prompt: {instance.Name}");
+            }
         }
 
         private void RegisterResource(Type type)
@@ -140,7 +154,10 @@ namespace LoopMcpServer.Registry
                 return;
             }
             _resources[instance.Uri] = instance;
-            Debug.Log($"{McpProtocol.LogPrefix} Registered resource: {instance.Uri}");
+            if (_verboseLogging)
+            {
+                Debug.Log($"{McpProtocol.LogPrefix} Registered resource: {instance.Uri}");
+            }
         }
 
         /// <summary>

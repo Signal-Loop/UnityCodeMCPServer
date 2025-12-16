@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using System.Net;
 using System.Threading;
 using Cysharp.Threading.Tasks;
@@ -44,10 +45,7 @@ namespace LoopMcpServer.Servers.StreamableHttp
             EditorApplication.delayCall -= OnDelayedStart;
 
             // Start the server if enabled
-            if (LoopMcpServerSettings.Instance.EnableHttpServer)
-            {
-                StartServer();
-            }
+            StartServer();
         }
 
         /// <summary>
@@ -63,9 +61,12 @@ namespace LoopMcpServer.Servers.StreamableHttp
 
             var settings = LoopMcpServerSettings.Instance;
 
-            if (!settings.EnableHttpServer)
+            if (settings.StartupServer != LoopMcpServerSettings.ServerStartupMode.Http)
             {
-                Debug.Log($"{McpProtocol.LogPrefix} [HTTP] Server disabled in settings");
+                if (settings.VerboseLogging)
+                {
+                    Debug.Log($"{McpProtocol.LogPrefix} [HTTP] Startup skipped because server selection is {settings.StartupServer}");
+                }
                 return;
             }
 
@@ -73,7 +74,7 @@ namespace LoopMcpServer.Servers.StreamableHttp
             {
                 // Initialize registry and handlers
                 _registry = new McpRegistry();
-                _registry.DiscoverAndRegisterAll();
+                _registry.DiscoverAndRegisterAll(settings.VerboseLogging);
                 _messageHandler = new McpMessageHandler(_registry);
                 _sessionManager = new SessionManager(
                     settings.SessionTimeoutSeconds,
@@ -94,7 +95,7 @@ namespace LoopMcpServer.Servers.StreamableHttp
                 _listener.Start();
                 _isRunning = true;
 
-                Debug.Log($"{McpProtocol.LogPrefix} [HTTP] Server started on {prefix}");
+                Debug.Log($"{McpProtocol.LogPrefix} [HTTP] Server started on {prefix}\n{BuildRegistrySummary()}");
 
                 // Start accepting requests
                 AcceptRequestsAsync(_serverCts.Token).Forget();
@@ -127,7 +128,10 @@ namespace LoopMcpServer.Servers.StreamableHttp
             if (!_isRunning)
                 return;
 
-            Debug.Log($"{McpProtocol.LogPrefix} [HTTP] Stopping server...");
+            if (LoopMcpServerSettings.Instance.VerboseLogging)
+            {
+                Debug.Log($"{McpProtocol.LogPrefix} [HTTP] Stopping server...");
+            }
 
             // Cancel all pending operations
             _serverCts?.Cancel();
@@ -187,7 +191,10 @@ namespace LoopMcpServer.Servers.StreamableHttp
             _registry = null;
             _isRunning = false;
 
-            Debug.Log($"{McpProtocol.LogPrefix} [HTTP] Server stopped");
+            if (LoopMcpServerSettings.Instance.VerboseLogging)
+            {
+                Debug.Log($"{McpProtocol.LogPrefix} [HTTP] Server stopped");
+            }
         }
 
         private static void OnEditorQuitting()
@@ -260,7 +267,7 @@ namespace LoopMcpServer.Servers.StreamableHttp
         [MenuItem("Tools/LoopMcpServer/HTTP/Refresh Registry")]
         public static void RefreshRegistry()
         {
-            _registry?.DiscoverAndRegisterAll();
+            _registry?.DiscoverAndRegisterAll(LoopMcpServerSettings.Instance.VerboseLogging);
             Debug.Log($"{McpProtocol.LogPrefix} [HTTP] Registry refreshed");
         }
 
@@ -295,6 +302,7 @@ namespace LoopMcpServer.Servers.StreamableHttp
             Debug.Log($"{McpProtocol.LogPrefix} [HTTP] Server Status:\n" +
                 $"  Status: {status}\n" +
                 $"  Port: {settings.HttpPort}\n" +
+                $"  Startup Server: {settings.StartupServer}\n" +
                 $"  Active Sessions: {sessionCount}\n" +
                 $"  Session Timeout: {settings.SessionTimeoutSeconds}s\n" +
                 $"  SSE Keep-Alive: {settings.SseKeepAliveIntervalSeconds}s");
@@ -339,6 +347,22 @@ namespace LoopMcpServer.Servers.StreamableHttp
         /// Get the session manager (for testing/advanced usage)
         /// </summary>
         public static SessionManager SessionManager => _sessionManager;
+
+        private static string BuildRegistrySummary()
+        {
+            if (_registry == null)
+            {
+                return "Tools: 0\nPrompts: 0\nResources: 0";
+            }
+
+            var toolNames = _registry.SyncTools.Keys.Concat(_registry.AsyncTools.Keys).OrderBy(name => name).ToList();
+            var promptNames = _registry.Prompts.Keys.OrderBy(name => name).ToList();
+            var resourceNames = _registry.Resources.Keys.OrderBy(name => name).ToList();
+
+            return $"Tools: {toolNames.Count} ({string.Join(", ", toolNames)})\n" +
+                   $"Prompts: {promptNames.Count} ({string.Join(", ", promptNames)})\n" +
+                   $"Resources: {resourceNames.Count} ({string.Join(", ", resourceNames)})";
+        }
 
         #endregion
     }

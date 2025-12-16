@@ -9,6 +9,21 @@ namespace LoopMcpServer.Settings
     [CreateAssetMenu(fileName = "LoopMcpServerSettings", menuName = "LoopMcpServer/Server Settings")]
     public class LoopMcpServerSettings : ScriptableObject
     {
+        public enum ServerStartupMode
+        {
+            Stdio,
+            Http
+        }
+
+        [Header("Server Selection")]
+        [Tooltip("Select which server automatically starts in the Unity Editor")]
+        [SerializeField]
+        private ServerStartupMode _startupServer = ServerStartupMode.Stdio;
+
+        [Tooltip("Enable verbose logging for debugging")]
+        [SerializeField]
+        private bool _verboseLogging;
+
         [Header("TCP Server Configuration")]
         [Tooltip("The port the TCP server will listen on")]
         [SerializeField]
@@ -26,18 +41,10 @@ namespace LoopMcpServer.Settings
         [SerializeField]
         private int _writeTimeoutMs = 30000;
 
-        [Tooltip("Enable verbose logging for debugging")]
-        [SerializeField]
-        private bool _verboseLogging;
-
         [Header("Streamable HTTP Server Configuration")]
         [Tooltip("The port the HTTP server will listen on")]
         [SerializeField]
         private int _httpPort = 3001;
-
-        [Tooltip("Enable the Streamable HTTP server")]
-        [SerializeField]
-        private bool _enableHttpServer = true;
 
         [Tooltip("Session timeout in seconds (0 = no timeout)")]
         [SerializeField]
@@ -52,10 +59,10 @@ namespace LoopMcpServer.Settings
         public int ReadTimeoutMs => _readTimeoutMs;
         public int WriteTimeoutMs => _writeTimeoutMs;
         public bool VerboseLogging => _verboseLogging;
+        public ServerStartupMode StartupServer => _startupServer;
 
         // HTTP Server properties
         public int HttpPort => _httpPort;
-        public bool EnableHttpServer => _enableHttpServer;
         public int SessionTimeoutSeconds => _sessionTimeoutSeconds;
         public int SseKeepAliveIntervalSeconds => _sseKeepAliveIntervalSeconds;
 
@@ -76,6 +83,20 @@ namespace LoopMcpServer.Settings
 
                 return instance;
             }
+        }
+
+        private void OnValidate()
+        {
+            ApplySelection();
+        }
+
+        /// <summary>
+        /// Start/stop servers according to the current startup selection.
+        /// Exposed for tests and editor automation.
+        /// </summary>
+        public void ApplySelection()
+        {
+            ServerLifecycleCoordinator.ApplySelection(_startupServer);
         }
     }
 }

@@ -4,6 +4,7 @@ using System.Text.Json;
 using Cysharp.Threading.Tasks;
 using LoopMcpServer.Protocol;
 using LoopMcpServer.Registry;
+using LoopMcpServer.Settings;
 using UnityEngine;
 
 namespace LoopMcpServer.Handlers
@@ -15,6 +16,8 @@ namespace LoopMcpServer.Handlers
     {
         private readonly McpRegistry _registry;
         private readonly Dictionary<string, Func<JsonRpcRequest, UniTask<JsonRpcResponse>>> _handlers;
+
+        private bool VerboseLogging => LoopMcpServerSettings.Instance.VerboseLogging;
 
         public McpMessageHandler(McpRegistry registry)
         {
@@ -70,6 +73,11 @@ namespace LoopMcpServer.Handlers
 
         private void HandleNotification(JsonRpcRequest request)
         {
+            if (!VerboseLogging)
+            {
+                return;
+            }
+
             Debug.Log($"{McpProtocol.LogPrefix} Received notification: {request.Method}");
 
             switch (request.Method)
@@ -85,7 +93,10 @@ namespace LoopMcpServer.Handlers
 
         private async UniTask<JsonRpcResponse> HandleRequestAsync(JsonRpcRequest request)
         {
-            Debug.Log($"{McpProtocol.LogPrefix} Handling request: {request.Method} (id: {request.Id})");
+            if (VerboseLogging)
+            {
+                Debug.Log($"{McpProtocol.LogPrefix} Handling request: {request.Method} (id: {request.Id})");
+            }
 
             if (_handlers.TryGetValue(request.Method, out var handler))
             {
@@ -114,7 +125,10 @@ namespace LoopMcpServer.Handlers
                 initParams = request.Params.Value.Deserialize<InitializeParams>();
             }
 
-            Debug.Log($"{McpProtocol.LogPrefix} Initialize from {initParams?.ClientInfo?.Name ?? "unknown"} (protocol: {initParams?.ProtocolVersion ?? "unknown"})");
+            if (VerboseLogging)
+            {
+                Debug.Log($"{McpProtocol.LogPrefix} Initialize from {initParams?.ClientInfo?.Name ?? "unknown"} (protocol: {initParams?.ProtocolVersion ?? "unknown"})");
+            }
 
             var result = new InitializeResult
             {
@@ -142,6 +156,10 @@ namespace LoopMcpServer.Handlers
 
         private UniTask<JsonRpcResponse> HandleToolsList(JsonRpcRequest request)
         {
+            if (VerboseLogging)
+            {
+                Debug.Log($"{McpProtocol.LogPrefix} tools/list request (id: {request.Id})");
+            }
             var result = _registry.GetToolsList();
             return UniTask.FromResult(JsonRpcResponse.Success(request.Id, result));
         }
@@ -159,6 +177,8 @@ namespace LoopMcpServer.Handlers
                 return JsonRpcResponse.Failure(request.Id, JsonRpcErrorCodes.InvalidParams, "Missing tool name");
             }
 
+            LogRequestSummary("tool", callParams.Name, request.Id);
+
             if (!_registry.HasTool(callParams.Name))
             {
                 return JsonRpcResponse.Failure(request.Id, JsonRpcErrorCodes.InvalidParams, $"Tool not found: {callParams.Name}");
@@ -171,6 +191,10 @@ namespace LoopMcpServer.Handlers
 
         private UniTask<JsonRpcResponse> HandlePromptsList(JsonRpcRequest request)
         {
+            if (VerboseLogging)
+            {
+                Debug.Log($"{McpProtocol.LogPrefix} prompts/list request (id: {request.Id})");
+            }
             var result = _registry.GetPromptsList();
             return UniTask.FromResult(JsonRpcResponse.Success(request.Id, result));
         }
@@ -188,6 +212,8 @@ namespace LoopMcpServer.Handlers
                 return UniTask.FromResult(JsonRpcResponse.Failure(request.Id, JsonRpcErrorCodes.InvalidParams, "Missing prompt name"));
             }
 
+            LogRequestSummary("prompt", getParams.Name, request.Id);
+
             if (!_registry.HasPrompt(getParams.Name))
             {
                 return UniTask.FromResult(JsonRpcResponse.Failure(request.Id, JsonRpcErrorCodes.InvalidParams, $"Prompt not found: {getParams.Name}"));
@@ -199,6 +225,10 @@ namespace LoopMcpServer.Handlers
 
         private UniTask<JsonRpcResponse> HandleResourcesList(JsonRpcRequest request)
         {
+            if (VerboseLogging)
+            {
+                Debug.Log($"{McpProtocol.LogPrefix} resources/list request (id: {request.Id})");
+            }
             var result = _registry.GetResourcesList();
             return UniTask.FromResult(JsonRpcResponse.Success(request.Id, result));
         }
@@ -216,6 +246,8 @@ namespace LoopMcpServer.Handlers
                 return UniTask.FromResult(JsonRpcResponse.Failure(request.Id, JsonRpcErrorCodes.InvalidParams, "Missing resource URI"));
             }
 
+            LogRequestSummary("resource", readParams.Uri, request.Id);
+
             if (!_registry.HasResource(readParams.Uri))
             {
                 return UniTask.FromResult(JsonRpcResponse.Failure(request.Id, JsonRpcErrorCodes.ResourceNotFound, $"Resource not found: {readParams.Uri}"));
@@ -230,6 +262,12 @@ namespace LoopMcpServer.Handlers
             // Currently no resource templates supported
             var result = new ResourcesTemplatesListResult();
             return UniTask.FromResult(JsonRpcResponse.Success(request.Id, result));
+        }
+
+        private void LogRequestSummary(string kind, string name, object id)
+        {
+            var displayName = string.IsNullOrEmpty(name) ? "<unknown>" : name;
+            Debug.Log($"{McpProtocol.LogPrefix} Received {kind} request: {displayName} (id: {id ?? "notification"})");
         }
 
         #endregion

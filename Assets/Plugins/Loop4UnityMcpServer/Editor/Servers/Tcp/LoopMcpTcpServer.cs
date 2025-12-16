@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using System.Net;
 using System.Net.Sockets;
 using System.Text;
@@ -36,11 +37,11 @@ namespace LoopMcpServer.Servers.Tcp
             StartServer();
         }
 
-        private static void StartServer()
+        public static void StartServer()
         {
             if (_isRunning)
             {
-                Debug.LogWarning($"{McpProtocol.LogPrefix} Server already running");
+                Debug.LogWarning($"{McpProtocol.LogPrefix} [STDIO] Server already running");
                 return;
             }
 
@@ -48,9 +49,18 @@ namespace LoopMcpServer.Servers.Tcp
             {
                 var settings = LoopMcpServerSettings.Instance;
 
+                if (settings.StartupServer != LoopMcpServerSettings.ServerStartupMode.Stdio)
+                {
+                    if (settings.VerboseLogging)
+                    {
+                        Debug.Log($"{McpProtocol.LogPrefix} [STDIO] Startup skipped because server selection is {settings.StartupServer}");
+                    }
+                    return;
+                }
+
                 // Initialize registry and handler
                 _registry = new McpRegistry();
-                _registry.DiscoverAndRegisterAll();
+                _registry.DiscoverAndRegisterAll(settings.VerboseLogging);
                 _messageHandler = new McpMessageHandler(_registry);
 
                 // Start TCP listener
@@ -60,24 +70,27 @@ namespace LoopMcpServer.Servers.Tcp
                 _listener.Start(settings.Backlog);
                 _isRunning = true;
 
-                Debug.Log($"{McpProtocol.LogPrefix} Server started on port {settings.Port}");
+                Debug.Log($"{McpProtocol.LogPrefix} [STDIO] Server started on port {settings.Port}\n{BuildRegistrySummary()}");
 
                 // Start accepting connections
                 AcceptClientsAsync(_serverCts.Token).Forget();
             }
             catch (Exception ex)
             {
-                Debug.LogError($"{McpProtocol.LogPrefix} Failed to start server: {ex.Message}");
+                Debug.LogError($"{McpProtocol.LogPrefix} [STDIO] Failed to start server: {ex.Message}");
                 _isRunning = false;
             }
         }
 
-        private static void StopServer()
+        public static void StopServer()
         {
             if (!_isRunning)
                 return;
 
-            Debug.Log($"{McpProtocol.LogPrefix} Stopping server...");
+            if (LoopMcpServerSettings.Instance.VerboseLogging)
+            {
+                Debug.Log($"{McpProtocol.LogPrefix} [STDIO] Stopping server...");
+            }
 
             _serverCts?.Cancel();
             _serverCts?.Dispose();
@@ -90,7 +103,7 @@ namespace LoopMcpServer.Servers.Tcp
             }
             catch (Exception ex)
             {
-                Debug.LogWarning($"{McpProtocol.LogPrefix} Error during listener cleanup: {ex.Message}");
+                Debug.LogWarning($"{McpProtocol.LogPrefix} [STDIO] Error during listener cleanup: {ex.Message}");
             }
             finally
             {
@@ -99,7 +112,10 @@ namespace LoopMcpServer.Servers.Tcp
 
             _isRunning = false;
 
-            Debug.Log($"{McpProtocol.LogPrefix} Server stopped");
+            if (LoopMcpServerSettings.Instance.VerboseLogging)
+            {
+                Debug.Log($"{McpProtocol.LogPrefix} [STDIO] Server stopped");
+            }
         }
 
         private static void OnEditorQuitting()
@@ -122,7 +138,7 @@ namespace LoopMcpServer.Servers.Tcp
 
                     if (LoopMcpServerSettings.Instance.VerboseLogging)
                     {
-                        Debug.Log($"{McpProtocol.LogPrefix} Client connected from {client.Client.RemoteEndPoint}");
+                        Debug.Log($"{McpProtocol.LogPrefix} [STDIO] Client connected from {client.Client.RemoteEndPoint}");
                     }
 
                     HandleClientAsync(client, ct).Forget();
@@ -141,7 +157,7 @@ namespace LoopMcpServer.Servers.Tcp
                 {
                     if (!ct.IsCancellationRequested)
                     {
-                        Debug.LogError($"{McpProtocol.LogPrefix} Error accepting client: {ex.Message}");
+                        Debug.LogError($"{McpProtocol.LogPrefix} [STDIO] Error accepting client: {ex.Message}");
                     }
                 }
             }
@@ -175,7 +191,7 @@ namespace LoopMcpServer.Servers.Tcp
 
                         if (messageLength <= 0 || messageLength > 10 * 1024 * 1024) // Max 10MB
                         {
-                            Debug.LogWarning($"{McpProtocol.LogPrefix} Invalid message length: {messageLength}");
+                            Debug.LogWarning($"{McpProtocol.LogPrefix} [STDIO] Invalid message length: {messageLength}");
                             break;
                         }
 
@@ -184,7 +200,7 @@ namespace LoopMcpServer.Servers.Tcp
                         bytesRead = await ReadExactAsync(stream, messageBuffer, 0, messageLength, ct);
                         if (bytesRead < messageLength)
                         {
-                            Debug.LogWarning($"{McpProtocol.LogPrefix} Incomplete message received");
+                            Debug.LogWarning($"{McpProtocol.LogPrefix} [STDIO] Incomplete message received");
                             break;
                         }
 
@@ -192,7 +208,7 @@ namespace LoopMcpServer.Servers.Tcp
 
                         if (settings.VerboseLogging)
                         {
-                            Debug.Log($"{McpProtocol.LogPrefix} Received: {message}");
+                            Debug.Log($"{McpProtocol.LogPrefix} [STDIO] Received: {message}");
                         }
 
                         // Process message on main thread to access Unity APIs
@@ -215,7 +231,7 @@ namespace LoopMcpServer.Servers.Tcp
 
                             if (settings.VerboseLogging)
                             {
-                                Debug.Log($"{McpProtocol.LogPrefix} Sent: {response}");
+                                Debug.Log($"{McpProtocol.LogPrefix} [STDIO] Sent: {response}");
                             }
                         }
                     }
@@ -229,14 +245,14 @@ namespace LoopMcpServer.Servers.Tcp
             {
                 if (!ct.IsCancellationRequested)
                 {
-                    Debug.LogError($"{McpProtocol.LogPrefix} Client handler error: {ex.Message}");
+                    Debug.LogError($"{McpProtocol.LogPrefix} [STDIO] Client handler error: {ex.Message}");
                 }
             }
             finally
             {
                 if (settings.VerboseLogging)
                 {
-                    Debug.Log($"{McpProtocol.LogPrefix} Client disconnected");
+                    Debug.Log($"{McpProtocol.LogPrefix} [STDIO] Client disconnected");
                 }
             }
         }
@@ -263,8 +279,8 @@ namespace LoopMcpServer.Servers.Tcp
         [MenuItem("Tools/LoopMcpServer/STDIO/Refresh Registry")]
         public static void RefreshRegistry()
         {
-            _registry?.DiscoverAndRegisterAll();
-            Debug.Log($"{McpProtocol.LogPrefix} Registry refreshed");
+            _registry?.DiscoverAndRegisterAll(LoopMcpServerSettings.Instance.VerboseLogging);
+            Debug.Log($"{McpProtocol.LogPrefix} [STDIO] Registry refreshed");
         }
 
         /// <summary>
@@ -303,7 +319,7 @@ namespace LoopMcpServer.Servers.Tcp
     }}
   }}
 }}";
-            Debug.Log($"{McpProtocol.LogPrefix} MCP Configuration:\n{template}");
+            Debug.Log($"{McpProtocol.LogPrefix} [STDIO] MCP Configuration:\n{template}");
         }
 
         private static async UniTaskVoid RestartServerAsync()
@@ -318,5 +334,21 @@ namespace LoopMcpServer.Servers.Tcp
         /// Check if server is running
         /// </summary>
         public static bool IsRunning => _isRunning;
+
+        private static string BuildRegistrySummary()
+        {
+            if (_registry == null)
+            {
+                return "Tools: 0\nPrompts: 0\nResources: 0";
+            }
+
+            var toolNames = _registry.SyncTools.Keys.Concat(_registry.AsyncTools.Keys).OrderBy(name => name).ToList();
+            var promptNames = _registry.Prompts.Keys.OrderBy(name => name).ToList();
+            var resourceNames = _registry.Resources.Keys.OrderBy(name => name).ToList();
+
+            return $"Tools: {toolNames.Count} ({string.Join(", ", toolNames)})\n" +
+                   $"Prompts: {promptNames.Count} ({string.Join(", ", promptNames)})\n" +
+                   $"Resources: {resourceNames.Count} ({string.Join(", ", resourceNames)})";
+        }
     }
 }

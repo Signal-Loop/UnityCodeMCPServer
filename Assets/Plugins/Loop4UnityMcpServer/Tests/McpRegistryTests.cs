@@ -23,6 +23,18 @@ namespace LoopMcpServer.Tests
             Assert.That(registry.HasTool("test_sync_tool"), Is.True);
             Assert.That(registry.HasTool("test_async_tool"), Is.True);
         }
+
+        [Test]
+        public void DiscoverAndRegisterAll_WithVerbose_FindsAllComponents()
+        {
+            var registry = new McpRegistry();
+            registry.DiscoverAndRegisterAll(true);
+
+            Assert.That(registry.HasTool("test_sync_tool"), Is.True);
+            Assert.That(registry.HasTool("test_async_tool"), Is.True);
+            Assert.That(registry.HasPrompt("test_prompt"), Is.True);
+            Assert.That(registry.HasResource("test://resource"), Is.True);
+        }
         [Test]
         public void DiscoverAndRegisterAll_FindsAsyncTestTool()
         {
