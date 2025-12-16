@@ -1,6 +1,7 @@
 using System.Reflection;
 using LoopMcpServer.Settings;
 using NUnit.Framework;
+using UnityEditor;
 using UnityEngine;
 
 namespace LoopMcpServer.Tests
@@ -49,6 +50,17 @@ namespace LoopMcpServer.Tests
             {
                 ScriptableObject.DestroyImmediate(settings);
             }
+        }
+
+        [Test]
+        public void ShowSettings_FindsExistingAsset()
+        {
+            // Call ShowSettings - it should find an existing asset or create one
+            LoopMcpServerSettings.ShowSettings();
+
+            // Verify an asset was selected
+            Assert.That(Selection.activeObject, Is.Not.Null);
+            Assert.That(Selection.activeObject, Is.InstanceOf<LoopMcpServerSettings>());
         }
     }
 }

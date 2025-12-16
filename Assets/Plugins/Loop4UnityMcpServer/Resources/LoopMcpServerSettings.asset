@@ -12,8 +12,12 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 712518e95d94d2044b882cb08e60909e, type: 3}
   m_Name: LoopMcpServerSettings
   m_EditorClassIdentifier: 
+  _startupServer: 0
+  _verboseLogging: 1
   _port: 21088
   _backlog: 10
   _readTimeoutMs: 30000
   _writeTimeoutMs: 30000
-  _verboseLogging: 0
+  _httpPort: 3001
+  _sessionTimeoutSeconds: 3600
+  _sseKeepAliveIntervalSeconds: 30

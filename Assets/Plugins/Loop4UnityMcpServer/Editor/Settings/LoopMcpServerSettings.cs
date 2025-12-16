@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEditor;
 
 namespace LoopMcpServer.Settings
 {
@@ -97,6 +98,43 @@ namespace LoopMcpServer.Settings
         public void ApplySelection()
         {
             ServerLifecycleCoordinator.ApplySelection(_startupServer);
+        }
+
+        /// <summary>
+        /// Show the settings asset in the inspector
+        /// </summary>
+        [MenuItem("Tools/LoopMcpServer/Show Settings")]
+        public static void ShowSettings()
+        {
+            var guids = AssetDatabase.FindAssets($"t:{typeof(LoopMcpServerSettings).Name}");
+            LoopMcpServerSettings settings;
+            if (guids.Length > 0)
+            {
+                var assetPath = AssetDatabase.GUIDToAssetPath(guids[0]);
+                settings = AssetDatabase.LoadAssetAtPath<LoopMcpServerSettings>(assetPath);
+            }
+            else
+            {
+                // Create new settings asset in Assets/Resources
+                var resourcesPath = "Assets/Resources";
+                if (!System.IO.Directory.Exists(resourcesPath))
+                {
+                    System.IO.Directory.CreateDirectory(resourcesPath);
+                }
+
+                settings = CreateInstance<LoopMcpServerSettings>();
+                var assetPath = System.IO.Path.Combine(resourcesPath, "LoopMcpServerSettings.asset");
+                AssetDatabase.CreateAsset(settings, assetPath);
+                AssetDatabase.SaveAssets();
+                AssetDatabase.Refresh();
+                Debug.Log($"{Protocol.McpProtocol.LogPrefix} Created new LoopMcpServerSettings asset at {assetPath}");
+            }
+
+            if (settings != null)
+            {
+                EditorGUIUtility.PingObject(settings);
+                Selection.activeObject = settings;
+            }
         }
     }
 }
