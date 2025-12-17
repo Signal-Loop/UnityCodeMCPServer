@@ -37,7 +37,6 @@ Full chat transcript: [ChatTranscript.md](Assets/Plugins/Loop4UnityMcpServer/Doc
 
 ## Table of contents
 
-- [Real workflow example](#real-workflow-example)
 - [Features](#features)
 - [Tools](#tools)
 - [Security considerations](#security-considerations)
