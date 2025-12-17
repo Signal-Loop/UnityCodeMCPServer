@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: LoopMcpServerSettings
   m_EditorClassIdentifier: 
   _startupServer: 0
-  _verboseLogging: 1
+  _verboseLogging: 0
   _port: 21088
   _backlog: 10
   _readTimeoutMs: 30000

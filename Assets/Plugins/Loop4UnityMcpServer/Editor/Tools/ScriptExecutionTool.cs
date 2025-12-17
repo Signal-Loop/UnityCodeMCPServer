@@ -40,7 +40,7 @@ namespace LoopMcpServer.Tools
 
         public string Description =>
     @"Use this tool to perform changes or automate tasks in Unity Editor by creating and executing C# scripts.
-Scripts run in the Unity Editor context using Roslyn with full access to UnityEngine, UnityEditor, and LoopGlobals helpers. 
+Scripts run in the Unity Editor context using Roslyn with full access to UnityEngine, UnityEditor, and any project assembly. 
 Perfect for creating GameObjects, modifying scenes, configuring components, or automating Unity Editor tasks. 
 Returns execution status, output, and any logs/errors.
 

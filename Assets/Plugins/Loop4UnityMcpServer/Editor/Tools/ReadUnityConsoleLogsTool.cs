@@ -33,7 +33,7 @@ namespace LoopMcpServer.Tools
         public string Name => "read_unity_console_logs";
 
         public string Description =>
-            "Reads Unity Editor Console logs. Returns recent log entries as text with an optional maxEntries limit.";
+            "Reads Unity Editor Console logs. Returns recent log entries as text with an optional max_entries limit.";
 
         public JsonElement InputSchema => JsonHelper.ParseElement(@"
         {
