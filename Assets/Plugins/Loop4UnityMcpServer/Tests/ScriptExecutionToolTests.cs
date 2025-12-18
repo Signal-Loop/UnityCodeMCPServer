@@ -21,9 +21,9 @@ namespace LoopMcpServer.Tests
         public void BuildResult_ProducesCombinedTextAndFlags()
         {
             var method = typeof(ScriptExecutionTool).GetMethod(
-                "BuildResult",
+                "CreateToolCallResult",
                 BindingFlags.Static | BindingFlags.NonPublic);
-            Assert.That(method, Is.Not.Null, "BuildResult should exist and be non-public static");
+            Assert.That(method, Is.Not.Null, "CreateToolCallResult should exist and be non-public static");
 
             var result = (ToolsCallResult)method.Invoke(
                 null,
@@ -34,7 +34,8 @@ namespace LoopMcpServer.Tests
                     "42",
                     "log line",
                     "error line",
-                    "return 42;"
+                    "return 42;",
+                    null
                 });
 
             Assert.That(result.IsError, Is.True);

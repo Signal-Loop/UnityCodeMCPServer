@@ -1,3 +1,5 @@
+using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
 using UnityEditor;
 
@@ -15,6 +17,28 @@ namespace LoopMcpServer.Settings
             Stdio,
             Http
         }
+
+        /// <summary>
+        /// Default assemblies that are always included and cannot be removed.
+        /// These are the core assemblies required for script execution.
+        /// </summary>
+        public static readonly string[] DefaultAssemblyNames =
+        {
+            "System.Core",
+            "UnityEngine.CoreModule",
+            "UnityEditor.CoreModule",
+            "Assembly-CSharp",
+            "Assembly-CSharp-Editor",
+            // "Unity.InputSystem",
+            // "System.Text.Json",
+            // "UnityEngine.Physics2DModule",
+            // "UnityEngine.TextRenderingModule",
+            // "UnityEngine.UI",
+            // "UnityEngine.UIElementsModule",
+            // "UnityEngine.UIModule",
+            // "UnityEngine.TestRunner",
+            // "UnityEditor.TestRunner"
+        };
 
         [Header("Server Selection")]
         [Tooltip("Select which server automatically starts in the Unity Editor")]
@@ -45,6 +69,81 @@ namespace LoopMcpServer.Settings
 
         [Tooltip("Interval for SSE keep-alive pings in seconds")]
         public int SseKeepAliveIntervalSeconds = 30;
+
+        [Header("Script Execution Assemblies")]
+        [Tooltip("Additional assemblies to load for C# script execution (beyond default assemblies)")]
+        public List<string> AdditionalAssemblyNames = new List<string>();
+
+        /// <summary>
+        /// Get all assembly names to be loaded for script execution (default + additional)
+        /// </summary>
+        public string[] GetAllAssemblyNames()
+        {
+            if (AdditionalAssemblyNames == null || AdditionalAssemblyNames.Count == 0)
+            {
+                return DefaultAssemblyNames;
+            }
+
+            var allAssemblies = new List<string>(DefaultAssemblyNames);
+            foreach (var assemblyName in AdditionalAssemblyNames)
+            {
+                if (!string.IsNullOrWhiteSpace(assemblyName) && !allAssemblies.Contains(assemblyName))
+                {
+                    allAssemblies.Add(assemblyName);
+                }
+            }
+
+            return allAssemblies.ToArray();
+        }
+
+        /// <summary>
+        /// Add an assembly to the additional assemblies list if not already present
+        /// </summary>
+        public bool AddAssembly(string assemblyName)
+        {
+            if (string.IsNullOrWhiteSpace(assemblyName))
+            {
+                return false;
+            }
+
+            if (DefaultAssemblyNames.Contains(assemblyName))
+            {
+                return false; // Cannot add default assemblies
+            }
+
+            if (AdditionalAssemblyNames == null)
+            {
+                AdditionalAssemblyNames = new List<string>();
+            }
+
+            if (AdditionalAssemblyNames.Contains(assemblyName))
+            {
+                return false; // Already exists
+            }
+
+            AdditionalAssemblyNames.Add(assemblyName);
+            EditorUtility.SetDirty(this);
+            return true;
+        }
+
+        /// <summary>
+        /// Remove an assembly from the additional assemblies list
+        /// </summary>
+        public bool RemoveAssembly(string assemblyName)
+        {
+            if (string.IsNullOrWhiteSpace(assemblyName) || AdditionalAssemblyNames == null)
+            {
+                return false;
+            }
+
+            var removed = AdditionalAssemblyNames.Remove(assemblyName);
+            if (removed)
+            {
+                EditorUtility.SetDirty(this);
+            }
+
+            return removed;
+        }
 
         /// <summary>
         /// Get the singleton instance, always loading fresh from Resources to pick up changes

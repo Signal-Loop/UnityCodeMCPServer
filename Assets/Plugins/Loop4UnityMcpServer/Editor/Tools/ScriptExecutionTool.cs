@@ -5,6 +5,7 @@ using System.Text.Json;
 using Cysharp.Threading.Tasks;
 using LoopMcpServer.Interfaces;
 using LoopMcpServer.Protocol;
+using LoopMcpServer.Settings;
 using Microsoft.CodeAnalysis.CSharp.Scripting;
 using Microsoft.CodeAnalysis.Scripting;
 using UnityEngine;
@@ -17,25 +18,6 @@ namespace LoopMcpServer.Tools
     /// </summary>
     public class ScriptExecutionTool : IToolAsync
     {
-        private static readonly string[] AssemblyNames =
-        {
-            "Assembly-CSharp",
-            "Assembly-CSharp-Editor",
-            "System.Core",
-            "System.Text.Json",
-            "Unity.InputSystem",
-            "UnityEngine.CoreModule",
-            "UnityEngine.Physics2DModule",
-            "UnityEngine.TextRenderingModule",
-            "UnityEngine.UI",
-            "UnityEngine.UIElementsModule",
-            "UnityEngine.UIModule",
-            "UnityEditor.CoreModule",
-            "UnityEngine.TestRunner",
-            "UnityEditor.TestRunner",
-            "UniTask"
-        };
-
         public string Name => "execute_csharp_script_in_unity_editor";
 
         public string Description =>
@@ -87,10 +69,12 @@ Returns execution status, output, and any logs/errors.
             var script = arguments.GetStringOrDefault("script", string.Empty)?.Trim();
             if (string.IsNullOrWhiteSpace(script))
             {
-                return BuildResult(isError: true, status: "error", resultText: null, logs: null, errors: "Script is empty or missing.", script: script);
+                return CreateToolCallResult(isError: true, status: "error", resultText: null, logs: null, errors: "Script is empty or missing.", script: script);
             }
 
             var options = CreateScriptOptions();
+
+            string[] assemblies = options.MetadataReferences.Select(r => r.Display).Where(d => !string.IsNullOrWhiteSpace(d)).ToArray();
 
             var logCapture = new LogCapture();
             string errorDetails;
@@ -102,21 +86,27 @@ Returns execution status, output, and any logs/errors.
                 var hasLoggedErrors = logCapture.HasErrors;
                 var statusLabel = hasLoggedErrors ? "success_with_errors" : "success";
                 var errorsText = hasLoggedErrors ? logCapture.ErrorLog : null;
-                return LogResult(BuildResult(isError: false, status: statusLabel, resultText: FormatResult(executionResult), logs: logCapture.Logs, errors: errorsText, script: script));
+                var toolCallResult = CreateToolCallResult(isError: false, status: statusLabel, resultText: FormatResult(executionResult), logs: logCapture.Logs, errors: errorsText, script: script, assemblies: assemblies);
+                LogToolCallResult(toolCallResult);
+                return toolCallResult;
             }
             catch (CompilationErrorException compilationError)
             {
                 logCapture.Stop();
                 errorDetails = string.Join(Environment.NewLine, compilationError.Diagnostics);
                 Debug.LogError($"Script execution compilation error:\n{errorDetails}");
-                return LogResult(BuildResult(isError: true, status: "compilation_error", resultText: null, logs: logCapture.Logs, errors: errorDetails, script: script));
+                var toolCallResult = CreateToolCallResult(isError: true, status: "compilation_error", resultText: null, logs: logCapture.Logs, errors: errorDetails, script: script, assemblies: assemblies);
+                LogToolCallResult(toolCallResult);
+                return toolCallResult;
             }
             catch (Exception ex)
             {
                 logCapture.Stop();
                 errorDetails = ex.ToString();
                 Debug.LogError($"Script execution runtime error:\n{errorDetails}");
-                return LogResult(BuildResult(isError: true, status: "execution_error", resultText: null, logs: logCapture.Logs, errors: errorDetails, script: script));
+                var toolCallResult = CreateToolCallResult(isError: true, status: "execution_error", resultText: null, logs: logCapture.Logs, errors: errorDetails, script: script, assemblies: assemblies);
+                LogToolCallResult(toolCallResult);
+                return toolCallResult;
             }
             finally
             {
@@ -124,7 +114,7 @@ Returns execution status, output, and any logs/errors.
             }
         }
 
-        private static ToolsCallResult BuildResult(bool isError, string status, string resultText, string logs, string errors, string script)
+        private static ToolsCallResult CreateToolCallResult(bool isError, string status, string resultText, string logs, string errors, string script, string[] assemblies = null)
         {
             var response = new StringBuilder();
             response.AppendLine($"### Status: {status}");
@@ -146,6 +136,16 @@ Returns execution status, output, and any logs/errors.
 
             response.AppendLine("### Errors");
             response.Append(string.IsNullOrWhiteSpace(errors) ? "(none)" : errors.TrimEnd());
+
+            if (assemblies != null && assemblies.Length > 0)
+            {
+                response.AppendLine();
+                response.AppendLine("### Loaded Assemblies");
+                foreach (var assembly in assemblies)
+                {
+                    response.AppendLine($"- {assembly}");
+                }
+            }
 
             return new ToolsCallResult
             {
@@ -171,20 +171,23 @@ Returns execution status, output, and any logs/errors.
         {
             return ScriptOptions.Default
                 .WithReferences(ResolveAssemblies())
-                .WithImports("System", "System.Collections.Generic", "System.Linq", "UnityEngine")
+                .WithImports("System", "System.Collections.Generic", "System.Linq", "UnityEngine", "UnityEditor")
                 .WithOptimizationLevel(Microsoft.CodeAnalysis.OptimizationLevel.Release);
         }
 
         private static System.Reflection.Assembly[] ResolveAssemblies()
         {
+            var settings = LoopMcpServerSettings.Instance;
+            var assemblyNames = settings.GetAllAssemblyNames();
+
             var loaded = AppDomain.CurrentDomain.GetAssemblies();
-            return AssemblyNames
+            return assemblyNames
                 .Select(name => loaded.FirstOrDefault(a => string.Equals(a.GetName().Name, name, StringComparison.Ordinal)))
                 .Where(a => a != null)
                 .ToArray();
         }
 
-        private static ToolsCallResult LogResult(ToolsCallResult result)
+        private static void LogToolCallResult(ToolsCallResult result)
         {
             var text = result.Content != null && result.Content.Count > 0 ? result.Content[0].Text : string.Empty;
             if (result.IsError)
@@ -195,8 +198,6 @@ Returns execution status, output, and any logs/errors.
             {
                 Debug.Log($"ScriptExecutionTool result:\n{text}");
             }
-
-            return result;
         }
 
         private sealed class LogCapture : IDisposable
