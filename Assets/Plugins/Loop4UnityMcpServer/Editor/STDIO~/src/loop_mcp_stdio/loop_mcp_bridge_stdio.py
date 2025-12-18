@@ -4,6 +4,7 @@ Loop MCP STDIO Bridge
 Bridges MCP protocol over STDIO to Unity TCP Server.
 Uses a custom Windows-compatible stdio transport since asyncio stdin
 reading doesn't work properly with Windows pipes.
+version: 0.0.3-preview
 """
 
 import argparse

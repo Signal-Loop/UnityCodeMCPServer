@@ -85,12 +85,12 @@ namespace LoopMcpServer.Editor.Installer
                     }
 
                     _fileSystem.CopyFile(sourcePath, destPath, true);
-                    Debug.Log($"{Protocol.McpProtocol.LogPrefix} Copied: {targetDir}/{relativeFilePath}");
+                    Debug.Log($"{Protocol.McpProtocol.LogPrefix} Copied: {NormalizePath(Path.Combine(targetDir, relativeFilePath))}");
                     anyFilesCopied = true;
                 }
                 else if (_verboseLogging)
                 {
-                    Debug.Log($"{Protocol.McpProtocol.LogPrefix} Skipped (unchanged): {targetDir}/{relativeFilePath}");
+                    Debug.Log($"{Protocol.McpProtocol.LogPrefix} Skipped (unchanged): {NormalizePath(Path.Combine(targetDir, relativeFilePath))}");
                 }
             }
 
