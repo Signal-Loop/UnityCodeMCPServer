@@ -18,54 +18,33 @@ namespace LoopMcpServer.Settings
 
         [Header("Server Selection")]
         [Tooltip("Select which server automatically starts in the Unity Editor")]
-        [SerializeField]
-        private ServerStartupMode _startupServer = ServerStartupMode.Stdio;
+        public ServerStartupMode StartupServer = ServerStartupMode.Stdio;
 
         [Tooltip("Enable verbose logging for debugging")]
-        [SerializeField]
-        private bool _verboseLogging;
+        public bool VerboseLogging;
 
         [Header("TCP Server Configuration")]
         [Tooltip("The port the TCP server will listen on")]
-        [SerializeField]
-        private int _port = 21088;
+        public int Port = 21088;
 
         [Tooltip("Maximum number of pending connections in the listen queue")]
-        [SerializeField]
-        private int _backlog = 10;
+        public int Backlog = 10;
 
         [Tooltip("Read timeout in milliseconds (0 = infinite)")]
-        [SerializeField]
-        private int _readTimeoutMs = 30000;
+        public int ReadTimeoutMs = 30000;
 
         [Tooltip("Write timeout in milliseconds (0 = infinite)")]
-        [SerializeField]
-        private int _writeTimeoutMs = 30000;
+        public int WriteTimeoutMs = 30000;
 
         [Header("Streamable HTTP Server Configuration")]
         [Tooltip("The port the HTTP server will listen on")]
-        [SerializeField]
-        private int _httpPort = 3001;
+        public int HttpPort = 3001;
 
         [Tooltip("Session timeout in seconds (0 = no timeout)")]
-        [SerializeField]
-        private int _sessionTimeoutSeconds = 3600;
+        public int SessionTimeoutSeconds = 3600;
 
         [Tooltip("Interval for SSE keep-alive pings in seconds")]
-        [SerializeField]
-        private int _sseKeepAliveIntervalSeconds = 30;
-
-        public int Port => _port;
-        public int Backlog => _backlog;
-        public int ReadTimeoutMs => _readTimeoutMs;
-        public int WriteTimeoutMs => _writeTimeoutMs;
-        public bool VerboseLogging => _verboseLogging;
-        public ServerStartupMode StartupServer => _startupServer;
-
-        // HTTP Server properties
-        public int HttpPort => _httpPort;
-        public int SessionTimeoutSeconds => _sessionTimeoutSeconds;
-        public int SseKeepAliveIntervalSeconds => _sseKeepAliveIntervalSeconds;
+        public int SseKeepAliveIntervalSeconds = 30;
 
         /// <summary>
         /// Get the singleton instance, always loading fresh from Resources to pick up changes
@@ -97,7 +76,7 @@ namespace LoopMcpServer.Settings
         /// </summary>
         public void ApplySelection()
         {
-            ServerLifecycleCoordinator.ApplySelection(_startupServer);
+            ServerLifecycleCoordinator.ApplySelection(StartupServer);
         }
 
         /// <summary>
