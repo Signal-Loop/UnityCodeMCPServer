@@ -1,65 +1,122 @@
 using UnityEngine;
 using System.IO;
+using System.Collections.Generic;
+using System.Linq;
 
 namespace LoopMcpServer.Editor.Installer
 {
     public class PackageInstaller
     {
         private readonly IFileSystem _fileSystem;
+        private readonly bool _verboseLogging;
 
-        public PackageInstaller(IFileSystem fileSystem)
+        // Files to copy relative to source directory
+        private static readonly string[] FilesToCopy =
+        {
+            "src/loop_mcp_stdio/__init__.py",
+            "src/loop_mcp_stdio/loop_mcp_bridge_stdio.py",
+            "pyproject.toml",
+            "uv.lock"
+        };
+
+        public PackageInstaller(IFileSystem fileSystem, bool verboseLogging = false)
         {
             _fileSystem = fileSystem;
+            _verboseLogging = verboseLogging;
         }
 
         public bool Install(string sourcePath, string targetPath)
         {
             if (!_fileSystem.DirectoryExists(sourcePath))
             {
-                Debug.LogError($"[PackageInstaller] Source directory not found: {sourcePath}");
-                return false;
-            }
-
-            if (_fileSystem.DirectoryExists(targetPath))
-            {
-                Debug.LogWarning($"[PackageInstaller] Target already exists, skipping install: {targetPath}");
+                Debug.LogError($"{Protocol.McpProtocol.LogPrefix} Source directory not found: {sourcePath}");
                 return false;
             }
 
             try
             {
-                CopyDirectoryRecursive(sourcePath, targetPath);
-                Debug.Log($"[PackageInstaller] Successfully installed assets to: {targetPath}");
-                return true;
+                bool anyFilesCopied = CopySpecificFiles(sourcePath, targetPath);
+
+                if (anyFilesCopied)
+                {
+                    Debug.Log($"{Protocol.McpProtocol.LogPrefix} Successfully installed assets to: {targetPath}");
+                }
+                else if (_verboseLogging)
+                {
+                    Debug.Log($"{Protocol.McpProtocol.LogPrefix} No files needed updating in: {targetPath}");
+                }
+
+                return anyFilesCopied;
             }
             catch (System.Exception ex)
             {
-                Debug.LogError($"[PackageInstaller] Failed to install assets. Error: {ex.Message}");
+                Debug.LogError($"{Protocol.McpProtocol.LogPrefix} Failed to install assets. Error: {ex.Message}");
                 return false;
             }
         }
 
-        private void CopyDirectoryRecursive(string sourceDir, string targetDir)
+        private bool CopySpecificFiles(string sourceDir, string targetDir)
         {
-            _fileSystem.CreateDirectory(targetDir);
+            bool anyFilesCopied = false;
 
-            foreach (var file in _fileSystem.GetFiles(sourceDir))
+            foreach (var relativeFilePath in FilesToCopy)
             {
+                string sourcePath = NormalizePath(Path.Combine(sourceDir, relativeFilePath));
+                string destPath = NormalizePath(Path.Combine(targetDir, relativeFilePath));
 
-                if (file.EndsWith(".meta")) continue;
+                if (!_fileSystem.FileExists(sourcePath))
+                {
+                    Debug.LogError($"{Protocol.McpProtocol.LogPrefix} Required file not found: {sourcePath}");
+                    continue;
+                }
 
-                string fileName = _fileSystem.GetFileName(file);
-                string destFile = NormalizePath(Path.Combine(targetDir, fileName));
+                bool shouldCopy = ShouldCopyFile(sourcePath, destPath);
 
-                _fileSystem.CopyFile(file, destFile, true);
+                if (shouldCopy)
+                {
+                    // Create directory if needed
+                    string destDirectory = Path.GetDirectoryName(destPath);
+                    if (!string.IsNullOrEmpty(destDirectory) && !_fileSystem.DirectoryExists(destDirectory))
+                    {
+                        _fileSystem.CreateDirectory(destDirectory);
+                        if (_verboseLogging)
+                        {
+                            Debug.Log($"{Protocol.McpProtocol.LogPrefix} Created directory: {destDirectory}");
+                        }
+                    }
+
+                    _fileSystem.CopyFile(sourcePath, destPath, true);
+                    Debug.Log($"{Protocol.McpProtocol.LogPrefix} Copied: {NormalizePath(Path.Combine(targetDir, relativeFilePath))}");
+                    anyFilesCopied = true;
+                }
+                else if (_verboseLogging)
+                {
+                    Debug.Log($"{Protocol.McpProtocol.LogPrefix} Skipped (unchanged): {NormalizePath(Path.Combine(targetDir, relativeFilePath))}");
+                }
             }
 
-            foreach (var directory in _fileSystem.GetDirectories(sourceDir))
-            {
-                string directoryName = _fileSystem.GetFileName(directory);
-                string destDir = NormalizePath(Path.Combine(targetDir, directoryName));
+            return anyFilesCopied;
+        }
 
-                CopyDirectoryRecursive(directory, destDir);
+        private bool ShouldCopyFile(string sourcePath, string destPath)
+        {
+            // Copy if destination doesn't exist
+            if (!_fileSystem.FileExists(destPath))
+            {
+                return true;
+            }
+
+            // Compare file hashes
+            try
+            {
+                string sourceHash = _fileSystem.ComputeFileHash(sourcePath);
+                string destHash = _fileSystem.ComputeFileHash(destPath);
+                return sourceHash != destHash;
+            }
+            catch (System.Exception ex)
+            {
+                Debug.LogWarning($"{Protocol.McpProtocol.LogPrefix} Failed to compute hash, will copy file. Error: {ex.Message}");
+                return true; // Copy on hash error to be safe
             }
         }
 

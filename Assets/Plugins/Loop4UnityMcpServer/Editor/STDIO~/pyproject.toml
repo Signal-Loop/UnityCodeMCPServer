@@ -4,12 +4,12 @@ build-backend = "hatchling.build"
 
 [project]
 name = "loop-mcp-stdio"
-version = "1.0.0"
-description = "MCP STDIO Bridge for Unity Loop Server - connects Claude to Unity Editor via TCP"
+version = "0.0.4"
+description = "MCP STDIO Bridge for Loop4Unity MCP Server - a powerful MCP server for the Unity Editor that gives AI Agents ability to perform any action using Unity Editor API. This includes scripts, scenes, prefabs and assets manipulation, configuration changes, and more."
 license = "MIT"
 requires-python = ">=3.10"
 authors = [
-    { name = "ChromeHunters" }
+    { name = "Signal Loop" }
 ]
 keywords = ["mcp", "unity", "stdio", "bridge", "claude"]
 classifiers = [

@@ -1,3 +1,5 @@
+using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
 using UnityEditor;
 
@@ -16,56 +18,132 @@ namespace LoopMcpServer.Settings
             Http
         }
 
+        /// <summary>
+        /// Default assemblies that are always included and cannot be removed.
+        /// These are the core assemblies required for script execution.
+        /// </summary>
+        public static readonly string[] DefaultAssemblyNames =
+        {
+            "System.Core",
+            "UnityEngine.CoreModule",
+            "UnityEditor.CoreModule",
+            "Assembly-CSharp",
+            "Assembly-CSharp-Editor",
+            // "Unity.InputSystem",
+            // "System.Text.Json",
+            // "UnityEngine.Physics2DModule",
+            // "UnityEngine.TextRenderingModule",
+            // "UnityEngine.UI",
+            // "UnityEngine.UIElementsModule",
+            // "UnityEngine.UIModule",
+            // "UnityEngine.TestRunner",
+            // "UnityEditor.TestRunner"
+        };
+
         [Header("Server Selection")]
         [Tooltip("Select which server automatically starts in the Unity Editor")]
-        [SerializeField]
-        private ServerStartupMode _startupServer = ServerStartupMode.Stdio;
+        public ServerStartupMode StartupServer = ServerStartupMode.Stdio;
 
         [Tooltip("Enable verbose logging for debugging")]
-        [SerializeField]
-        private bool _verboseLogging;
+        public bool VerboseLogging;
 
         [Header("TCP Server Configuration")]
         [Tooltip("The port the TCP server will listen on")]
-        [SerializeField]
-        private int _port = 21088;
+        public int Port = 21088;
 
         [Tooltip("Maximum number of pending connections in the listen queue")]
-        [SerializeField]
-        private int _backlog = 10;
+        public int Backlog = 10;
 
         [Tooltip("Read timeout in milliseconds (0 = infinite)")]
-        [SerializeField]
-        private int _readTimeoutMs = 30000;
+        public int ReadTimeoutMs = 30000;
 
         [Tooltip("Write timeout in milliseconds (0 = infinite)")]
-        [SerializeField]
-        private int _writeTimeoutMs = 30000;
+        public int WriteTimeoutMs = 30000;
 
         [Header("Streamable HTTP Server Configuration")]
         [Tooltip("The port the HTTP server will listen on")]
-        [SerializeField]
-        private int _httpPort = 3001;
+        public int HttpPort = 3001;
 
         [Tooltip("Session timeout in seconds (0 = no timeout)")]
-        [SerializeField]
-        private int _sessionTimeoutSeconds = 3600;
+        public int SessionTimeoutSeconds = 3600;
 
         [Tooltip("Interval for SSE keep-alive pings in seconds")]
-        [SerializeField]
-        private int _sseKeepAliveIntervalSeconds = 30;
+        public int SseKeepAliveIntervalSeconds = 30;
 
-        public int Port => _port;
-        public int Backlog => _backlog;
-        public int ReadTimeoutMs => _readTimeoutMs;
-        public int WriteTimeoutMs => _writeTimeoutMs;
-        public bool VerboseLogging => _verboseLogging;
-        public ServerStartupMode StartupServer => _startupServer;
+        [Header("Script Execution Assemblies")]
+        [Tooltip("Additional assemblies to load for C# script execution (beyond default assemblies)")]
+        public List<string> AdditionalAssemblyNames = new List<string>();
 
-        // HTTP Server properties
-        public int HttpPort => _httpPort;
-        public int SessionTimeoutSeconds => _sessionTimeoutSeconds;
-        public int SseKeepAliveIntervalSeconds => _sseKeepAliveIntervalSeconds;
+        /// <summary>
+        /// Get all assembly names to be loaded for script execution (default + additional)
+        /// </summary>
+        public string[] GetAllAssemblyNames()
+        {
+            if (AdditionalAssemblyNames == null || AdditionalAssemblyNames.Count == 0)
+            {
+                return DefaultAssemblyNames;
+            }
+
+            var allAssemblies = new List<string>(DefaultAssemblyNames);
+            foreach (var assemblyName in AdditionalAssemblyNames)
+            {
+                if (!string.IsNullOrWhiteSpace(assemblyName) && !allAssemblies.Contains(assemblyName))
+                {
+                    allAssemblies.Add(assemblyName);
+                }
+            }
+
+            return allAssemblies.ToArray();
+        }
+
+        /// <summary>
+        /// Add an assembly to the additional assemblies list if not already present
+        /// </summary>
+        public bool AddAssembly(string assemblyName)
+        {
+            if (string.IsNullOrWhiteSpace(assemblyName))
+            {
+                return false;
+            }
+
+            if (DefaultAssemblyNames.Contains(assemblyName))
+            {
+                return false; // Cannot add default assemblies
+            }
+
+            if (AdditionalAssemblyNames == null)
+            {
+                AdditionalAssemblyNames = new List<string>();
+            }
+
+            if (AdditionalAssemblyNames.Contains(assemblyName))
+            {
+                return false; // Already exists
+            }
+
+            AdditionalAssemblyNames.Add(assemblyName);
+            EditorUtility.SetDirty(this);
+            return true;
+        }
+
+        /// <summary>
+        /// Remove an assembly from the additional assemblies list
+        /// </summary>
+        public bool RemoveAssembly(string assemblyName)
+        {
+            if (string.IsNullOrWhiteSpace(assemblyName) || AdditionalAssemblyNames == null)
+            {
+                return false;
+            }
+
+            var removed = AdditionalAssemblyNames.Remove(assemblyName);
+            if (removed)
+            {
+                EditorUtility.SetDirty(this);
+            }
+
+            return removed;
+        }
 
         /// <summary>
         /// Get the singleton instance, always loading fresh from Resources to pick up changes
@@ -97,7 +175,7 @@ namespace LoopMcpServer.Settings
         /// </summary>
         public void ApplySelection()
         {
-            ServerLifecycleCoordinator.ApplySelection(_startupServer);
+            ServerLifecycleCoordinator.ApplySelection(StartupServer);
         }
 
         /// <summary>

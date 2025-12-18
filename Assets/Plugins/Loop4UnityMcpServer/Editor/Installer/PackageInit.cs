@@ -18,14 +18,18 @@ namespace LoopMcpServer.Editor.Installer
 
         private static void RunInstaller()
         {
-            Debug.Log("[PackageInit] Running package installer...");
             // Reliability: Find the package path dynamically.
             // This works even if the package is in PackageCache, Embedded, or Local.
             var packageInfo = UnityEditor.PackageManager.PackageInfo.FindForAssembly(typeof(PackageInit).Assembly);
 
+            var settings = Settings.LoopMcpServerSettings.Instance;
+
             if (packageInfo == null)
             {
-                Debug.LogWarning("[PackageInit] PackageInfo not found. Skipping installation.");
+                if (settings.VerboseLogging)
+                {
+                    Debug.LogWarning("[PackageInit] PackageInfo not found. Skipping installation.");
+                }
                 // Fallback or just return if not found (e.g. during script reloads)
                 return;
             }
@@ -36,12 +40,20 @@ namespace LoopMcpServer.Editor.Installer
 
             // Dependency Injection
             IFileSystem fileSystem = new EditorFileSystem();
-            PackageInstaller installer = new PackageInstaller(fileSystem);
+            PackageInstaller installer = new PackageInstaller(fileSystem, settings.VerboseLogging);
 
-            Debug.Log($"[PackageInit] Installing from {sourcePath} to {targetPath}");
+            if (settings.VerboseLogging)
+            {
+                Debug.Log($"{Protocol.McpProtocol.LogPrefix} Installing from {sourcePath} to {targetPath}");
+            }
+
             // Execute
             bool installed = installer.Install(sourcePath, targetPath);
-            Debug.Log("[PackageInit] Package installation process completed.");
+
+            if (settings.VerboseLogging)
+            {
+                Debug.Log($"{Protocol.McpProtocol.LogPrefix} Package installation process completed.");
+            }
 
             // Only refresh if we actually changed something
             if (installed)

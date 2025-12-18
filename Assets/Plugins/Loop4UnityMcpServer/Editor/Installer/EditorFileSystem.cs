@@ -1,4 +1,7 @@
 using System.IO;
+using System.Security.Cryptography;
+using System.Text;
+using System.Linq;
 
 namespace LoopMcpServer.Editor.Installer
 {
@@ -11,6 +14,8 @@ namespace LoopMcpServer.Editor.Installer
         string[] GetFiles(string path);
         string[] GetDirectories(string path);
         string GetFileName(string path);
+        string ComputeFileHash(string filePath);
+        string ReadAllText(string filePath);
     }
 
     public class EditorFileSystem : IFileSystem
@@ -22,5 +27,16 @@ namespace LoopMcpServer.Editor.Installer
         public string[] GetFiles(string path) => Directory.GetFiles(path);
         public string[] GetDirectories(string path) => Directory.GetDirectories(path);
         public string GetFileName(string path) => Path.GetFileName(path);
+        public string ReadAllText(string filePath) => File.ReadAllText(filePath);
+
+        public string ComputeFileHash(string filePath)
+        {
+            string text = File.ReadAllText(filePath);
+            using (var sha256 = SHA256.Create())
+            {
+                byte[] hash = sha256.ComputeHash(Encoding.UTF8.GetBytes(text));
+                return string.Concat(hash.Select(b => b.ToString("x2")));
+            }
+        }
     }
 }

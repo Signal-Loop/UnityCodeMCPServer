@@ -39,15 +39,19 @@ namespace LoopMcpServer.Servers.Tcp
 
         public static void StartServer()
         {
+            var settings = LoopMcpServerSettings.Instance;
+            
             if (_isRunning)
             {
-                Debug.LogWarning($"{McpProtocol.LogPrefix} [STDIO] Server already running");
+                if (settings.VerboseLogging)
+                {
+                    Debug.LogWarning($"{McpProtocol.LogPrefix} [STDIO] Server already running");
+                }
                 return;
             }
 
             try
             {
-                var settings = LoopMcpServerSettings.Instance;
 
                 if (settings.StartupServer != LoopMcpServerSettings.ServerStartupMode.Stdio)
                 {

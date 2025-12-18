@@ -62,10 +62,7 @@ namespace LoopMcpServer.Tests
             var settings = ScriptableObject.CreateInstance<LoopMcpServerSettings>();
             try
             {
-                var field = typeof(LoopMcpServerSettings).GetField("_startupServer", BindingFlags.NonPublic | BindingFlags.Instance);
-                Assert.That(field, Is.Not.Null);
-
-                field.SetValue(settings, LoopMcpServerSettings.ServerStartupMode.Http);
+                settings.StartupServer = LoopMcpServerSettings.ServerStartupMode.Http;
 
                 settings.ApplySelection();
 

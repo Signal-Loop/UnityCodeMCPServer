@@ -313,6 +313,15 @@ Unity tests are in `Tests/` and can be run via the Unity Test Runner.
 
 - Configurable list of available assemblies
 
+## Known Issues
+
+- Loop4Unity MCP Server includes dll files in its package. If those files are already present in your project, you may see GUID conflicts. In our test cases it does not cause any issues, but if you encounter problems, please fill issue: [Issues](https://github.com/Signal-Loop/Loop4UnityMCPServer/issues). Removing duplicate dlls from your project may resolve the conflicts.
+```
+GUID [eb9c83041c7a89c46bb6e20e7b4484df] for asset 'Packages/com.signal-loop.loop4unitymcpserver/Editor/Bin/Microsoft.CodeAnalysis.CSharp.dll' conflicts with:
+  '[Path to dll file in your project]/Microsoft.CodeAnalysis.CSharp.dll' (current owner)
+We can't assign a new GUID because the asset is in an immutable folder. The asset will be ignored.
+```
+
 ## License
 
 MIT
