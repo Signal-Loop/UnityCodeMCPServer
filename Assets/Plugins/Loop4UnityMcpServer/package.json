@@ -1,11 +1,11 @@
 {
     "name": "com.signal-loop.loop4unitymcpserver",
-    "version": "0.0.1-preview",
+    "version": "0.0.2-preview",
     "displayName": "Loop4Unity MCP Server",
-    "description": "MCP server for Unity that allows executing C# code in Unity Editor.",
+    "description": "A powerful MCP server for the Unity Editor that gives AI Agents ability to perform any action using Unity Editor API. This includes scripts, scenes, prefabs and assets manipulation, configuration changes, and more.",
     "unity": "2022.3",
     "author": {
-        "name": "Tomasz Borycki",
+        "name": "Signal Loop",
         "url": "https://www.signal-loop.com"
     },
     "samples": [
