@@ -94,7 +94,7 @@ Returns execution status, output, and any logs/errors.
             {
                 logCapture.Stop();
                 errorDetails = string.Join(Environment.NewLine, compilationError.Diagnostics);
-                Debug.LogError($"Script execution compilation error:\n{errorDetails}");
+                Debug.LogError($"{McpProtocol.LogPrefix} Script execution compilation error:\n{errorDetails}");
                 var toolCallResult = CreateToolCallResult(isError: true, status: "compilation_error", resultText: null, logs: logCapture.Logs, errors: errorDetails, script: script, assemblies: assemblies);
                 LogToolCallResult(toolCallResult);
                 return toolCallResult;
@@ -103,7 +103,7 @@ Returns execution status, output, and any logs/errors.
             {
                 logCapture.Stop();
                 errorDetails = ex.ToString();
-                Debug.LogError($"Script execution runtime error:\n{errorDetails}");
+                Debug.LogError($"{McpProtocol.LogPrefix} Script execution runtime error:\n{errorDetails}");
                 var toolCallResult = CreateToolCallResult(isError: true, status: "execution_error", resultText: null, logs: logCapture.Logs, errors: errorDetails, script: script, assemblies: assemblies);
                 LogToolCallResult(toolCallResult);
                 return toolCallResult;
@@ -192,11 +192,11 @@ Returns execution status, output, and any logs/errors.
             var text = result.Content != null && result.Content.Count > 0 ? result.Content[0].Text : string.Empty;
             if (result.IsError)
             {
-                Debug.LogError($"ScriptExecutionTool result:\n{text}");
+                Debug.LogError($"{McpProtocol.LogPrefix} ScriptExecutionTool result:\n{text}");
             }
             else
             {
-                Debug.Log($"ScriptExecutionTool result:\n{text}");
+                Debug.Log($"{McpProtocol.LogPrefix} ScriptExecutionTool result:\n{text}");
             }
         }
 
