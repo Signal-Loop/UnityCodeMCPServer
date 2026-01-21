@@ -1,6 +1,6 @@
-# Loop MCP Server for Unity
+# Unity Code MCP Server for Unity
 
-A powerful MCP server for the Unity Editor that gives AI Agents ability to perform any action using Unity Editor API. This includes scripts, scenes, prefabs and assets manipulation, configuration changes, and more.
+Unity Code MCP Server for Unity is a powerful MCP server for the Unity Editor that gives AI Agents ability to perform any action using Unity Editor API. This includes scripts, scenes, prefabs and assets manipulation, configuration changes, and more.
 
 ## Real workflow example
 
@@ -33,7 +33,7 @@ Implemented the full “cities from CSV → assets → scene” pipeline.
   - Added `SpriteRenderer` to each city and assigned the default sprite from City.png
 ```
 
-Full chat transcript: [ChatTranscript.md](Assets/Plugins/Loop4UnityMcpServer/Documentation~/Examples/ChatTranscript.md). Repository contains solution with result.
+Full chat transcript: [ChatTranscript.md](Assets/Plugins/UnityCodeMcpServer/Documentation~/Examples/ChatTranscript.md). Repository contains solution with result.
 
 ## Table of contents
 
@@ -93,7 +93,7 @@ You are responsible for securing your environment and for any changes or data lo
 Install as a Unity package via Git URL:
 
 ```
-https://github.com/Signal-Loop/Loop4UnityMCPServer.git?path=Assets/Plugins/Loop4UnityMcpServer
+https://github.com/Signal-Loop/UnityCodeMCPServer.git?path=Assets/Plugins/UnityCodeMcpServer
 ```
 
 ### First Run
@@ -101,7 +101,7 @@ https://github.com/Signal-Loop/Loop4UnityMCPServer.git?path=Assets/Plugins/Loop4
 ### MCP client configuration
 
 1. Open your Unity project (the server auto-starts with the Editor).
-2. In Unity, run: **Tools/LoopMcpServer/STDIO|HTTP/Print MCP Configuration to Console**.
+2. In Unity, run: **Tools/UnityCodeMcpServer/STDIO|HTTP/Print MCP Configuration to Console**.
 3. Copy the printed MCP configuration into your MCP client.
 
 #### STDIO
@@ -111,13 +111,13 @@ Example configuration (using `uv` to run the bridge):
 ```json
 {
   "mcpServers": {
-    "loop-unity-stdio": {
+    "unity-code-mcp-stdio": {
       "command": "uv",
       "args": [
         "run",
         "--directory",
-        "C:/Users/tbory/source/Workspaces/Loop/Loop4UnityMCPServer/Assets/Plugins/Loop4UnityMcpServer/Editor/STDIO~",
-        "loop-mcp-stdio",
+        "C:/Users/tbory/source/Workspaces/UnityCode/UnityCodeMCPServer/Assets/Plugins/UnityCodeMcpServer/Editor/STDIO~",
+        "unity-code-mcp-stdio",
         "--host",
         "localhost",
         "--port",
@@ -135,7 +135,7 @@ Replace `C:/Users/YOUR_USERNAME/path/to/...` with the actual path to your Unity 
 ```json
 {
   "mcpServers": {
-    "loop-unity-http": {
+    "unity-code-mcp-http": {
       "url": "http://127.0.0.1:3001/mcp/",
       "type": "http"
     }
@@ -145,10 +145,10 @@ Replace `C:/Users/YOUR_USERNAME/path/to/...` with the actual path to your Unity 
 
 ### Server configuration (Unity)
 
-Access settings via **Tools/LoopMcpServer/Show Settings** or create manually:
+Access settings via **Tools/UnityCodeMcpServer/Show Settings** or create manually:
 
 1. Navigate to the `Assets/Resources/` (or any Resources folder) folder
-2. Create the settings asset: **Right Click > Create > LoopMcpServer > Server Settings**
+2. Create the settings asset: **Right Click > Create > UnityCodeMcpServer > Server Settings**
 3. Configure options:
    - **Server Selection**: Choose STDIO (TCP) or HTTP server for auto-start
    - **Verbose Logging**: Enable detailed logging for debugging
@@ -159,20 +159,20 @@ Access settings via **Tools/LoopMcpServer/Show Settings** or create manually:
 
 #### General
 
-- **Tools/LoopMcpServer/Show Settings** — Open the server settings asset in the inspector
+- **Tools/UnityCodeMcpServer/Show Settings** — Open the server settings asset in the inspector
 
 #### STDIO Server (TCP)
 
-- **Tools/LoopMcpServer/STDIO/Refresh Registry** — Re-scan for new tools/prompts/resources
-- **Tools/LoopMcpServer/STDIO/Restart Server** — Restart the TCP server
-- **Tools/LoopMcpServer/STDIO/Print MCP configuration to console** — Log MCP client configuration for STDIO bridge
+- **Tools/UnityCodeMcpServer/STDIO/Refresh Registry** — Re-scan for new tools/prompts/resources
+- **Tools/UnityCodeMcpServer/STDIO/Restart Server** — Restart the TCP server
+- **Tools/UnityCodeMcpServer/STDIO/Print MCP configuration to console** — Log MCP client configuration for STDIO bridge
 
 #### HTTP Server
 
-- **Tools/LoopMcpServer/HTTP/Refresh Registry** — Re-scan for new tools/prompts/resources
-- **Tools/LoopMcpServer/HTTP/Restart Server** — Restart the HTTP server
-- **Tools/LoopMcpServer/HTTP/Log Server Status** — Display current HTTP server status
-- **Tools/LoopMcpServer/HTTP/Print MCP configuration to console** — Log MCP client configuration for HTTP server
+- **Tools/UnityCodeMcpServer/HTTP/Refresh Registry** — Re-scan for new tools/prompts/resources
+- **Tools/UnityCodeMcpServer/HTTP/Restart Server** — Restart the HTTP server
+- **Tools/UnityCodeMcpServer/HTTP/Log Server Status** — Display current HTTP server status
+- **Tools/UnityCodeMcpServer/HTTP/Print MCP configuration to console** — Log MCP client configuration for HTTP server
 
 ## Built-in tools
 
@@ -230,8 +230,8 @@ Add Tools, Prompts, Resources, or Async Tools by implementing the relevant inter
 ### Synchronous tool
 
 ```csharp
-using LoopMcpServer.Interfaces;
-using LoopMcpServer.Protocol;
+using UnityCodeMcpServer.Interfaces;
+using UnityCodeMcpServer.Protocol;
 using Newtonsoft.Json.Linq;
 
 public class MyTool : ITool
@@ -263,7 +263,7 @@ public class MyTool : ITool
 
 ```csharp
 using Cysharp.Threading.Tasks;
-using LoopMcpServer.Interfaces;
+using UnityCodeMcpServer.Interfaces;
 using Newtonsoft.Json.Linq;
 
 public class MyAsyncTool : IToolAsync
@@ -303,7 +303,7 @@ The Script Execution Tool currently allows a fixed set of assemblies. Future ver
 
 ## STDIO bridge
 
-See the bridge docs at [stdio.md](stdio.md).
+See the bridge docs at [README_STDIO.md](README_STDIO.md).
 
 ## Testing
 
@@ -315,9 +315,9 @@ Unity tests are in `Tests/` and can be run via the Unity Test Runner.
 
 ## Known Issues
 
-- Loop4Unity MCP Server includes dll files in its package. If those files are already present in your project, you may see GUID conflicts. In our test cases it does not cause any issues, but if you encounter problems, please fill issue: [Issues](https://github.com/Signal-Loop/Loop4UnityMCPServer/issues). Removing duplicate dlls from your project may resolve the conflicts.
+- Unity Code MCP Server includes dll files in its package. If those files are already present in your project, you may see GUID conflicts. In our test cases it does not cause any issues, but if you encounter problems, please fill issue: [Issues](https://github.com/Signal-Loop/UnityCodeMCPServer/issues). Removing duplicate dlls from your project may resolve the conflicts.
 ```
-GUID [eb9c83041c7a89c46bb6e20e7b4484df] for asset 'Packages/com.signal-loop.loop4unitymcpserver/Editor/Bin/Microsoft.CodeAnalysis.CSharp.dll' conflicts with:
+GUID [eb9c83041c7a89c46bb6e20e7b4484df] for asset 'Packages/com.signal-loop.unitycodemcpserver/Editor/Bin/Microsoft.CodeAnalysis.CSharp.dll' conflicts with:
   '[Path to dll file in your project]/Microsoft.CodeAnalysis.CSharp.dll' (current owner)
 We can't assign a new GUID because the asset is in an immutable folder. The asset will be ignored.
 ```
