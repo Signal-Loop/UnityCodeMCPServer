@@ -1,10 +1,12 @@
 # Unity Code MCP Server for Unity
 
-Unity Code MCP Server for Unity is a powerful MCP server for the Unity Editor that gives AI Agents ability to perform any action using Unity Editor API. This includes scripts, scenes, prefabs and assets manipulation, configuration changes, and more.
+Unity Code MCP Server is a powerful tool for the Unity Editor that gives AI Agents ability to perform any action using Unity Editor API. This includes scripts, scenes, prefabs and assets manipulation, configuration changes, and more.
+
+![diagram](images/UnityCodeMCP.png)
 
 ## Real workflow example
 
-User:
+User prompt:
 
 ```
 Add following feature to Unity using execute script tool:
@@ -18,7 +20,7 @@ Add following feature to Unity using execute script tool:
 - To each City gameObject add SpriteRenderer component and assign a default sprite from Assets/Images/City.png
 ```
 
-Result:
+AI Agent Result:
 
 ```
 Implemented the full “cities from CSV → assets → scene” pipeline.
@@ -38,14 +40,13 @@ Full chat transcript: [ChatTranscript.md](Assets/Plugins/UnityCodeMcpServer/Docu
 ## Table of contents
 
 - [Features](#features)
-- [Tools](#tools)
 - [Security considerations](#security-considerations)
+- [Architecture](#architecture)
 - [Quick start](#quick-start)
 - [Built-in tools](#built-in-tools)
 - [Extending (adding tools)](#extending-adding-tools)
 - [STDIO bridge](#stdio-bridge)
 - [Testing](#testing)
-- [Roadmap](#roadmap)
 - [License](#license)
 
 ## Features
@@ -55,18 +56,17 @@ Full chat transcript: [ChatTranscript.md](Assets/Plugins/UnityCodeMcpServer/Docu
 - **Streamable HTTP transport**: Alternative to STDIO bridge for MCP clients that support HTTP. No separate server process required. No uv required. Responds with error if domain reload is in progress.
 - **Extensible**: Add new tools, async tools, resources, or prompts by implementing interfaces anywhere in the codebase
 
-## Tools
+### Tools
 
-### execute_csharp_script_in_unity_editor
+#### execute_csharp_script_in_unity_editor
 
 Perform any task by executing generated C# scripts in Unity Editor context. Full access to UnityEngine, UnityEditor APIs, and reflection. Automatically captures logs, errors, and return values.
 
-### read_unity_console_logs
+#### read_unity_console_logs
 
 Read Unity Editor Console logs with configurable entry limits (1-1000, default 200)
 
-### run_unity_tests
-
+#### run_unity_tests
 Run Unity tests via TestRunnerApi. Supports EditMode, PlayMode, or both. Can run all tests or filter by fully qualified test names.
 
 ## Security considerations
@@ -79,6 +79,26 @@ Recommendations:
 - Use a separate Unity project and/or run Unity in an isolated environment (VM/container).
 
 You are responsible for securing your environment and for any changes or data loss caused by executed scripts.
+
+## Architecture
+
+### STDIO Transport
+
+```
+┌─────────────┐     STDIO      ┌─────────────────┐      TCP      ┌────────────────────────────┐
+│  MCP Client │ ◄────────────► │  STDIO Bridge   │ ◄───────────► │   Unity Code MCP Server    │
+│  (AI Agent) │                │ (Python script) │               │       (Unity Editor)       │
+└─────────────┘                └─────────────────┘               └────────────────────────────┘
+```
+
+### HTTP Transport
+
+```
+┌─────────────┐             HTTP / SSE              ┌────────────────────────────┐
+│  MCP Client │ ◄─────────────────────────────────► │   Unity Code MCP Server    │
+│  (AI Agent) │                                     │       (Unity Editor)       │
+└─────────────┘                                     └────────────────────────────┘
+```
 
 ## Quick start
 
@@ -116,7 +136,7 @@ Example configuration (using `uv` to run the bridge):
       "args": [
         "run",
         "--directory",
-        "C:/Users/tbory/source/Workspaces/UnityCode/UnityCodeMCPServer/Assets/Plugins/UnityCodeMcpServer/Editor/STDIO~",
+        "C:/Users/YOUR_USERNAME/path/to/UnityProject/Assets/Plugins/UnityCodeMcpServer/Editor/STDIO~",
         "unity-code-mcp-stdio",
         "--host",
         "localhost",
@@ -127,8 +147,6 @@ Example configuration (using `uv` to run the bridge):
   }
 }
 ```
-
-Replace `C:/Users/YOUR_USERNAME/path/to/...` with the actual path to your Unity project.
 
 #### Streamable HTTP
 
@@ -230,30 +248,39 @@ Add Tools, Prompts, Resources, or Async Tools by implementing the relevant inter
 ### Synchronous tool
 
 ```csharp
+using System.Collections.Generic;
+using System.Text.Json;
 using UnityCodeMcpServer.Interfaces;
 using UnityCodeMcpServer.Protocol;
-using Newtonsoft.Json.Linq;
 
-public class MyTool : ITool
+public class EchoTool : ITool
 {
-    public string Name => "my_tool";
-    public string Description => "Description of my tool";
+    public string Name => "echo";
 
-    public JObject InputSchema => JObject.Parse(@"{
-        ""type"": ""object"",
-        ""properties"": {
-            ""param1"": { ""type"": ""string"" }
-        },
-        ""required"": [""param1""]
-    }");
+    public string Description => "Echoes the input text back to the caller";
 
-    public ToolsCallResult Execute(JObject arguments)
+    public JsonElement InputSchema => JsonHelper.ParseElement(@"{
+            ""type"": ""object"",
+            ""properties"": {
+                ""text"": {
+                    ""type"": ""string"",
+                    ""description"": ""The text to echo""
+                }
+            },
+            ""required"": [""text""]
+        }");
+
+    public ToolsCallResult Execute(JsonElement arguments)
     {
-        var param1 = arguments["param1"]?.ToString();
+        var text = arguments.GetStringOrDefault("text", "");
+
         return new ToolsCallResult
         {
             IsError = false,
-            Content = new List<ContentItem> { ContentItem.TextContent($"Result: {param1}") }
+            Content = new List<ContentItem>
+                {
+                    ContentItem.TextContent($"Echo: {text}")
+                }
         };
     }
 }
@@ -262,44 +289,66 @@ public class MyTool : ITool
 ### Asynchronous tool
 
 ```csharp
-using Cysharp.Threading.Tasks;
+using System.Collections.Generic;
+using System.Text.Json;
 using UnityCodeMcpServer.Interfaces;
-using Newtonsoft.Json.Linq;
+using UnityCodeMcpServer.Protocol;
+using Cysharp.Threading.Tasks;
 
-public class MyAsyncTool : IToolAsync
+public class DelayedEchoTool : IToolAsync
 {
-    public string Name => "my_async_tool";
-    public string Description => "An async tool";
+    public string Name => "delayed_echo";
 
-    public JObject InputSchema => new JObject { ["type"] = "object" };
+    public string Description => "Echoes the input text after a specified delay (demonstrates async tool)";
 
-    public async UniTask<ToolsCallResult> ExecuteAsync(JObject arguments)
+    public JsonElement InputSchema => JsonHelper.ParseElement(@"{
+            ""type"": ""object"",
+            ""properties"": {
+                ""text"": {
+                    ""type"": ""string"",
+                    ""description"": ""The text to echo""
+                },
+                ""delayMs"": {
+                    ""type"": ""integer"",
+                    ""description"": ""Delay in milliseconds before echoing"",
+                    ""default"": 1000
+                }
+            },
+            ""required"": [""text""]
+        }");
+
+    public async UniTask<ToolsCallResult> ExecuteAsync(JsonElement arguments)
     {
-        await UniTask.Delay(1000);
-        return new ToolsCallResult { /* ... */ };
+        var text = arguments.GetStringOrDefault("text", "");
+        var delayMs = arguments.GetIntOrDefault("delayMs", 1000);
+
+        await UniTask.Delay(delayMs);
+
+        return new ToolsCallResult
+        {
+            IsError = false,
+            Content = new List<ContentItem>
+                {
+                    ContentItem.TextContent($"Delayed Echo (after {delayMs}ms): {text}")
+                }
+        };
     }
 }
 ```
 
-### Available assemblies
+### Script execution context assemblies
 
-The Script Execution Tool currently allows a fixed set of assemblies. Future versions may allow configuring this list.
+By default, script execution context includes following assemblies:
 
 - Assembly-CSharp
 - Assembly-CSharp-Editor
 - System.Core
-- System.Text.Json
-- Unity.InputSystem
 - UnityEngine.CoreModule
-- UnityEngine.Physics2DModule
-- UnityEngine.TextRenderingModule
-- UnityEngine.UI
-- UnityEngine.UIElementsModule
-- UnityEngine.UIModule
 - UnityEditor.CoreModule
-- UnityEngine.TestRunner
-- UnityEditor.TestRunner
-- UniTask
+
+Unity Code MCP Server settings allow configuring additional assemblies to include in the script execution context. This is useful if your project has assemblies that your generated scripts need to reference.  
+To add additional assemblies use settings 'Additional Assemblies' section.
+
 
 ## STDIO bridge
 
@@ -307,15 +356,12 @@ See the bridge docs at [README_STDIO.md](README_STDIO.md).
 
 ## Testing
 
-Unity tests are in `Tests/` and can be run via the Unity Test Runner.
-
-## Roadmap
-
-- Configurable list of available assemblies
+Unity tests are in `Assets/Tests/` and can be run via the Unity Test Runner.
 
 ## Known Issues
 
 - Unity Code MCP Server includes dll files in its package. If those files are already present in your project, you may see GUID conflicts. In our test cases it does not cause any issues, but if you encounter problems, please fill issue: [Issues](https://github.com/Signal-Loop/UnityCodeMCPServer/issues). Removing duplicate dlls from your project may resolve the conflicts.
+
 ```
 GUID [eb9c83041c7a89c46bb6e20e7b4484df] for asset 'Packages/com.signal-loop.unitycodemcpserver/Editor/Bin/Microsoft.CodeAnalysis.CSharp.dll' conflicts with:
   '[Path to dll file in your project]/Microsoft.CodeAnalysis.CSharp.dll' (current owner)
