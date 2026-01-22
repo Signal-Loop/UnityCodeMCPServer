@@ -4,7 +4,7 @@ Unity Code MCP Server for Unity is a powerful MCP server for the Unity Editor th
 
 ## Real workflow example
 
-User:
+User prompt:
 
 ```
 Add following feature to Unity using execute script tool:
@@ -18,7 +18,7 @@ Add following feature to Unity using execute script tool:
 - To each City gameObject add SpriteRenderer component and assign a default sprite from Assets/Images/City.png
 ```
 
-Result:
+AI Agent Result:
 
 ```
 Implemented the full “cities from CSV → assets → scene” pipeline.
@@ -40,6 +40,7 @@ Full chat transcript: [ChatTranscript.md](Assets/Plugins/UnityCodeMcpServer/Docu
 - [Features](#features)
 - [Tools](#tools)
 - [Security considerations](#security-considerations)
+- [Architecture](#architecture)
 - [Quick start](#quick-start)
 - [Built-in tools](#built-in-tools)
 - [Extending (adding tools)](#extending-adding-tools)
@@ -79,6 +80,26 @@ Recommendations:
 - Use a separate Unity project and/or run Unity in an isolated environment (VM/container).
 
 You are responsible for securing your environment and for any changes or data loss caused by executed scripts.
+
+## Architecture
+
+### STDIO Transport
+
+```
+┌─────────────┐     STDIO      ┌─────────────────┐      TCP      ┌────────────────────────────┐
+│  MCP Client │ ◄────────────► │  STDIO Bridge   │ ◄───────────► │   Unity Code MCP Server    │
+│  (AI Agent) │                │ (Python script) │               │       (Unity Editor)       │
+└─────────────┘                └─────────────────┘               └────────────────────────────┘
+```
+
+### HTTP Transport
+
+```
+┌─────────────┐             HTTP / SSE              ┌────────────────────────────┐
+│  MCP Client │ ◄─────────────────────────────────► │   Unity Code MCP Server    │
+│  (AI Agent) │                                     │       (Unity Editor)       │
+└─────────────┘                                     └────────────────────────────┘
+```
 
 ## Quick start
 
@@ -230,30 +251,39 @@ Add Tools, Prompts, Resources, or Async Tools by implementing the relevant inter
 ### Synchronous tool
 
 ```csharp
+using System.Collections.Generic;
+using System.Text.Json;
 using UnityCodeMcpServer.Interfaces;
 using UnityCodeMcpServer.Protocol;
-using Newtonsoft.Json.Linq;
 
-public class MyTool : ITool
+public class EchoTool : ITool
 {
-    public string Name => "my_tool";
-    public string Description => "Description of my tool";
+    public string Name => "echo";
 
-    public JObject InputSchema => JObject.Parse(@"{
-        ""type"": ""object"",
-        ""properties"": {
-            ""param1"": { ""type"": ""string"" }
-        },
-        ""required"": [""param1""]
-    }");
+    public string Description => "Echoes the input text back to the caller";
 
-    public ToolsCallResult Execute(JObject arguments)
+    public JsonElement InputSchema => JsonHelper.ParseElement(@"{
+            ""type"": ""object"",
+            ""properties"": {
+                ""text"": {
+                    ""type"": ""string"",
+                    ""description"": ""The text to echo""
+                }
+            },
+            ""required"": [""text""]
+        }");
+
+    public ToolsCallResult Execute(JsonElement arguments)
     {
-        var param1 = arguments["param1"]?.ToString();
+        var text = arguments.GetStringOrDefault("text", "");
+
         return new ToolsCallResult
         {
             IsError = false,
-            Content = new List<ContentItem> { ContentItem.TextContent($"Result: {param1}") }
+            Content = new List<ContentItem>
+                {
+                    ContentItem.TextContent($"Echo: {text}")
+                }
         };
     }
 }
@@ -262,21 +292,49 @@ public class MyTool : ITool
 ### Asynchronous tool
 
 ```csharp
-using Cysharp.Threading.Tasks;
+using System.Collections.Generic;
+using System.Text.Json;
 using UnityCodeMcpServer.Interfaces;
-using Newtonsoft.Json.Linq;
+using UnityCodeMcpServer.Protocol;
+using Cysharp.Threading.Tasks;
 
-public class MyAsyncTool : IToolAsync
+public class DelayedEchoTool : IToolAsync
 {
-    public string Name => "my_async_tool";
-    public string Description => "An async tool";
+    public string Name => "delayed_echo";
 
-    public JObject InputSchema => new JObject { ["type"] = "object" };
+    public string Description => "Echoes the input text after a specified delay (demonstrates async tool)";
 
-    public async UniTask<ToolsCallResult> ExecuteAsync(JObject arguments)
+    public JsonElement InputSchema => JsonHelper.ParseElement(@"{
+            ""type"": ""object"",
+            ""properties"": {
+                ""text"": {
+                    ""type"": ""string"",
+                    ""description"": ""The text to echo""
+                },
+                ""delayMs"": {
+                    ""type"": ""integer"",
+                    ""description"": ""Delay in milliseconds before echoing"",
+                    ""default"": 1000
+                }
+            },
+            ""required"": [""text""]
+        }");
+
+    public async UniTask<ToolsCallResult> ExecuteAsync(JsonElement arguments)
     {
-        await UniTask.Delay(1000);
-        return new ToolsCallResult { /* ... */ };
+        var text = arguments.GetStringOrDefault("text", "");
+        var delayMs = arguments.GetIntOrDefault("delayMs", 1000);
+
+        await UniTask.Delay(delayMs);
+
+        return new ToolsCallResult
+        {
+            IsError = false,
+            Content = new List<ContentItem>
+                {
+                    ContentItem.TextContent($"Delayed Echo (after {delayMs}ms): {text}")
+                }
+        };
     }
 }
 ```
@@ -316,6 +374,7 @@ Unity tests are in `Tests/` and can be run via the Unity Test Runner.
 ## Known Issues
 
 - Unity Code MCP Server includes dll files in its package. If those files are already present in your project, you may see GUID conflicts. In our test cases it does not cause any issues, but if you encounter problems, please fill issue: [Issues](https://github.com/Signal-Loop/UnityCodeMCPServer/issues). Removing duplicate dlls from your project may resolve the conflicts.
+
 ```
 GUID [eb9c83041c7a89c46bb6e20e7b4484df] for asset 'Packages/com.signal-loop.unitycodemcpserver/Editor/Bin/Microsoft.CodeAnalysis.CSharp.dll' conflicts with:
   '[Path to dll file in your project]/Microsoft.CodeAnalysis.CSharp.dll' (current owner)
