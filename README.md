@@ -47,7 +47,6 @@ Full chat transcript: [ChatTranscript.md](Assets/Plugins/UnityCodeMcpServer/Docu
 - [Extending (adding tools)](#extending-adding-tools)
 - [STDIO bridge](#stdio-bridge)
 - [Testing](#testing)
-- [Roadmap](#roadmap)
 - [License](#license)
 
 ## Features
