@@ -21,5 +21,4 @@ MonoBehaviour:
   HttpPort: 3001
   SessionTimeoutSeconds: 3600
   SseKeepAliveIntervalSeconds: 30
-  AdditionalAssemblyNames:
-  - UniTask
+  AdditionalAssemblyNames: []
