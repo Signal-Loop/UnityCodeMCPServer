@@ -337,25 +337,19 @@ public class DelayedEchoTool : IToolAsync
 }
 ```
 
-### Available assemblies
+### Script execution context assemblies
 
-The Script Execution Tool currently allows a fixed set of assemblies. Future versions may allow configuring this list.
+By default, script execution context includes following assemblies:
 
 - Assembly-CSharp
 - Assembly-CSharp-Editor
 - System.Core
-- System.Text.Json
-- Unity.InputSystem
 - UnityEngine.CoreModule
-- UnityEngine.Physics2DModule
-- UnityEngine.TextRenderingModule
-- UnityEngine.UI
-- UnityEngine.UIElementsModule
-- UnityEngine.UIModule
 - UnityEditor.CoreModule
-- UnityEngine.TestRunner
-- UnityEditor.TestRunner
-- UniTask
+
+Unity Code MCP Server settings allow configuring additional assemblies to include in the script execution context. This is useful if your project has assemblies that your generated scripts need to reference.  
+To add additional assemblies use settings 'Additional Assemblies' section.
+
 
 ## STDIO bridge
 
@@ -363,11 +357,7 @@ See the bridge docs at [README_STDIO.md](README_STDIO.md).
 
 ## Testing
 
-Unity tests are in `Tests/` and can be run via the Unity Test Runner.
-
-## Roadmap
-
-- Configurable list of available assemblies
+Unity tests are in `Assets/Tests/` and can be run via the Unity Test Runner.
 
 ## Known Issues
 
