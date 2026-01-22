@@ -1,6 +1,6 @@
 # Unity Code MCP Server for Unity
 
-Unity Code MCP Server for Unity is a powerful MCP server for the Unity Editor that gives AI Agents ability to perform any action using Unity Editor API. This includes scripts, scenes, prefabs and assets manipulation, configuration changes, and more.
+Unity Code MCP Server is a powerful tool for the Unity Editor that gives AI Agents ability to perform any action using Unity Editor API. This includes scripts, scenes, prefabs and assets manipulation, configuration changes, and more.
 
 ## Real workflow example
 
@@ -137,7 +137,7 @@ Example configuration (using `uv` to run the bridge):
       "args": [
         "run",
         "--directory",
-        "C:/Users/tbory/source/Workspaces/UnityCode/UnityCodeMCPServer/Assets/Plugins/UnityCodeMcpServer/Editor/STDIO~",
+        "C:/Users/YOUR_USERNAME/path/to/UnityProject/Assets/Plugins/UnityCodeMcpServer/Editor/STDIO~",
         "unity-code-mcp-stdio",
         "--host",
         "localhost",
@@ -148,8 +148,6 @@ Example configuration (using `uv` to run the bridge):
   }
 }
 ```
-
-Replace `C:/Users/YOUR_USERNAME/path/to/...` with the actual path to your Unity project.
 
 #### Streamable HTTP
 
