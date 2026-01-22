@@ -58,18 +58,17 @@ Full chat transcript: [ChatTranscript.md](Assets/Plugins/UnityCodeMcpServer/Docu
 - **Streamable HTTP transport**: Alternative to STDIO bridge for MCP clients that support HTTP. No separate server process required. No uv required. Responds with error if domain reload is in progress.
 - **Extensible**: Add new tools, async tools, resources, or prompts by implementing interfaces anywhere in the codebase
 
-## Tools
+### Tools
 
-### execute_csharp_script_in_unity_editor
+#### execute_csharp_script_in_unity_editor
 
 Perform any task by executing generated C# scripts in Unity Editor context. Full access to UnityEngine, UnityEditor APIs, and reflection. Automatically captures logs, errors, and return values.
 
-### read_unity_console_logs
+#### read_unity_console_logs
 
 Read Unity Editor Console logs with configurable entry limits (1-1000, default 200)
 
-### run_unity_tests
-
+#### run_unity_tests
 Run Unity tests via TestRunnerApi. Supports EditMode, PlayMode, or both. Can run all tests or filter by fully qualified test names.
 
 ## Security considerations
