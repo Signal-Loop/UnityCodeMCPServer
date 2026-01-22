@@ -40,7 +40,6 @@ Full chat transcript: [ChatTranscript.md](Assets/Plugins/UnityCodeMcpServer/Docu
 ## Table of contents
 
 - [Features](#features)
-- [Tools](#tools)
 - [Security considerations](#security-considerations)
 - [Architecture](#architecture)
 - [Quick start](#quick-start)
