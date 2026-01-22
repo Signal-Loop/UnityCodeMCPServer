@@ -2,6 +2,8 @@
 
 Unity Code MCP Server is a powerful tool for the Unity Editor that gives AI Agents ability to perform any action using Unity Editor API. This includes scripts, scenes, prefabs and assets manipulation, configuration changes, and more.
 
+![diagram](images/UnityCodeMCP.png)
+
 ## Real workflow example
 
 User prompt:
