@@ -36,8 +36,8 @@ namespace UnityCodeMcpServer.Settings.Editor
             EditorGUILayout.Space();
             EditorGUILayout.LabelField("Script Execution Assemblies", EditorStyles.boldLabel);
             EditorGUILayout.HelpBox(
-                "These assemblies are loaded for C# script execution. Default assemblies cannot be removed. " +
-                "Additional assemblies can be added from loaded assemblies in the current AppDomain.",
+                "These assemblies are loaded for C# script execution. " +
+                "Additional assemblies from the current AppDomain can be added using the selector below.",
                 MessageType.Info);
 
             EditorGUILayout.Space();

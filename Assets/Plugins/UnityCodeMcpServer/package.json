@@ -29,5 +29,6 @@
         "mcp",
         "ai"
     ],
-    "license": "MIT"
+    "license": "MIT",
+    "documentationUrl": "https://github.com/Signal-Loop/UnityCodeMCPServer"
 }

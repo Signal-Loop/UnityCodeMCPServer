@@ -28,16 +28,7 @@ namespace UnityCodeMcpServer.Settings
             "UnityEngine.CoreModule",
             "UnityEditor.CoreModule",
             "Assembly-CSharp",
-            "Assembly-CSharp-Editor",
-            // "Unity.InputSystem",
-            // "System.Text.Json",
-            // "UnityEngine.Physics2DModule",
-            // "UnityEngine.TextRenderingModule",
-            // "UnityEngine.UI",
-            // "UnityEngine.UIElementsModule",
-            // "UnityEngine.UIModule",
-            // "UnityEngine.TestRunner",
-            // "UnityEditor.TestRunner"
+            "Assembly-CSharp-Editor"
         };
 
         [Header("Server Selection")]
@@ -47,8 +38,20 @@ namespace UnityCodeMcpServer.Settings
         [Tooltip("Enable verbose logging for debugging")]
         public bool VerboseLogging;
 
-        [Header("TCP Server Configuration")]
-        [Tooltip("The port the TCP server will listen on")]
+        [SerializeField, HideInInspector]
+        private int _lastPort;
+
+        [SerializeField, HideInInspector]
+        private bool _hasInitializedPortTracking;
+
+        [SerializeField, HideInInspector]
+        private int _lastHttpPort;
+
+        [SerializeField, HideInInspector]
+        private bool _hasInitializedHttpPortTracking;
+
+        [Header("STDIO Server Configuration")]
+        [Tooltip("The port the STDIO bridge will use to connect to Unity")]
         public int Port = 21088;
 
         [Tooltip("Maximum number of pending connections in the listen queue")]
@@ -166,7 +169,49 @@ namespace UnityCodeMcpServer.Settings
 
         private void OnValidate()
         {
-            ApplySelection();
+            var shouldRestartStdio = ShouldRestartStdioForPortChange();
+            var shouldRestartHttp = ShouldRestartHttpForPortChange();
+            ServerLifecycleCoordinator.UpdateServerState(StartupServer, shouldRestartStdio, shouldRestartHttp);
+        }
+
+        private bool ShouldRestartStdioForPortChange()
+        {
+            if (!_hasInitializedPortTracking)
+            {
+                _hasInitializedPortTracking = true;
+                _lastPort = Port;
+                return false;
+            }
+
+            if (_lastPort == Port)
+            {
+                return false;
+            }
+
+            _lastPort = Port;
+
+            // Only restart the STDIO server when it's the selected transport.
+            return StartupServer == ServerStartupMode.Stdio;
+        }
+
+        private bool ShouldRestartHttpForPortChange()
+        {
+            if (!_hasInitializedHttpPortTracking)
+            {
+                _hasInitializedHttpPortTracking = true;
+                _lastHttpPort = HttpPort;
+                return false;
+            }
+
+            if (_lastHttpPort == HttpPort)
+            {
+                return false;
+            }
+
+            _lastHttpPort = HttpPort;
+
+            // Only restart the HTTP server when it's the selected transport.
+            return StartupServer == ServerStartupMode.Http;
         }
 
         /// <summary>
@@ -175,7 +220,7 @@ namespace UnityCodeMcpServer.Settings
         /// </summary>
         public void ApplySelection()
         {
-            ServerLifecycleCoordinator.ApplySelection(StartupServer);
+            ServerLifecycleCoordinator.UpdateServerState(StartupServer);
         }
 
         /// <summary>

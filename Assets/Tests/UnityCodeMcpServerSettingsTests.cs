@@ -10,14 +10,23 @@ namespace UnityCodeMcpServer.Tests
     [TestFixture]
     public class UnityCodeMcpServerSettingsTests
     {
+        private static void InvokeOnValidate(UnityCodeMcpServerSettings settings)
+        {
+            var method = typeof(UnityCodeMcpServerSettings)
+                .GetMethod("OnValidate", BindingFlags.Instance | BindingFlags.NonPublic);
+            method?.Invoke(settings, null);
+        }
+
         [SetUp]
         public void SetUp()
         {
             ServerLifecycleCoordinator.SetHandlers(
                 startTcp: () => { },
                 stopTcp: () => { },
+                restartTcp: () => { },
                 startHttp: () => { },
-                stopHttp: () => { });
+                stopHttp: () => { },
+                restartHttp: () => { });
         }
 
         [TearDown]
@@ -249,6 +258,130 @@ namespace UnityCodeMcpServer.Tests
                 Assert.That(settings.RemoveAssembly(null), Is.False);
                 Assert.That(settings.RemoveAssembly(""), Is.False);
                 Assert.That(settings.RemoveAssembly("   "), Is.False);
+            }
+            finally
+            {
+                ScriptableObject.DestroyImmediate(settings);
+            }
+        }
+
+        [Test]
+        public void OnValidate_PortChangeWithStdioSelection_RestartsTcp()
+        {
+            var restartCount = 0;
+            ServerLifecycleCoordinator.SetHandlers(
+                startTcp: () => { },
+                stopTcp: () => { },
+                restartTcp: () => restartCount++,
+                startHttp: () => { },
+                stopHttp: () => { },
+                restartHttp: () => { });
+
+            var settings = ScriptableObject.CreateInstance<UnityCodeMcpServerSettings>();
+
+            try
+            {
+                settings.StartupServer = UnityCodeMcpServerSettings.ServerStartupMode.Stdio;
+                settings.Port = 21088;
+                InvokeOnValidate(settings);
+
+                settings.Port = 21099;
+                InvokeOnValidate(settings);
+
+                Assert.That(restartCount, Is.EqualTo(1));
+            }
+            finally
+            {
+                ScriptableObject.DestroyImmediate(settings);
+            }
+        }
+
+        [Test]
+        public void OnValidate_PortChangeWithHttpSelection_DoesNotRestartTcp()
+        {
+            var restartCount = 0;
+            ServerLifecycleCoordinator.SetHandlers(
+                startTcp: () => { },
+                stopTcp: () => { },
+                restartTcp: () => restartCount++,
+                startHttp: () => { },
+                stopHttp: () => { },
+                restartHttp: () => { });
+
+            var settings = ScriptableObject.CreateInstance<UnityCodeMcpServerSettings>();
+
+            try
+            {
+                settings.StartupServer = UnityCodeMcpServerSettings.ServerStartupMode.Http;
+                settings.Port = 21088;
+                InvokeOnValidate(settings);
+
+                settings.Port = 21100;
+                InvokeOnValidate(settings);
+
+                Assert.That(restartCount, Is.EqualTo(0));
+            }
+            finally
+            {
+                ScriptableObject.DestroyImmediate(settings);
+            }
+        }
+
+        [Test]
+        public void OnValidate_HttpPortChangeWithHttpSelection_RestartsHttp()
+        {
+            var restartHttpCount = 0;
+            ServerLifecycleCoordinator.SetHandlers(
+                startTcp: () => { },
+                stopTcp: () => { },
+                restartTcp: () => { },
+                startHttp: () => { },
+                stopHttp: () => { },
+                restartHttp: () => restartHttpCount++);
+
+            var settings = ScriptableObject.CreateInstance<UnityCodeMcpServerSettings>();
+
+            try
+            {
+                settings.StartupServer = UnityCodeMcpServerSettings.ServerStartupMode.Http;
+                settings.HttpPort = 3001;
+                InvokeOnValidate(settings);
+
+                settings.HttpPort = 3002;
+                InvokeOnValidate(settings);
+
+                Assert.That(restartHttpCount, Is.EqualTo(1));
+            }
+            finally
+            {
+                ScriptableObject.DestroyImmediate(settings);
+            }
+        }
+
+        [Test]
+        public void OnValidate_HttpPortChangeWithStdioSelection_DoesNotRestartHttp()
+        {
+            var restartHttpCount = 0;
+            ServerLifecycleCoordinator.SetHandlers(
+                startTcp: () => { },
+                stopTcp: () => { },
+                restartTcp: () => { },
+                startHttp: () => { },
+                stopHttp: () => { },
+                restartHttp: () => restartHttpCount++);
+
+            var settings = ScriptableObject.CreateInstance<UnityCodeMcpServerSettings>();
+
+            try
+            {
+                settings.StartupServer = UnityCodeMcpServerSettings.ServerStartupMode.Stdio;
+                settings.HttpPort = 3001;
+                InvokeOnValidate(settings);
+
+                settings.HttpPort = 3003;
+                InvokeOnValidate(settings);
+
+                Assert.That(restartHttpCount, Is.EqualTo(0));
             }
             finally
             {

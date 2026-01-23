@@ -115,30 +115,6 @@ uv run --directory "C:/path/to/STDIO~" unity-code-mcp-stdio --retry-time 3 --ret
 3. **Unity → Bridge (TCP):** Unity Tcp Server responds back to Bridge
 4. **Bridge → MCP Client (STDIO):** Bridge writes response to stdout
 
-## Troubleshooting
-
-### Connection Refused
-
-**Error:** `Connection refused to localhost:21088`
-
-**Solutions:**
-
-1. Ensure Unity Editor is running
-2. Check that UnityCodeMcpServer is enabled (see Unity Console for `[UnityCodeMcp]` logs)
-3. Verify the port matches in both Unity settings and bridge arguments
-
-### uv Command Not Found
-
-**Error:** `'uv' is not recognized as a command`
-
-**Solution:** Install uv using the commands in the Prerequisites section, then restart your terminal.
-
-### Python Version Issues
-
-**Error:** `Python 3.10+ required`
-
-**Solution:** uv will automatically download and use the correct Python version. If using pip, ensure you have Python 3.10+ installed.
-
 ## Development
 
 ### Running Tests
@@ -146,14 +122,14 @@ uv run --directory "C:/path/to/STDIO~" unity-code-mcp-stdio --retry-time 3 --ret
 ```bash
 cd /path/to/STDIO
 
-# On Windows, use the venv Python directly (avoids uv script canonicalization issues):
-.\.venv\Scripts\python.exe -m pytest tests/ -v
-
-# On macOS/Linux, uv run works directly:
 uv run --extra dev pytest tests/
 ```
 
-> **Windows Note:** If you encounter "Failed to canonicalize script path" errors with `uv run`, use the venv Python directly as shown above.
+> **Windows Note:** If you encounter "Failed to canonicalize script path" errors with `uv run`, use the venv Python directly as shown below.
+```
+# Use the venv Python directly (avoids uv script canonicalization issues):
+.\.venv\Scripts\python.exe -m pytest tests/ -v
+```
 
 ### Development Install
 
