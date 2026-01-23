@@ -116,8 +116,9 @@ Access settings via **Tools/UnityCodeMcpServer/Show Settings** or create manuall
 3. Configure options:
    - **Server Selection**: Choose STDIO (TCP) or HTTP server for auto-start
    - **Verbose Logging**: Enable detailed logging for debugging
-   - **TCP Server**: Port (default: `21088`), backlog, timeouts
-   - **HTTP Server**: Port (default: `3001`), session timeout, SSE keep-alive interval
+
+- **TCP Server**: Port (default: `21088`), backlog, timeouts (changing the port auto-restarts the STDIO server when selected)
+- **HTTP Server**: Port (default: `3001`), session timeout, SSE keep-alive interval
 
 ## Menu commands
 

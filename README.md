@@ -67,6 +67,7 @@ Perform any task by executing generated C# scripts in Unity Editor context. Full
 Read Unity Editor Console logs with configurable entry limits (1-1000, default 200)
 
 #### run_unity_tests
+
 Run Unity tests via TestRunnerApi. Supports EditMode, PlayMode, or both. Can run all tests or filter by fully qualified test names.
 
 ## Security considerations
@@ -104,13 +105,28 @@ You are responsible for securing your environment and for any changes or data lo
 
 ### Requirements
 
-- Unity 2022.3 LTS (tested)
+- Unity 2022.3 LTS or higher (tested on 2022.3.62f3 and 6000.2.7f2)
 - UniTask (async/await integration): https://github.com/Cysharp/UniTask
-- `uv` (Python package manager) for the STDIO bridge: https://docs.astral.sh/uv/
+- `uv` (Python package manager) for the STDIO transport: https://docs.astral.sh/uv/, RECOMMENDED
 
 ### Installation
 
-Install as a Unity package via Git URL:
+1. Install `uv` (if using STDIO transport, Recommended):
+   - Follow instructions at https://docs.astral.sh/uv/getting-started/installation
+2. Install UniTask package in your Unity project:
+   - Open Unity Package Manager: **Window > Package Manager**
+   - Click the **+** button and select **Add package from git URL...**
+   - Enter Git URL
+
+```
+https://github.com/Cysharp/UniTask.git?path=src/UniTask/Assets/Plugins/UniTask
+```
+
+3. Install Unity Code MCP Server package:
+   - Open Unity Package Manager: **Window > Package Manager**
+   - Click the **+** button and select **Add package from git URL...**
+
+- Enter the Git URL:
 
 ```
 https://github.com/Signal-Loop/UnityCodeMCPServer.git?path=Assets/Plugins/UnityCodeMcpServer
@@ -120,8 +136,8 @@ https://github.com/Signal-Loop/UnityCodeMCPServer.git?path=Assets/Plugins/UnityC
 
 ### MCP client configuration
 
-1. Open your Unity project (the server auto-starts with the Editor).
-2. In Unity, run: **Tools/UnityCodeMcpServer/STDIO|HTTP/Print MCP Configuration to Console**.
+1. Open your Unity project (the STDIO server auto-starts with the Editor).
+2. In Unity, run menu item: **Tools/UnityCodeMcpServer/STDIO or HTTP/Print MCP Configuration to Console**.
 3. Copy the printed MCP configuration into your MCP client.
 
 #### STDIO
@@ -170,8 +186,9 @@ Access settings via **Tools/UnityCodeMcpServer/Show Settings** or create manuall
 3. Configure options:
    - **Server Selection**: Choose STDIO (TCP) or HTTP server for auto-start
    - **Verbose Logging**: Enable detailed logging for debugging
-   - **TCP Server**: Port (default: `21088`), backlog, timeouts
-   - **HTTP Server**: Port (default: `3001`), session timeout, SSE keep-alive interval
+
+- **TCP Server**: Port (default: `21088`), backlog, timeouts (changing the port restarts the STDIO server if running)
+- **HTTP Server**: Port (default: `3001`), session timeout, SSE keep-alive interval (changing the port restarts the HTTP server if running)
 
 ### Menu commands
 
@@ -348,7 +365,6 @@ By default, script execution context includes following assemblies:
 
 Unity Code MCP Server settings allow configuring additional assemblies to include in the script execution context. This is useful if your project has assemblies that your generated scripts need to reference.  
 To add additional assemblies use settings 'Additional Assemblies' section.
-
 
 ## STDIO bridge
 
