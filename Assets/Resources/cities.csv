@@ -1,50 +1,50 @@
 CityName,Coordinates,Description
-Alderbridge,12.3456; -3.2104,Picturesque town built around a winding silver river
-Brindle Hollow,-7.8912; 4.5623,Valley settlement known for lantern festivals
-Caelum Port,3.1415; 2.7183,Coastal trading port with colorful markets
-Driftfen,-12.0042; 15.3301,Marshside community with elevated walkways
-Everspring,9.8765; -11.2345,Fertile plain city with year-round gardens
-Fallowmere,-1.2345; -6.7890,Small agricultural hub with wind-swept fields
-Granthold,16.4821; -9.1054,Fortified plateau town with stone terraces
-Hollowridge,-18.0000; 0.5000,Cloistered valley village with misty mornings
-Ironvale,7.7777; 7.0001,Mining town known for crafted ironworks
-Juniper Crossing,-2.4680; 13.5791,Mountain pass settlement with traders' inns
-Kestrel Bay,0.1234; -19.9876,Seaside resort with sheltered coves and cliffs
-Larkspur Heights,11.1111; 3.3333,Residential ridge famed for wildflowers
-Mosswick,-14.3210; -2.2222,Forest-edge town with artisan cooperatives
-Northfen,18.9999; -18.9999,Remote community at the marshland's northern tip
-Oxbury,5.5000; -5.5000,River crossing city with busy ferries
-Palehaven,-9.9999; 9.1234,Quiet town with pale stone architecture
-Quarryrift,14.2500; 0.7500,Industrial settlement built near old quarries
-Ravenmoor,-6.4444; -14.1414,Lowland hamlet with rich storytelling traditions
-Sunmarsh,2.2222; 18.1818,Sunny wetlands known for birdwatching
-Thornwick,-11.1111; 6.6666,Hill town famous for thorn orchards
-Umberford,19.5000; -1.2500,Market town at the confluence of two streams
-Violet Strand,-4.4444; 12.1212,Coastal village with violet-hued cliffs
-Wolfskeep,8.8888; -12.3434,Fortified town with old watchtowers
-Xanthera,-16.1616; 16.1616,Hidden valley settlement with geothermal pools
-Yarrow's End,0.0000; 0.0000,Small hub at the crossroads of ancient paths
-Zephyr Point,13.3333; -8.8888,Clifftop village with constant sea breezes
-Amberfield,-3.3333; -3.3333,Sunlit farmlands and a cheerful market square
-Briarfall,6.1414; 6.1414,Waterfall-side community with mills
-Cinder Hollow,-17.2500; 2.5000,Blackstone hamlet built into basalt outcrops
-Dunwater,10.0100; -10.0100,Lake town with fishing barges and piers
-Ebbshore,-0.5050; 14.1414,Tide-dependent harbor with shifting sandbars
-Frostwell,19.0000; 19.0000,High plain town with cool nights and clear skies
-Gullreach,-8.0808; -9.0909,Wind-swept coast known for cliffside lighthouses
-Hearthwick,4.4444; 4.4444,Cozy inland town with communal forges
-Irisfen,-13.1313; 11.1111,Marsh town famed for iridescent reeds
-Jadeford,15.1515; -2.2222,Trading stop with a jade market
-Kelpport,-2.0202; -16.1616,Seaport harvesting abundant kelp beds
-Lumenvale,1.4142; 1.7320,Artisan town known for glassblowing
-Moonreach,-5.5555; 5.5555,Hamlet perched on a crescent-shaped bay
-Northwick,17.1717; -7.2727,Border town with busy caravans
-Orchard Hollow,-10.1010; -12.1212,Apple orchards and cider festivals
-Peregrine's Rest,3.3333; 9.9999,Cliff settlement popular with raptor watchers
-Quillmere,-15.0000; 7.7777,Quiet lakeside retreat with writing schools
-Rookstead,6.6666; -16.6666,Brick-built town with a famous rook rookery
-Seabright,12.1212; 12.1212,Sunny maritime town with wide promenades
-Thalassa Point,-7.7777; -7.7777,Curving bay village with sheltered docks
-Umber Hollow,0.7071; -0.7071,Hidden glen known for mushroom stews
-Valewind,14.1414; -14.1414,Wind-swept valley with terraced fields
-Wyrm's Crossing,-19.0000; 2.0000,Ancient bridge town with old legends
+Alderbridge,-6.3088; -1.9022,Picturesque town built around a winding silver river
+Brindle Hollow,-7.7623; -3.4941,Valley settlement known for lantern festivals
+Caelum Port,6.8756; -2.6751,Coastal trading port with colorful markets
+Driftfen,-2.76; 4.2453,Marshside community with elevated walkways
+Everspring,-8.4441; 1.4282,Fertile plain city with year-round gardens
+Fallowmere,6.8099; 1.4747,Small agricultural hub with wind-swept fields
+Granthold,-3.546; 2.9976,Fortified plateau town with stone terraces
+Hollowridge,-4.5662; -3.3779,Cloistered valley village with misty mornings
+Ironvale,-6.1214; -3.4477,Mining town known for crafted ironworks
+Juniper Crossing,2.1848; -3.56,Mountain pass settlement with traders' inns
+Kestrel Bay,6.399; -4.8445,Seaside resort with sheltered coves and cliffs
+Larkspur Heights,4.1921; 0.949,Residential ridge famed for wildflowers
+Mosswick,6.1887; 4.8044,Forest-edge town with artisan cooperatives
+Northfen,-4.3063; 1.8299,Remote community at the marshland's northern tip
+Oxbury,-5.1683; 3.2026,River crossing city with busy ferries
+Palehaven,-7.6125; -2.8479,Quiet town with pale stone architecture
+Quarryrift,-1.1701; -2.9812,Industrial settlement built near old quarries
+Ravenmoor,-5.885; 2.4941,Lowland hamlet with rich storytelling traditions
+Sunmarsh,-3.7065; 0.9251,Sunny wetlands known for birdwatching
+Thornwick,-6.6212; 1.0777,Hill town famous for thorn orchards
+Umberford,0.7514; -3.8868,Market town at the confluence of two streams
+Violet Strand,0.9614; 3.2461,Coastal village with violet-hued cliffs
+Wolfskeep,0.6584; -0.8004,Fortified town with old watchtowers
+Xanthera,-4.9693; -2.6967,Hidden valley settlement with geothermal pools
+Yarrow's End,-3.5263; -4.6449,Small hub at the crossroads of ancient paths
+Zephyr Point,3.0831; 0.9359,Clifftop village with constant sea breezes
+Amberfield,-1.5247; -2.9002,Sunlit farmlands and a cheerful market square
+Briarfall,-6.0368; -2.1622,Waterfall-side community with mills
+Cinder Hollow,-3.7663; 3.5682,Blackstone hamlet built into basalt outcrops
+Dunwater,3.6124; -0.6024,Lake town with fishing barges and piers
+Ebbshore,-8.8821; 1.2945,Tide-dependent harbor with shifting sandbars
+Frostwell,2.9975; -4.3899,High plain town with cool nights and clear skies
+Gullreach,-1.77; -4.2527,Wind-swept coast known for cliffside lighthouses
+Hearthwick,-3.6144; 4.102,Cozy inland town with communal forges
+Irisfen,4.871; -3.1027,Marsh town famed for iridescent reeds
+Jadeford,-2.2919; -4.958,Trading stop with a jade market
+Kelpport,-0.5867; 3.4838,Seaport harvesting abundant kelp beds
+Lumenvale,8.0645; 1.2246,Artisan town known for glassblowing
+Moonreach,4.509; 1.9108,Hamlet perched on a crescent-shaped bay
+Northwick,5.0666; -1.522,Border town with busy caravans
+Orchard Hollow,-8.0985; -2.5272,Apple orchards and cider festivals
+Peregrine's Rest,1.3121; -4.2801,Cliff settlement popular with raptor watchers
+Quillmere,-8.1796; 2.0354,Quiet lakeside retreat with writing schools
+Rookstead,6.1288; 0.2947,Brick-built town with a famous rook rookery
+Seabright,-4.8547; 2.3653,Sunny maritime town with wide promenades
+Thalassa Point,-7.961; 1.791,Curving bay village with sheltered docks
+Umber Hollow,-3.4174; -4.1717,Hidden glen known for mushroom stews
+Valewind,7.3309; 0.8603,Wind-swept valley with terraced fields
+Wyrm's Crossing,8.1976; 4.4258,Ancient bridge town with old legends
