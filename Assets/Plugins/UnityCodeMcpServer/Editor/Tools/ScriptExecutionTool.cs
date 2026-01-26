@@ -78,6 +78,11 @@ Returns execution status, output, and any logs/errors.
 
             var logCapture = new LogCapture();
             string errorDetails;
+
+            string makeSceneDirtyScript = @"var sceneToMakeDirty = UnityEngine.SceneManagement.SceneManager.GetActiveScene();
+if (sceneToMakeDirty.IsValid()) { UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(sceneToMakeDirty); }";
+            script = script + "\n" + makeSceneDirtyScript;
+
             try
             {
                 logCapture.Start();

@@ -146,7 +146,7 @@ Example configuration (using `uv` to run the bridge):
 
 ```json
 {
-  "mcpServers": {
+  "servers": {
     "unity-code-mcp-stdio": {
       "command": "uv",
       "args": [
@@ -168,7 +168,7 @@ Example configuration (using `uv` to run the bridge):
 
 ```json
 {
-  "mcpServers": {
+  "servers": {
     "unity-code-mcp-http": {
       "url": "http://127.0.0.1:3001/mcp/",
       "type": "http"

@@ -14,7 +14,11 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   StartupServer: 0
   VerboseLogging: 0
-  Port: 21088
+  _lastPort: 21087
+  _hasInitializedPortTracking: 1
+  _lastHttpPort: 3001
+  _hasInitializedHttpPortTracking: 1
+  Port: 21087
   Backlog: 10
   ReadTimeoutMs: 30000
   WriteTimeoutMs: 30000
