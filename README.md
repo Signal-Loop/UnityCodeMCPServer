@@ -22,7 +22,6 @@ Add following feature to Unity using execute script tool:
 ```
 
 </details>
-
 <details>
 <summary><strong>AI Agent Result</strong></summary>
 
@@ -40,8 +39,7 @@ Implemented the full “cities from CSV → assets → scene” pipeline.
   - Added `SpriteRenderer` to each city and assigned the default sprite from City.png
 ```
 
-</details>  
-<br>
+</details>
 
 ![animation](images/UnityCodeMcpShort_Sharp_10.gif)
 
