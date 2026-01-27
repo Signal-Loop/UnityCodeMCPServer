@@ -6,7 +6,7 @@ Unity Code MCP Server is a powerful tool for the Unity Editor that gives AI Agen
 
 ## Real workflow example
 
-![animation](images/UnityCodeMCPShort_Sharp_10.gif)
+![animation](images/UnityCodeMcpShort_Sharp_10.gif)
 
 <details>
 <summary><strong>User prompt</strong></summary>
