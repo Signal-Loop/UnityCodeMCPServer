@@ -6,7 +6,8 @@ Unity Code MCP Server is a powerful tool for the Unity Editor that gives AI Agen
 
 ## Real workflow example
 
-User prompt:
+<details>
+<summary><strong>User prompt</strong></summary>
 
 ```
 Add following feature to Unity using execute script tool:
@@ -20,7 +21,10 @@ Add following feature to Unity using execute script tool:
 - To each City gameObject add SpriteRenderer component and assign a default sprite from Assets/Images/City.png
 ```
 
-AI Agent Result:
+</details>
+<details>
+<summary><strong>AI Agent Result</strong></summary>
+
 
 ```
 Implemented the full “cities from CSV → assets → scene” pipeline.
@@ -35,6 +39,10 @@ Implemented the full “cities from CSV → assets → scene” pipeline.
   - Added `SpriteRenderer` to each city and assigned the default sprite from City.png
 ```
 
+</details>
+
+![animation](images/UnityCodeMcpShort_Sharp_10.gif)
+
 Full chat transcript: [ChatTranscript.md](Assets/Plugins/UnityCodeMcpServer/Documentation~/Examples/ChatTranscript.md). Repository contains solution with result.
 
 ## Table of contents
@@ -45,6 +53,7 @@ Full chat transcript: [ChatTranscript.md](Assets/Plugins/UnityCodeMcpServer/Docu
 - [Quick start](#quick-start)
 - [Built-in tools](#built-in-tools)
 - [Extending (adding tools)](#extending-adding-tools)
+- [Script execution context](#script-execution-context)
 - [STDIO bridge](#stdio-bridge)
 - [Testing](#testing)
 - [License](#license)
@@ -353,7 +362,7 @@ public class DelayedEchoTool : IToolAsync
 }
 ```
 
-### Script execution context assemblies
+## Script execution context
 
 By default, script execution context includes following assemblies:
 
@@ -363,8 +372,11 @@ By default, script execution context includes following assemblies:
 - UnityEngine.CoreModule
 - UnityEditor.CoreModule
 
-Unity Code MCP Server settings allow configuring additional assemblies to include in the script execution context. This is useful if your project has assemblies that your generated scripts need to reference.  
+Unity Code MCP Server settings (Assets/Resources/UnityCodeMcpServerSettings.asset) allow configuring additional assemblies to include in the script execution context. This is useful if your project has assemblies that your generated scripts need to reference. 
+ 
 To add additional assemblies use settings 'Additional Assemblies' section.
+
+![Additional Assemblies](images/UnityCodeMcpServer_Settings_AdditionalAssemblies.png)
 
 ## STDIO bridge
 
@@ -379,7 +391,7 @@ Unity tests are in `Assets/Tests/` and can be run via the Unity Test Runner.
 - Unity Code MCP Server includes dll files in its package. If those files are already present in your project, you may see GUID conflicts. In our test cases it does not cause any issues, but if you encounter problems, please fill issue: [Issues](https://github.com/Signal-Loop/UnityCodeMCPServer/issues). Removing duplicate dlls from your project may resolve the conflicts.
 
 ```
-GUID [eb9c83041c7a89c46bb6e20e7b4484df] for asset 'Packages/com.signal-loop.unitycodemcpserver/Editor/Bin/Microsoft.CodeAnalysis.CSharp.dll' conflicts with:
+GUID [eb9c83041c7a89c46bb6e20eab4484df] for asset 'Packages/com.signal-loop.unitycodemcpserver/Editor/Bin/Microsoft.CodeAnalysis.CSharp.dll' conflicts with:
   '[Path to dll file in your project]/Microsoft.CodeAnalysis.CSharp.dll' (current owner)
 We can't assign a new GUID because the asset is in an immutable folder. The asset will be ignored.
 ```
