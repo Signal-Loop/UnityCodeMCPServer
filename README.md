@@ -6,7 +6,10 @@ Unity Code MCP Server is a powerful tool for the Unity Editor that gives AI Agen
 
 ## Real workflow example
 
-User prompt:
+![animation](images/UnityCodeMCPShort_Sharp_10.gif)
+
+<details>
+<summary><strong>User prompt</strong></summary>
 
 ```
 Add following feature to Unity using execute script tool:
@@ -20,7 +23,10 @@ Add following feature to Unity using execute script tool:
 - To each City gameObject add SpriteRenderer component and assign a default sprite from Assets/Images/City.png
 ```
 
-AI Agent Result:
+</details>
+
+<details>
+<summary><strong>AI Agent Result</strong></summary>
 
 ```
 Implemented the full “cities from CSV → assets → scene” pipeline.
@@ -34,6 +40,8 @@ Implemented the full “cities from CSV → assets → scene” pipeline.
   - Set each city position from `Coordinates`, added `CityComponent` and assigned the matching `CitySO`
   - Added `SpriteRenderer` to each city and assigned the default sprite from City.png
 ```
+
+</details>
 
 Full chat transcript: [ChatTranscript.md](Assets/Plugins/UnityCodeMcpServer/Documentation~/Examples/ChatTranscript.md). Repository contains solution with result.
 
