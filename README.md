@@ -56,6 +56,7 @@ Full chat transcript: [ChatTranscript.md](Assets/Plugins/UnityCodeMcpServer/Docu
 - [Script execution context](#script-execution-context)
 - [STDIO bridge](#stdio-bridge)
 - [Testing](#testing)
+- [Known Issues](#known-issues)
 - [License](#license)
 
 ## Features
