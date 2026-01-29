@@ -1,6 +1,6 @@
-# Unity Code MCP Server for Unity
+# Unity Code MCP Server
 
-Unity Code MCP Server is a powerful tool for the Unity Editor that gives AI Agents ability to perform any action using Unity Editor API. This includes scripts, scenes, prefabs and assets manipulation, configuration changes, and more.
+Unity Code MCP Server is a powerful tool for the Unity Editor that gives AI Agents ability to perform any action using Unity Editor API. This includes scripts, scenes, prefabs, assets, configuration changes, and more.
 
 ![diagram](images/UnityCodeMCP.png)
 
@@ -373,7 +373,7 @@ By default, script execution context includes following assemblies:
 - UnityEditor.CoreModule
 
 Unity Code MCP Server settings (Assets/Resources/UnityCodeMcpServerSettings.asset) allow configuring additional assemblies to include in the script execution context. This is useful if your project has assemblies that your generated scripts need to reference. 
- 
+
 To add additional assemblies use settings 'Additional Assemblies' section.
 
 ![Additional Assemblies](images/UnityCodeMcpServer_Settings_AdditionalAssemblies.png)
