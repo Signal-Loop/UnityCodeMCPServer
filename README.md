@@ -388,6 +388,14 @@ Unity tests are in `Assets/Tests/` and can be run via the Unity Test Runner.
 
 ## Known Issues
 
+### Assembly-CSharp.dll: Copying the file failed: The process cannot access the file because it is being used by another process.
+
+- This issue may occur when Assembly-CSharp.dll is locked by script execution tool (which loads assemblies) and Unity tries to recompile scripts (which rebuilds Assembly-CSharp.dll). This issue is not solved yet. Workarounds:
+  - Change any script to force rebuild, usually adding some spaces or comments is enough. May require multiple attempts.
+  - If it still does not work, reopen the project.
+
+### GUID conflicts with existing dll files in the project
+
 - Unity Code MCP Server includes dll files in its package. If those files are already present in your project, you may see GUID conflicts. In our test cases it does not cause any issues, but if you encounter problems, please fill issue: [Issues](https://github.com/Signal-Loop/UnityCodeMCPServer/issues). Removing duplicate dlls from your project may resolve the conflicts.
 
 ```
