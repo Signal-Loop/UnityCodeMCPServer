@@ -1,0 +1,5 @@
+﻿<Solution>
+  <Project Path="UnityCodeMcpServerTests.csproj" />
+  <Project Path="UnityCodeMcpServer.csproj" />
+  <Project Path="Assembly-CSharp.csproj" />
+</Solution>
