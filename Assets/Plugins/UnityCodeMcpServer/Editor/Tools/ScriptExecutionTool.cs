@@ -6,6 +6,7 @@ using Cysharp.Threading.Tasks;
 using UnityCodeMcpServer.Interfaces;
 using UnityCodeMcpServer.Protocol;
 using UnityCodeMcpServer.Settings;
+using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Scripting;
 using Microsoft.CodeAnalysis.Scripting;
 using UnityEngine;
@@ -72,9 +73,15 @@ Returns execution status, output, and any logs/errors.
                 return CreateToolCallResult(isError: true, status: "error", resultText: null, logs: null, errors: "Script is empty or missing.", script: script);
             }
 
-            var options = CreateScriptOptions();
+            var assemblies = ResolveAssemblies();
+            var options = CreateScriptOptions(assemblies);
 
-            string[] assemblies = options.MetadataReferences.Select(r => r.Display).Where(d => !string.IsNullOrWhiteSpace(d)).ToArray();
+            string[] assembliesDisplay = assemblies
+                .Select(a => a?.GetName())
+                .Where(n => n != null)
+                .Select(n => $"{n.Name}, Version={n.Version}")
+                .Where(n => !string.IsNullOrWhiteSpace(n))
+                .ToArray();
 
             var logCapture = new LogCapture();
             string errorDetails;
@@ -91,7 +98,7 @@ if (sceneToMakeDirty.IsValid()) { UnityEditor.SceneManagement.EditorSceneManager
                 var hasLoggedErrors = logCapture.HasErrors;
                 var statusLabel = hasLoggedErrors ? "success_with_errors" : "success";
                 var errorsText = hasLoggedErrors ? logCapture.ErrorLog : null;
-                var toolCallResult = CreateToolCallResult(isError: false, status: statusLabel, resultText: FormatResult(executionResult), logs: logCapture.Logs, errors: errorsText, script: script, assemblies: assemblies);
+                var toolCallResult = CreateToolCallResult(isError: false, status: statusLabel, resultText: FormatResult(executionResult), logs: logCapture.Logs, errors: errorsText, script: script, assemblies: assembliesDisplay);
                 LogToolCallResult(toolCallResult);
                 return toolCallResult;
             }
@@ -100,7 +107,7 @@ if (sceneToMakeDirty.IsValid()) { UnityEditor.SceneManagement.EditorSceneManager
                 logCapture.Stop();
                 errorDetails = string.Join(Environment.NewLine, compilationError.Diagnostics);
                 Debug.LogError($"{McpProtocol.LogPrefix} Script execution compilation error:\n{errorDetails}");
-                var toolCallResult = CreateToolCallResult(isError: true, status: "compilation_error", resultText: null, logs: logCapture.Logs, errors: errorDetails, script: script, assemblies: assemblies);
+                var toolCallResult = CreateToolCallResult(isError: true, status: "compilation_error", resultText: null, logs: logCapture.Logs, errors: errorDetails, script: script, assemblies: assembliesDisplay);
                 LogToolCallResult(toolCallResult);
                 return toolCallResult;
             }
@@ -109,7 +116,7 @@ if (sceneToMakeDirty.IsValid()) { UnityEditor.SceneManagement.EditorSceneManager
                 logCapture.Stop();
                 errorDetails = ex.ToString();
                 Debug.LogError($"{McpProtocol.LogPrefix} Script execution runtime error:\n{errorDetails}");
-                var toolCallResult = CreateToolCallResult(isError: true, status: "execution_error", resultText: null, logs: logCapture.Logs, errors: errorDetails, script: script, assemblies: assemblies);
+                var toolCallResult = CreateToolCallResult(isError: true, status: "execution_error", resultText: null, logs: logCapture.Logs, errors: errorDetails, script: script, assemblies: assembliesDisplay);
                 LogToolCallResult(toolCallResult);
                 return toolCallResult;
             }
@@ -172,10 +179,10 @@ if (sceneToMakeDirty.IsValid()) { UnityEditor.SceneManagement.EditorSceneManager
             return executionResult.ToString();
         }
 
-        private static ScriptOptions CreateScriptOptions()
+        private static ScriptOptions CreateScriptOptions(System.Reflection.Assembly[] assemblies)
         {
             return ScriptOptions.Default
-                .WithReferences(ResolveAssemblies())
+                .WithReferences(CreateInMemoryReferences(assemblies))
                 .WithImports("System", "System.Collections.Generic", "System.Linq", "UnityEngine", "UnityEditor")
                 .WithOptimizationLevel(Microsoft.CodeAnalysis.OptimizationLevel.Release);
         }
@@ -190,6 +197,41 @@ if (sceneToMakeDirty.IsValid()) { UnityEditor.SceneManagement.EditorSceneManager
                 .Select(name => loaded.FirstOrDefault(a => string.Equals(a.GetName().Name, name, StringComparison.Ordinal)))
                 .Where(a => a != null)
                 .ToArray();
+        }
+
+        private static MetadataReference[] CreateInMemoryReferences(System.Reflection.Assembly[] assemblies)
+        {
+            if (assemblies == null || assemblies.Length == 0)
+            {
+                return Array.Empty<MetadataReference>();
+            }
+
+            var references = new System.Collections.Generic.List<MetadataReference>(assemblies.Length);
+            foreach (var assembly in assemblies)
+            {
+                if (assembly == null || assembly.IsDynamic)
+                {
+                    continue;
+                }
+
+                var location = assembly.Location;
+                if (string.IsNullOrWhiteSpace(location))
+                {
+                    continue;
+                }
+
+                try
+                {
+                    var image = System.IO.File.ReadAllBytes(location);
+                    references.Add(MetadataReference.CreateFromImage(image));
+                }
+                catch (Exception ex)
+                {
+                    Debug.LogWarning($"{McpProtocol.LogPrefix} Failed to load metadata for assembly '{assembly.GetName().Name}' at '{location}': {ex.Message}");
+                }
+            }
+
+            return references.ToArray();
         }
 
         private static void LogToolCallResult(ToolsCallResult result)

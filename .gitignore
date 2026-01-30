@@ -77,3 +77,4 @@ crashlytics-build.properties
 /[Aa]ssets/[Aa]ddressableAssetsData/link.xml*
 
 .*
+*.pyc

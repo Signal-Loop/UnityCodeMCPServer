@@ -43,8 +43,8 @@ namespace UnityCodeMcpServer.Tests
             Assert.That(result.IsError, Is.False);
             Assert.That(result.Content[0].Text, Does.Contain("UnityEngine.CoreModule"));
             Assert.That(result.Content[0].Text, Does.Contain("### Loaded Assemblies"));
-            Assert.That(result.Content[0].Text, Does.Contain("UnityEngine.CoreModule.dll"));
-            Assert.That(result.Content[0].Text, Does.Contain("UnityEditor.CoreModule.dll"));
+            Assert.That(result.Content[0].Text, Does.Contain("UnityEngine.CoreModule, Version="));
+            Assert.That(result.Content[0].Text, Does.Contain("UnityEditor.CoreModule, Version="));
         }
 
         [Test]
@@ -78,7 +78,7 @@ namespace UnityCodeMcpServer.Tests
 
                     Assert.That(result.IsError, Is.False);
                     Assert.That(result.Content[0].Text, Does.Contain("### Loaded Assemblies"));
-                    Assert.That(result.Content[0].Text, Does.Contain(additionalAssembly + ".dll"));
+                    Assert.That(result.Content[0].Text, Does.Contain(additionalAssembly + ", Version="));
                 }
                 finally
                 {
