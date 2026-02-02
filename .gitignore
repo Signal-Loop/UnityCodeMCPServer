@@ -76,5 +76,7 @@ crashlytics-build.properties
 
 /[Aa]ssets/[Aa]ddressableAssetsData/link.xml*
 
-.*
 *.pyc
+.vscode/
+.github/
+Dev/Python/.python-version
