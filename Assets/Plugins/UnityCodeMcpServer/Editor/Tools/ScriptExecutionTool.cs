@@ -10,6 +10,7 @@ using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Scripting;
 using Microsoft.CodeAnalysis.Scripting;
 using UnityEngine;
+using UnityEditor;
 
 namespace UnityCodeMcpServer.Tools
 {
@@ -86,9 +87,12 @@ Returns execution status, output, and any logs/errors.
             var logCapture = new LogCapture();
             string errorDetails;
 
-            string makeSceneDirtyScript = @"var sceneToMakeDirty = UnityEngine.SceneManagement.SceneManager.GetActiveScene();
+            if (!EditorApplication.isPlaying)
+            {
+                string makeSceneDirtyScript = @"var sceneToMakeDirty = UnityEngine.SceneManagement.SceneManager.GetActiveScene();
 if (sceneToMakeDirty.IsValid()) { UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(sceneToMakeDirty); }";
-            script = script + "\n" + makeSceneDirtyScript;
+                script = script + "\n" + makeSceneDirtyScript;
+            }
 
             try
             {
