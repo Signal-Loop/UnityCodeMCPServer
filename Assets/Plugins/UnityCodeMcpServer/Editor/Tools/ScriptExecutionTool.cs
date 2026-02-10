@@ -87,12 +87,7 @@ Returns execution status, output, and any logs/errors.
             var logCapture = new LogCapture();
             string errorDetails;
 
-            if (!EditorApplication.isPlaying)
-            {
-                string makeSceneDirtyScript = @"var sceneToMakeDirty = UnityEngine.SceneManagement.SceneManager.GetActiveScene();
-if (sceneToMakeDirty.IsValid()) { UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(sceneToMakeDirty); }";
-                script = script + "\n" + makeSceneDirtyScript;
-            }
+            script = AppendSceneDirtyScriptIfNeeded(script, EditorApplication.isPlaying);
 
             try
             {
@@ -189,6 +184,18 @@ if (sceneToMakeDirty.IsValid()) { UnityEditor.SceneManagement.EditorSceneManager
                 .WithReferences(CreateInMemoryReferences(assemblies))
                 .WithImports("System", "System.Collections.Generic", "System.Linq", "UnityEngine", "UnityEditor")
                 .WithOptimizationLevel(Microsoft.CodeAnalysis.OptimizationLevel.Release);
+        }
+
+        public static string AppendSceneDirtyScriptIfNeeded(string script, bool isPlaying)
+        {
+            if (isPlaying)
+            {
+                return script;
+            }
+
+            string makeSceneDirtyScript = @"var sceneToMakeDirty = UnityEngine.SceneManagement.SceneManager.GetActiveScene();
+if (sceneToMakeDirty.IsValid()) { UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(sceneToMakeDirty); }";
+            return script + "\n" + makeSceneDirtyScript;
         }
 
         private static System.Reflection.Assembly[] ResolveAssemblies()

@@ -69,6 +69,34 @@ namespace UnityCodeMcpServer.Tests
         });
 
         [UnityTest]
+        public IEnumerator ExecuteAsync_AppendsSceneDirtyScript_WhenNotPlaying() => UniTask.ToCoroutine(async () =>
+        {
+            var tool = new ScriptExecutionTool();
+            var args = JsonHelper.ParseElement(@"{""script"": ""return 1;""}");
+
+            var result = await tool.ExecuteAsync(args);
+
+            Assert.That(result.IsError, Is.False);
+            Assert.That(result.Content, Is.Not.Empty);
+            var text = result.Content[0].Text;
+            Assert.That(text, Does.Contain("return 1;"));
+            Assert.That(text, Does.Contain("SceneManager.GetActiveScene"));
+            Assert.That(text, Does.Contain("EditorSceneManager.MarkSceneDirty"));
+        });
+
+        [Test]
+        public void AppendSceneDirtyScriptIfNeeded_DoesNotAppend_WhenPlaying()
+        {
+            var script = "return 42;";
+
+            var result = ScriptExecutionTool.AppendSceneDirtyScriptIfNeeded(script, true);
+
+            Assert.That(result, Is.EqualTo(script));
+            Assert.That(result, Does.Not.Contain("SceneManager.GetActiveScene"));
+            Assert.That(result, Does.Not.Contain("EditorSceneManager.MarkSceneDirty"));
+        }
+
+        [UnityTest]
         public IEnumerator ExecuteAsync_ReturnsError_ForCompilationIssue() => UniTask.ToCoroutine(async () =>
         {
             var tool = new ScriptExecutionTool();
