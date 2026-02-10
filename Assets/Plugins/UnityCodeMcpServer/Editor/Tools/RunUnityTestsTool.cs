@@ -43,6 +43,11 @@ namespace UnityCodeMcpServer.Tools
         {
             var options = ParseArguments(arguments);
 
+            if (ShouldBlockEditMode(options.Mode, EditorApplication.isPlaying))
+            {
+                return BuildEditModeBlockedResult();
+            }
+
             var api = ScriptableObject.CreateInstance<TestRunnerApi>();
             var callbacks = new TestCallbacks();
             api.RegisterCallbacks(callbacks);
@@ -79,6 +84,28 @@ namespace UnityCodeMcpServer.Tools
                 api.UnregisterCallbacks(callbacks);
                 UnityEngine.Object.DestroyImmediate(api);
             }
+        }
+
+        public static bool ShouldBlockEditMode(TestMode mode, bool isPlaying)
+        {
+            if (!isPlaying)
+            {
+                return false;
+            }
+
+            return (mode & TestMode.EditMode) == TestMode.EditMode;
+        }
+
+        public static ToolsCallResult BuildEditModeBlockedResult()
+        {
+            return new ToolsCallResult
+            {
+                IsError = true,
+                Content = new List<ContentItem>
+                {
+                    ContentItem.TextContent("Cannot run EditMode tests while the editor is in Play Mode.")
+                }
+            };
         }
 
         public static TestOptions ParseArguments(JsonElement arguments)
