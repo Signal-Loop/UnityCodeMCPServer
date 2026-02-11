@@ -213,6 +213,15 @@ namespace UnityCodeMcpServer.Protocol
 
         [JsonPropertyName("isError")]
         public bool IsError { get; set; }
+
+        public static ToolsCallResult TextResult(string text, bool isError = false) =>
+            new ToolsCallResult { Content = new List<ContentItem> { ContentItem.TextContent(text) }, IsError = isError };
+
+        public static ToolsCallResult ImageResult(string base64Data, string mimeType) =>
+            new ToolsCallResult { Content = new List<ContentItem> { ContentItem.ImageContent(base64Data, mimeType) } };
+
+        public static ToolsCallResult ErrorResult(string errorMessage) =>
+            new ToolsCallResult { Content = new List<ContentItem> { ContentItem.TextContent(errorMessage) }, IsError = true };
     }
 
     [Serializable]
