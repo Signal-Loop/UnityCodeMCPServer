@@ -16,8 +16,7 @@ namespace UnityCodeMcpServer.Tools
         public string Name => "run_unity_tests";
 
         public string Description =>
-            "Runs Unity tests using the TestRunnerApi. Can run all tests or specific tests by name. " +
-            "Returns the test results including status and logs.";
+            "Runs Unity tests using the TestRunnerApi. Can run all tests or specific tests by name. Supports test modes `EditMode`, `PlayMode`, or `Both` (default: `EditMode`); set `test_mode` in the input to choose. Returns the test results including status and logs.";
 
         public JsonElement InputSchema => JsonHelper.ParseElement(@"
         {
