@@ -8,53 +8,30 @@ namespace UnityCodeMcpServer.Tests
     public class McpMessagesResourceContentTests
     {
         [Test]
-        public void ResourceBlobContent_CreatesResourceTypeWithBlob()
+        public void ResourceTextContent_CreatesResourceTypeWithText()
         {
-            var contentItem = ContentItem.ResourceBlobContent("resource://test-image", "image/png", "SGVsbG8=");
+            var contentItem = ContentItem.ResourceTextContent("resource://test-file", "text/plain", "hello world");
 
             Assert.That(contentItem.Type, Is.EqualTo(McpContentTypes.Resource));
             Assert.That(contentItem.Resource, Is.Not.Null);
-            Assert.That(contentItem.Resource.Uri, Is.EqualTo("resource://test-image"));
-            Assert.That(contentItem.Resource.MimeType, Is.EqualTo("image/png"));
-            Assert.That(contentItem.Resource.Blob, Is.EqualTo("SGVsbG8="));
-            Assert.That(contentItem.Resource.Text, Is.Null);
+            Assert.That(contentItem.Resource.Uri, Is.EqualTo("resource://test-file"));
+            Assert.That(contentItem.Resource.MimeType, Is.EqualTo("text/plain"));
+            Assert.That(contentItem.Resource.Text, Is.EqualTo("hello world"));
         }
 
         [Test]
-        public void ResourceBlobContent_SetsBlob_And_OmitsText_InSerializedJson()
+        public void ResourceTextContent_Serializes_And_DoesNotContainBlob()
         {
-            var contentItem = ContentItem.ResourceBlobContent("resource://test-image", "image/png", "SGVsbG8=");
-
-            Assert.That(contentItem.Resource, Is.Not.Null);
-            Assert.That(contentItem.Resource.Blob, Is.EqualTo("SGVsbG8="));
-            Assert.That(contentItem.Resource.Text, Is.Null);
-
+            var contentItem = ContentItem.ResourceTextContent("resource://test-file", "text/plain", "hello world");
             var json = JsonHelper.Serialize(contentItem);
 
-            Assert.That(json, Does.Contain("\"resource\""));
-            Assert.That(json, Does.Contain("\"blob\":\"SGVsbG8=\""));
-            Assert.That(json, Does.Not.Contain("\"text\""));
-        }
-
-        [Test]
-        public void ResourceBlobContent_Serializes_ToExpectedResourceJsonShape()
-        {
-            var contentItem = ContentItem.ResourceBlobContent(
-                "memory://play_unity_game_video/28f2eae676cb427583741f19fea98b0b.mp4",
-                "video/mp4",
-                "AAAAGGZ0eXBtcDQyAAAAAG1wNDFpc29tAAAAKHV1");
-
-            var json = JsonHelper.Serialize(contentItem);
             using var document = JsonDocument.Parse(json);
-            var root = document.RootElement;
+            var resource = document.RootElement.GetProperty("resource");
 
-            Assert.That(root.GetProperty("type").GetString(), Is.EqualTo("resource"));
-
-            var resource = root.GetProperty("resource");
-            Assert.That(resource.GetProperty("uri").GetString(), Is.EqualTo("memory://play_unity_game_video/28f2eae676cb427583741f19fea98b0b.mp4"));
-            Assert.That(resource.GetProperty("mimeType").GetString(), Is.EqualTo("video/mp4"));
-            Assert.That(resource.GetProperty("blob").GetString(), Is.EqualTo("AAAAGGZ0eXBtcDQyAAAAAG1wNDFpc29tAAAAKHV1"));
-            Assert.That(resource.TryGetProperty("text", out _), Is.False);
+            Assert.That(resource.GetProperty("uri").GetString(), Is.EqualTo("resource://test-file"));
+            Assert.That(resource.GetProperty("mimeType").GetString(), Is.EqualTo("text/plain"));
+            Assert.That(resource.GetProperty("text").GetString(), Is.EqualTo("hello world"));
+            Assert.That(resource.TryGetProperty("blob", out _), Is.False, "`blob` must not be present in serialized JSON");
         }
     }
 }

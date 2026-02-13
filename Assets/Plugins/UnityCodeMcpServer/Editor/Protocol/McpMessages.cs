@@ -254,9 +254,6 @@ namespace UnityCodeMcpServer.Protocol
 
         public static ContentItem ResourceTextContent(string uri, string mimeType, string text) =>
             new ContentItem { Type = McpContentTypes.Resource, Resource = new ResourceContent { Uri = uri, MimeType = mimeType, Text = text } };
-
-        public static ContentItem ResourceBlobContent(string uri, string mimeType, string blob) =>
-            new ContentItem { Type = McpContentTypes.Resource, Resource = new ResourceContent { Uri = uri, MimeType = mimeType, Blob = blob } };
     }
 
     #endregion
@@ -380,9 +377,7 @@ namespace UnityCodeMcpServer.Protocol
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         public string Text { get; set; }
 
-        [JsonPropertyName("blob")]
-        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-        public string Blob { get; set; }
+
     }
 
     [Serializable]

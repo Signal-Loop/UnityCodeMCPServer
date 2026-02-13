@@ -167,15 +167,12 @@ class UnityTcpClient:
 
 def _convert_resource_contents(
     resource: dict[str, Any],
-) -> types.TextResourceContents | types.BlobResourceContents:
-    """Convert Unity resource payload to an MCP resource contents object."""
-    if resource.get("blob") is not None:
-        return types.BlobResourceContents(
-            uri=resource.get("uri", ""),
-            mimeType=resource.get("mimeType"),
-            blob=resource.get("blob", ""),
-        )
+) -> types.TextResourceContents:
+    """Convert Unity resource payload to an MCP TextResourceContents object.
 
+    Blob payloads are not supported by the protocol and are ignored.
+    """
+    # Ignore any `blob` payloads — always map to TextResourceContents.
     return types.TextResourceContents(
         uri=resource.get("uri", ""),
         mimeType=resource.get("mimeType"),
@@ -403,9 +400,7 @@ def create_server(unity_client: UnityTcpClient) -> Server:
         if contents and "text" in contents[0]:
             return contents[0]["text"]
 
-        if contents and "blob" in contents[0]:
-            return contents[0]["blob"]
-
+        # `blob` is not supported by the protocol — ignore it and return empty string
         return ""
 
     return server

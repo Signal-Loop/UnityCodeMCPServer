@@ -287,8 +287,8 @@ class TestResourceContentMapping:
         assert converted.mimeType == "text/plain"
         assert converted.text == "hello"
 
-    def test_convert_resource_contents_blob(self):
-        """Maps blob resources to BlobResourceContents."""
+    def test_convert_resource_contents_blob_ignored(self):
+        """`blob` payloads are ignored and mapped to TextResourceContents."""
         resource = {
             "uri": "memory://video.mp4",
             "mimeType": "video/mp4",
@@ -297,13 +297,14 @@ class TestResourceContentMapping:
 
         converted = _convert_resource_contents(resource)
 
-        assert isinstance(converted, types.BlobResourceContents)
+        # Blob is not supported by the protocol — expect TextResourceContents with empty text
+        assert isinstance(converted, types.TextResourceContents)
         assert str(converted.uri) == "memory://video.mp4"
         assert converted.mimeType == "video/mp4"
-        assert converted.blob == "AAAAGGZ0eXBtcDQyAAAAAG1wNDFpc29tAAAAKHV1"
+        assert converted.text == ""
 
-    def test_convert_content_item_resource_blob(self):
-        """Creates embedded resource with blob payload when Unity sends blob."""
+    def test_convert_content_item_resource_blob_ignored(self):
+        """Embedded resources with `blob` payloads are mapped to TextResourceContents (blob ignored)."""
         item = {
             "type": "resource",
             "resource": {
@@ -316,10 +317,11 @@ class TestResourceContentMapping:
         converted = _convert_content_item(item)
 
         assert isinstance(converted, types.EmbeddedResource)
-        assert isinstance(converted.resource, types.BlobResourceContents)
+        # Blob is unsupported — resource should be TextResourceContents with empty text
+        assert isinstance(converted.resource, types.TextResourceContents)
         assert (
             str(converted.resource.uri)
             == "memory://play_unity_game_video/28f2eae676cb427583741f19fea98b0b.mp4"
         )
         assert converted.resource.mimeType == "video/mp4"
-        assert converted.resource.blob == "AAAAGGZ0eXBtcDQyAAAAAG1wNDFpc29tAAAAKHV1"
+        assert converted.resource.text == ""
