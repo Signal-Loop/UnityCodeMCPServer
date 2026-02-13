@@ -152,6 +152,45 @@ class UnityTcpClient:
         }
 
 
+def _convert_resource_contents(resource: dict[str, Any]) -> types.TextResourceContents | types.BlobResourceContents:
+    """Convert Unity resource payload to an MCP resource contents object."""
+    if resource.get("blob") is not None:
+        return types.BlobResourceContents(
+            uri=resource.get("uri", ""),
+            mimeType=resource.get("mimeType"),
+            blob=resource.get("blob", ""),
+        )
+
+    return types.TextResourceContents(
+        uri=resource.get("uri", ""),
+        mimeType=resource.get("mimeType"),
+        text=resource.get("text", ""),
+    )
+
+
+def _convert_content_item(item: dict[str, Any]) -> types.TextContent | types.ImageContent | types.EmbeddedResource | None:
+    """Convert a Unity content item to an MCP SDK content item."""
+    item_type = item.get("type")
+    if item_type == "text":
+        return types.TextContent(type="text", text=item.get("text", ""))
+
+    if item_type == "image":
+        return types.ImageContent(
+            type="image",
+            data=item.get("data", ""),
+            mimeType=item.get("mimeType", "image/png"),
+        )
+
+    if item_type == "resource":
+        resource = item.get("resource", {})
+        return types.EmbeddedResource(
+            type="resource",
+            resource=_convert_resource_contents(resource),
+        )
+
+    return None
+
+
 def create_server(unity_client: UnityTcpClient) -> Server:
     """Create MCP server that proxies requests to Unity."""
     server = Server("unity-code-mcp-stdio")
@@ -203,25 +242,9 @@ def create_server(unity_client: UnityTcpClient) -> Server:
 
         mcp_content: list[types.TextContent | types.ImageContent | types.EmbeddedResource] = []
         for item in content:
-            item_type = item.get("type")
-            if item_type == "text":
-                mcp_content.append(types.TextContent(type="text", text=item.get("text", "")))
-            elif item_type == "image":
-                mcp_content.append(types.ImageContent(
-                    type="image",
-                    data=item.get("data", ""),
-                    mimeType=item.get("mimeType", "image/png"),
-                ))
-            elif item_type == "resource":
-                resource = item.get("resource", {})
-                mcp_content.append(types.EmbeddedResource(
-                    type="resource",
-                    resource=types.TextResourceContents(
-                        uri=resource.get("uri", ""),
-                        mimeType=resource.get("mimeType"),
-                        text=resource.get("text", ""),
-                    ),
-                ))
+            converted = _convert_content_item(item)
+            if converted is not None:
+                mcp_content.append(converted)
 
         return mcp_content if mcp_content else [types.TextContent(type="text", text="No content returned")]
 
@@ -336,6 +359,9 @@ def create_server(unity_client: UnityTcpClient) -> Server:
 
         if contents and "text" in contents[0]:
             return contents[0]["text"]
+
+        if contents and "blob" in contents[0]:
+            return contents[0]["blob"]
 
         return ""
 

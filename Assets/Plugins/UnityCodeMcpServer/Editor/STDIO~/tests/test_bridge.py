@@ -6,9 +6,11 @@ import struct
 from unittest.mock import AsyncMock, patch
 
 import pytest
+from mcp import types
 
 # Import the module under test
 from unity_code_mcp_stdio import UnityTcpClient
+from unity_code_mcp_stdio.unity_code_mcp_bridge_stdio import _convert_content_item, _convert_resource_contents
 
 
 class MockStreamReader:
@@ -261,3 +263,56 @@ class TestJsonRpcMessages:
 
         assert "result" not in response
         assert response["error"]["code"] == -32601
+
+
+class TestResourceContentMapping:
+    """Tests for resource content mapping between Unity and MCP SDK types."""
+
+    def test_convert_resource_contents_text(self):
+        """Maps text resources to TextResourceContents."""
+        resource = {
+            "uri": "memory://example.txt",
+            "mimeType": "text/plain",
+            "text": "hello",
+        }
+
+        converted = _convert_resource_contents(resource)
+
+        assert isinstance(converted, types.TextResourceContents)
+        assert str(converted.uri) == "memory://example.txt"
+        assert converted.mimeType == "text/plain"
+        assert converted.text == "hello"
+
+    def test_convert_resource_contents_blob(self):
+        """Maps blob resources to BlobResourceContents."""
+        resource = {
+            "uri": "memory://video.mp4",
+            "mimeType": "video/mp4",
+            "blob": "AAAAGGZ0eXBtcDQyAAAAAG1wNDFpc29tAAAAKHV1",
+        }
+
+        converted = _convert_resource_contents(resource)
+
+        assert isinstance(converted, types.BlobResourceContents)
+        assert str(converted.uri) == "memory://video.mp4"
+        assert converted.mimeType == "video/mp4"
+        assert converted.blob == "AAAAGGZ0eXBtcDQyAAAAAG1wNDFpc29tAAAAKHV1"
+
+    def test_convert_content_item_resource_blob(self):
+        """Creates embedded resource with blob payload when Unity sends blob."""
+        item = {
+            "type": "resource",
+            "resource": {
+                "uri": "memory://play_unity_game_video/28f2eae676cb427583741f19fea98b0b.mp4",
+                "mimeType": "video/mp4",
+                "blob": "AAAAGGZ0eXBtcDQyAAAAAG1wNDFpc29tAAAAKHV1",
+            },
+        }
+
+        converted = _convert_content_item(item)
+
+        assert isinstance(converted, types.EmbeddedResource)
+        assert isinstance(converted.resource, types.BlobResourceContents)
+        assert str(converted.resource.uri) == "memory://play_unity_game_video/28f2eae676cb427583741f19fea98b0b.mp4"
+        assert converted.resource.mimeType == "video/mp4"
+        assert converted.resource.blob == "AAAAGGZ0eXBtcDQyAAAAAG1wNDFpc29tAAAAKHV1"

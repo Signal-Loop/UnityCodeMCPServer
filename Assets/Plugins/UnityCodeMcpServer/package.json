@@ -1,6 +1,6 @@
 {
     "name": "com.signal-loop.unitycodemcpserver",
-    "version": "0.0.12-preview",
+    "version": "0.0.13-preview",
     "displayName": "Unity Code MCP Server",
     "description": "A powerful MCP server for the Unity Editor that gives AI Agents ability to perform any action using Unity Editor API. This includes scripts, scenes, prefabs and assets manipulation, configuration changes, and more.",
     "unity": "2022.3",
