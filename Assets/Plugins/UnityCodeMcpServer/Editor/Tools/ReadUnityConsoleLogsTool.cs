@@ -60,14 +60,7 @@ namespace UnityCodeMcpServer.Tools
                 text = "(No console logs available)";
             }
 
-            return new ToolsCallResult
-            {
-                IsError = isError,
-                Content = new List<ContentItem>
-                {
-                    ContentItem.TextContent(text)
-                }
-            };
+            return ToolsCallResult.TextResult(text, isError);
         }
 
         private static int NormalizeMaxEntries(int requested)

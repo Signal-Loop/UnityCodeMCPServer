@@ -158,14 +158,7 @@ Returns execution status, output, and any logs/errors.
                 }
             }
 
-            return new ToolsCallResult
-            {
-                IsError = isError,
-                Content = new System.Collections.Generic.List<ContentItem>
-                {
-                    ContentItem.TextContent(response.ToString())
-                }
-            };
+            return ToolsCallResult.TextResult(response.ToString(), isError);
         }
 
         private static string FormatResult(object executionResult)

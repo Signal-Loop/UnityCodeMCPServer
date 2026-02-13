@@ -291,14 +291,7 @@ public class EchoTool : ITool
     {
         var text = arguments.GetStringOrDefault("text", "");
 
-        return new ToolsCallResult
-        {
-            IsError = false,
-            Content = new List<ContentItem>
-                {
-                    ContentItem.TextContent($"Echo: {text}")
-                }
-        };
+        return ToolsCallResult.TextResult($"Echo: {text}");
     }
 }
 ```
@@ -341,14 +334,7 @@ public class DelayedEchoTool : IToolAsync
 
         await UniTask.Delay(delayMs);
 
-        return new ToolsCallResult
-        {
-            IsError = false,
-            Content = new List<ContentItem>
-                {
-                    ContentItem.TextContent($"Delayed Echo (after {delayMs}ms): {text}")
-                }
-        };
+        return ToolsCallResult.TextResult($"Delayed Echo (after {delayMs}ms): {text}");
     }
 }
 ```

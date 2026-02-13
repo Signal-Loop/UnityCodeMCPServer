@@ -202,11 +202,7 @@ namespace UnityCodeMcpServer.Tests
 
         public ToolsCallResult Execute(JsonElement arguments)
         {
-            return new ToolsCallResult
-            {
-                IsError = false,
-                Content = new List<ContentItem> { ContentItem.TextContent("Test sync result") }
-            };
+            return ToolsCallResult.TextResult("Test sync result");
         }
     }
 
@@ -218,11 +214,7 @@ namespace UnityCodeMcpServer.Tests
 
         public UniTask<ToolsCallResult> ExecuteAsync(JsonElement arguments)
         {
-            return UniTask.FromResult(new ToolsCallResult
-            {
-                IsError = false,
-                Content = new List<ContentItem> { ContentItem.TextContent("Test async result") }
-            });
+            return UniTask.FromResult(ToolsCallResult.TextResult("Test async result"));
         }
     }
 

@@ -70,14 +70,7 @@ namespace UnityCodeMcpServer.Tools
             }
             catch (Exception ex)
             {
-                return new ToolsCallResult
-                {
-                    IsError = true,
-                    Content = new List<ContentItem>
-                    {
-                        ContentItem.TextContent($"Error executing tests: {ex.Message}\n{ex.StackTrace}")
-                    }
-                };
+                return ToolsCallResult.ErrorResult($"Error executing tests: {ex.Message}\n{ex.StackTrace}");
             }
             finally
             {
@@ -98,14 +91,7 @@ namespace UnityCodeMcpServer.Tools
 
         public static ToolsCallResult BuildEditModeBlockedResult()
         {
-            return new ToolsCallResult
-            {
-                IsError = true,
-                Content = new List<ContentItem>
-                {
-                    ContentItem.TextContent("Cannot run EditMode tests while the editor is in Play Mode.")
-                }
-            };
+            return ToolsCallResult.ErrorResult("Cannot run EditMode tests while the editor is in Play Mode.");
         }
 
         public static TestOptions ParseArguments(JsonElement arguments)
@@ -143,14 +129,7 @@ namespace UnityCodeMcpServer.Tools
 
             if (totalTests == 0)
             {
-                return new ToolsCallResult
-                {
-                    IsError = true,
-                    Content = new List<ContentItem>
-                    {
-                        ContentItem.TextContent("No tests found matching the provided criteria. Please check if the test names are correct (fully qualified like 'Namespace.ClassName.MethodName') and if the test mode (EditMode/PlayMode) is correct.")
-                    }
-                };
+                return ToolsCallResult.ErrorResult("No tests found matching the provided criteria. Please check if the test names are correct (fully qualified like 'Namespace.ClassName.MethodName') and if the test mode (EditMode/PlayMode) is correct.");
             }
 
             var sb = new System.Text.StringBuilder();
@@ -164,14 +143,7 @@ namespace UnityCodeMcpServer.Tools
                 AppendFailedTests(sb, result);
             }
 
-            return new ToolsCallResult
-            {
-                IsError = result.FailCount > 0,
-                Content = new List<ContentItem>
-                {
-                    ContentItem.TextContent(sb.ToString())
-                }
-            };
+            return ToolsCallResult.TextResult(sb.ToString(), result.FailCount > 0);
         }
 
         internal static void AppendFailedTests(System.Text.StringBuilder sb, ITestResultAdaptor result)
