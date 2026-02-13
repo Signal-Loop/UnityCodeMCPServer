@@ -30,9 +30,9 @@ namespace UnityCodeMcpServer.Tests
         }
 
         [Test]
-        public void ScriptExecutionTool_UsesDefaultAssemblies()
+        public void ExecuteCSharpScriptInUnityEditor_UsesDefaultAssemblies()
         {
-            var tool = new ScriptExecutionTool();
+            var tool = new ExecuteCSharpScriptInUnityEditor();
             var scriptJson = JsonSerializer.Serialize(new { script = "return typeof(UnityEngine.GameObject).Assembly.GetName().Name;" });
             var args = JsonDocument.Parse(scriptJson).RootElement;
 
@@ -48,7 +48,7 @@ namespace UnityCodeMcpServer.Tests
         }
 
         [Test]
-        public void ScriptExecutionTool_UsesAdditionalAssemblies()
+        public void ExecuteCSharpScriptInUnityEditor_UsesAdditionalAssemblies()
         {
             // Add an additional assembly to settings
             var settings = UnityCodeMcpServerSettings.Instance;
@@ -68,7 +68,7 @@ namespace UnityCodeMcpServer.Tests
                     var allAssemblies = settings.GetAllAssemblyNames();
                     Assert.That(allAssemblies, Contains.Item(additionalAssembly));
 
-                    var tool = new ScriptExecutionTool();
+                    var tool = new ExecuteCSharpScriptInUnityEditor();
                     var scriptJson = JsonSerializer.Serialize(new { script = "return \"Assembly loaded successfully\";" });
                     var args = JsonDocument.Parse(scriptJson).RootElement;
 

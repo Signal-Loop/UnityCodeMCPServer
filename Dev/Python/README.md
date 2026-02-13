@@ -4,7 +4,7 @@ This directory contains Python scripts to diagnose and reproduce the DLL locking
 
 ## Status: Fixed
 
-The DLL locking issue has been resolved by switching from file-based metadata references to in-memory byte array references in the `ScriptExecutionTool`.
+The DLL locking issue has been resolved by switching from file-based metadata references to in-memory byte array references in the `ExecuteCSharpScriptInUnityEditor`.
 
 ## The Problem (Fixed)
 
@@ -17,7 +17,7 @@ When using the `execute_csharp_script_in_unity_editor` MCP tool:
 
 ## The Solution
 
-The issue was fixed in [Assets/Plugins/UnityCodeMcpServer/Editor/Tools/ScriptExecutionTool.cs](../../Assets/Plugins/UnityCodeMcpServer/Editor/Tools/ScriptExecutionTool.cs) by:
+The issue was fixed in [Assets/Plugins/UnityCodeMcpServer/Editor/Tools/ExecuteCSharpScriptInUnityEditorTool.cs](../../Assets/Plugins/UnityCodeMcpServer/Editor/Tools/ExecuteCSharpScriptInUnityEditorTool.cs) by:
 
 - Reading assembly DLLs directly into a byte array.
 - Creating `MetadataReference` from the image (bytes) rather than the file path.
@@ -95,7 +95,7 @@ After the fix, the DLL lock error is no longer produced during recompilation cyc
 
 ## Root Cause Analysis (Resolved)
 
-The issue was in `ScriptExecutionTool.cs`:
+The issue was in `ExecuteCSharpScriptInUnityEditorTool.cs`:
 
 - Previously, `ResolveAssemblies()` returned `Assembly` locations that Roslyn used to create file-backed references.
 - These references prevented the DLLs from being released until the script state was cleared or the process ended.

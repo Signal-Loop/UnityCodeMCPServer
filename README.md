@@ -25,7 +25,6 @@ Add following feature to Unity using execute script tool:
 <details>
 <summary><strong>AI Agent Result</strong></summary>
 
-
 ```
 Implemented the full “cities from CSV → assets → scene” pipeline.
 
@@ -359,7 +358,7 @@ By default, script execution context includes following assemblies:
 - UnityEngine.CoreModule
 - UnityEditor.CoreModule
 
-Unity Code MCP Server settings (Assets/Resources/UnityCodeMcpServerSettings.asset) allow configuring additional assemblies to include in the script execution context. This is useful if your project has assemblies that your generated scripts need to reference. 
+Unity Code MCP Server settings (Assets/Resources/UnityCodeMcpServerSettings.asset) allow configuring additional assemblies to include in the script execution context. This is useful if your project has assemblies that your generated scripts need to reference.
 
 To add additional assemblies use settings 'Additional Assemblies' section.
 

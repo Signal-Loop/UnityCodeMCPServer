@@ -18,7 +18,7 @@ namespace UnityCodeMcpServer.Tools
     /// Executes arbitrary C# script text inside the Unity Editor using Roslyn.
     /// Captures return value, logs, and errors into a single response payload.
     /// </summary>
-    public class ScriptExecutionTool : IToolAsync
+    public class ExecuteCSharpScriptInUnityEditor : IToolAsync
     {
         public string Name => "execute_csharp_script_in_unity_editor";
 
@@ -243,11 +243,11 @@ if (sceneToMakeDirty.IsValid()) { UnityEditor.SceneManagement.EditorSceneManager
             var text = result.Content != null && result.Content.Count > 0 ? result.Content[0].Text : string.Empty;
             if (result.IsError)
             {
-                Debug.LogError($"{McpProtocol.LogPrefix} ScriptExecutionTool result:\n{text}");
+                Debug.LogError($"${McpProtocol.LogPrefix} ExecuteCSharpScriptInUnityEditor result:\n{text}");
             }
             else
             {
-                Debug.Log($"{McpProtocol.LogPrefix} ScriptExecutionTool result:\n{text}");
+                Debug.Log($"${McpProtocol.LogPrefix} ExecuteCSharpScriptInUnityEditor result:\n{text}");
             }
         }
 

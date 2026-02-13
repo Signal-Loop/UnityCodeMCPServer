@@ -44,8 +44,8 @@ public class ScriptRunnerWindow : EditorWindow
     {
         try
         {
-            // Use the shared ScriptExecution tool which runs scripts in the Unity Editor context and captures logs/errors.
-            var tool = new UnityCodeMcpServer.Tools.ScriptExecutionTool();
+            // Use the shared ExecuteCSharpScriptInUnityEditor tool which runs scripts in the Unity Editor context and captures logs/errors.
+            var tool = new UnityCodeMcpServer.Tools.ExecuteCSharpScriptInUnityEditor();
             var inputJson = System.Text.Json.JsonSerializer.Serialize(new { script = _code });
             using var doc = JsonDocument.Parse(inputJson);
             var result = await tool.ExecuteAsync(doc.RootElement);
@@ -57,11 +57,11 @@ public class ScriptRunnerWindow : EditorWindow
                 output = result.Content[0].Text ?? "(empty)";
             }
 
-            Debug.Log($"Script Execution Tool result:\n{output}");
+            Debug.Log($"ExecuteCSharpScriptInUnityEditor result:\n{output}");
         }
         catch (Exception e)
         {
-            Debug.LogError($"Error executing script with ScriptExecutionTool: {e}");
+            Debug.LogError($"Error executing script with ExecuteCSharpScriptInUnityEditor: {e}");
         }
 
         // Repaint the window to show the new result.

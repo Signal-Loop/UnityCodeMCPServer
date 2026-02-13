@@ -15,12 +15,12 @@ using UnityEngine.TestTools;
 namespace UnityCodeMcpServer.Tests
 {
     [TestFixture]
-    public class ScriptExecutionToolTests
+    public class ExecuteCSharpScriptInUnityEditorTests
     {
         [Test]
         public void BuildResult_ProducesCombinedTextAndFlags()
         {
-            var method = typeof(ScriptExecutionTool).GetMethod(
+            var method = typeof(ExecuteCSharpScriptInUnityEditor).GetMethod(
                 "CreateToolCallResult",
                 BindingFlags.Static | BindingFlags.NonPublic);
             Assert.That(method, Is.Not.Null, "CreateToolCallResult should exist and be non-public static");
@@ -56,7 +56,7 @@ namespace UnityCodeMcpServer.Tests
         [UnityTest]
         public IEnumerator ExecuteAsync_ReturnsSuccess_ForSimpleScript() => UniTask.ToCoroutine(async () =>
         {
-            var tool = new ScriptExecutionTool();
+            var tool = new ExecuteCSharpScriptInUnityEditor();
             var args = JsonHelper.ParseElement(@"{""script"": ""return 2 + 3;""}");
 
             var result = await tool.ExecuteAsync(args);
@@ -71,7 +71,7 @@ namespace UnityCodeMcpServer.Tests
         [UnityTest]
         public IEnumerator ExecuteAsync_AppendsSceneDirtyScript_WhenNotPlaying() => UniTask.ToCoroutine(async () =>
         {
-            var tool = new ScriptExecutionTool();
+            var tool = new ExecuteCSharpScriptInUnityEditor();
             var args = JsonHelper.ParseElement(@"{""script"": ""return 1;""}");
 
             var result = await tool.ExecuteAsync(args);
@@ -89,7 +89,7 @@ namespace UnityCodeMcpServer.Tests
         {
             var script = "return 42;";
 
-            var result = ScriptExecutionTool.AppendSceneDirtyScriptIfNeeded(script, true);
+            var result = ExecuteCSharpScriptInUnityEditor.AppendSceneDirtyScriptIfNeeded(script, true);
 
             Assert.That(result, Is.EqualTo(script));
             Assert.That(result, Does.Not.Contain("SceneManager.GetActiveScene"));
@@ -99,11 +99,11 @@ namespace UnityCodeMcpServer.Tests
         [UnityTest]
         public IEnumerator ExecuteAsync_ReturnsError_ForCompilationIssue() => UniTask.ToCoroutine(async () =>
         {
-            var tool = new ScriptExecutionTool();
+            var tool = new ExecuteCSharpScriptInUnityEditor();
             var args = JsonHelper.ParseElement(@"{""script"": ""this is not valid csharp""}");
 
             LogAssert.Expect(LogType.Error, new Regex("Script execution compilation error", RegexOptions.Singleline));
-            LogAssert.Expect(LogType.Error, new Regex("ScriptExecutionTool result", RegexOptions.Singleline));
+            LogAssert.Expect(LogType.Error, new Regex("ExecuteCSharpScriptInUnityEditor result", RegexOptions.Singleline));
 
             var result = await tool.ExecuteAsync(args);
 
@@ -114,7 +114,7 @@ namespace UnityCodeMcpServer.Tests
         [UnityTest]
         public IEnumerator ExecuteAsync_CapturesLogsAndErrors_FromScriptLogs() => UniTask.ToCoroutine(async () =>
         {
-            var tool = new ScriptExecutionTool();
+            var tool = new ExecuteCSharpScriptInUnityEditor();
             var script = "Debug.Log(\"debug log\"); Debug.LogWarning(\"warning log\"); Debug.LogError(\"error log\"); return 7;";
             var args = BuildScriptArguments(script);
 
@@ -139,12 +139,12 @@ namespace UnityCodeMcpServer.Tests
         [UnityTest]
         public IEnumerator ExecuteAsync_ReturnsError_ForRuntimeException() => UniTask.ToCoroutine(async () =>
         {
-            var tool = new ScriptExecutionTool();
+            var tool = new ExecuteCSharpScriptInUnityEditor();
             var script = "throw new System.InvalidOperationException(\"runtime boom\");";
             var args = BuildScriptArguments(script);
 
             LogAssert.Expect(LogType.Error, new Regex("Script execution runtime error", RegexOptions.Singleline));
-            LogAssert.Expect(LogType.Error, new Regex("ScriptExecutionTool result", RegexOptions.Singleline));
+            LogAssert.Expect(LogType.Error, new Regex("ExecuteCSharpScriptInUnityEditor result", RegexOptions.Singleline));
 
             var result = await tool.ExecuteAsync(args);
 
