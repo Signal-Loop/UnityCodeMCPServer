@@ -26,7 +26,7 @@ from pydantic import AnyUrl
 
 # Configure logging to file only (STDIO protocol uses stdout for messages)
 # Redirect stderr to devnull to prevent any output that could corrupt JSON-RPC
-sys.stderr = open(os.devnull, 'w')
+sys.stderr = open(os.devnull, "w")
 
 script_dir = os.path.dirname(os.path.abspath(__file__))
 log_file_path = os.path.join(script_dir, "unity_code_mcp_bridge.log")
@@ -39,16 +39,14 @@ formatter = logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
 
 class FlushingHandler(RotatingFileHandler):
     """File handler that flushes immediately after each log message."""
+
     def emit(self, record):
         super().emit(record)
         self.flush()
 
 
 file_handler = FlushingHandler(
-    log_file_path,
-    maxBytes=5 * 1024 * 1024,
-    backupCount=3,
-    encoding="utf-8"
+    log_file_path, maxBytes=5 * 1024 * 1024, backupCount=3, encoding="utf-8"
 )
 file_handler.setLevel(logging.DEBUG)
 file_handler.setFormatter(formatter)
@@ -71,8 +69,12 @@ class UnityTcpClient:
         """Connect to Unity TCP Server with retry logic."""
         for attempt in range(self.retry_count):
             try:
-                logger.info(f"Connecting to Unity at {self.host}:{self.port} (attempt {attempt + 1}/{self.retry_count})")
-                self.reader, self.writer = await asyncio.open_connection(self.host, self.port)
+                logger.info(
+                    f"Connecting to Unity at {self.host}:{self.port} (attempt {attempt + 1}/{self.retry_count})"
+                )
+                self.reader, self.writer = await asyncio.open_connection(
+                    self.host, self.port
+                )
                 logger.info(f"Connected to Unity at {self.host}:{self.port}")
                 return True
             except (ConnectionRefusedError, OSError) as e:
@@ -99,15 +101,15 @@ class UnityTcpClient:
     async def send_request(self, request: dict[str, Any]) -> dict[str, Any]:
         """Send a JSON-RPC request to Unity and return the response."""
         last_error = None
-        
+
         for attempt in range(self.retry_count):
             async with self._lock:
                 if not self.writer or not self.reader:
                     if not await self.connect():
                         last_error = "Failed to connect"
-                        # connect() already retries internally, so if it fails, 
+                        # connect() already retries internally, so if it fails,
                         # we might as well count this as a failed attempt.
-                
+
                 if self.writer and self.reader:
                     try:
                         message = json.dumps(request).encode("utf-8")
@@ -125,8 +127,16 @@ class UnityTcpClient:
                         logger.debug(f"Received: {response}")
                         return response
 
-                    except (asyncio.IncompleteReadError, ConnectionResetError, BrokenPipeError, ConnectionRefusedError, OSError) as e:
-                        logger.warning(f"Connection error during request (attempt {attempt + 1}/{self.retry_count}): {e}")
+                    except (
+                        asyncio.IncompleteReadError,
+                        ConnectionResetError,
+                        BrokenPipeError,
+                        ConnectionRefusedError,
+                        OSError,
+                    ) as e:
+                        logger.warning(
+                            f"Connection error during request (attempt {attempt + 1}/{self.retry_count}): {e}"
+                        )
                         await self.disconnect()
                         last_error = str(e)
                     except Exception as e:
@@ -134,7 +144,10 @@ class UnityTcpClient:
                         return {
                             "jsonrpc": "2.0",
                             "id": request.get("id"),
-                            "error": {"code": -32603, "message": f"Internal error: {e}"},
+                            "error": {
+                                "code": -32603,
+                                "message": f"Internal error: {e}",
+                            },
                         }
 
             # Wait before retrying if we haven't exhausted attempts
@@ -152,7 +165,9 @@ class UnityTcpClient:
         }
 
 
-def _convert_resource_contents(resource: dict[str, Any]) -> types.TextResourceContents | types.BlobResourceContents:
+def _convert_resource_contents(
+    resource: dict[str, Any],
+) -> types.TextResourceContents | types.BlobResourceContents:
     """Convert Unity resource payload to an MCP resource contents object."""
     if resource.get("blob") is not None:
         return types.BlobResourceContents(
@@ -168,7 +183,9 @@ def _convert_resource_contents(resource: dict[str, Any]) -> types.TextResourceCo
     )
 
 
-def _convert_content_item(item: dict[str, Any]) -> types.TextContent | types.ImageContent | types.EmbeddedResource | None:
+def _convert_content_item(
+    item: dict[str, Any],
+) -> types.TextContent | types.ImageContent | types.EmbeddedResource | None:
     """Convert a Unity content item to an MCP SDK content item."""
     item_type = item.get("type")
     if item_type == "text":
@@ -198,12 +215,14 @@ def create_server(unity_client: UnityTcpClient) -> Server:
     @server.list_tools()
     async def list_tools() -> list[types.Tool]:
         """List available tools from Unity."""
-        response = await unity_client.send_request({
-            "jsonrpc": "2.0",
-            "id": "list_tools",
-            "method": "tools/list",
-            "params": {},
-        })
+        response = await unity_client.send_request(
+            {
+                "jsonrpc": "2.0",
+                "id": "list_tools",
+                "method": "tools/list",
+                "params": {},
+            }
+        )
 
         if "error" in response:
             logger.error(f"Error listing tools: {response['error']}")
@@ -226,37 +245,51 @@ def create_server(unity_client: UnityTcpClient) -> Server:
         name: str, arguments: dict[str, Any]
     ) -> list[types.TextContent | types.ImageContent | types.EmbeddedResource]:
         """Call a tool in Unity."""
-        response = await unity_client.send_request({
-            "jsonrpc": "2.0",
-            "id": f"call_tool_{name}",
-            "method": "tools/call",
-            "params": {"name": name, "arguments": arguments},
-        })
+        response = await unity_client.send_request(
+            {
+                "jsonrpc": "2.0",
+                "id": f"call_tool_{name}",
+                "method": "tools/call",
+                "params": {"name": name, "arguments": arguments},
+            }
+        )
 
         if "error" in response:
             error = response["error"]
-            return [types.TextContent(type="text", text=f"Error: {error.get('message', 'Unknown error')}")]
+            return [
+                types.TextContent(
+                    type="text", text=f"Error: {error.get('message', 'Unknown error')}"
+                )
+            ]
 
         result = response.get("result", {})
         content = result.get("content", [])
 
-        mcp_content: list[types.TextContent | types.ImageContent | types.EmbeddedResource] = []
+        mcp_content: list[
+            types.TextContent | types.ImageContent | types.EmbeddedResource
+        ] = []
         for item in content:
             converted = _convert_content_item(item)
             if converted is not None:
                 mcp_content.append(converted)
 
-        return mcp_content if mcp_content else [types.TextContent(type="text", text="No content returned")]
+        return (
+            mcp_content
+            if mcp_content
+            else [types.TextContent(type="text", text="No content returned")]
+        )
 
     @server.list_prompts()
     async def list_prompts() -> list[types.Prompt]:
         """List available prompts from Unity."""
-        response = await unity_client.send_request({
-            "jsonrpc": "2.0",
-            "id": "list_prompts",
-            "method": "prompts/list",
-            "params": {},
-        })
+        response = await unity_client.send_request(
+            {
+                "jsonrpc": "2.0",
+                "id": "list_prompts",
+                "method": "prompts/list",
+                "params": {},
+            }
+        )
 
         if "error" in response:
             logger.error(f"Error listing prompts: {response['error']}")
@@ -282,14 +315,18 @@ def create_server(unity_client: UnityTcpClient) -> Server:
         ]
 
     @server.get_prompt()
-    async def get_prompt(name: str, arguments: dict[str, str] | None = None) -> types.GetPromptResult:
+    async def get_prompt(
+        name: str, arguments: dict[str, str] | None = None
+    ) -> types.GetPromptResult:
         """Get a prompt from Unity."""
-        response = await unity_client.send_request({
-            "jsonrpc": "2.0",
-            "id": f"get_prompt_{name}",
-            "method": "prompts/get",
-            "params": {"name": name, "arguments": arguments or {}},
-        })
+        response = await unity_client.send_request(
+            {
+                "jsonrpc": "2.0",
+                "id": f"get_prompt_{name}",
+                "method": "prompts/get",
+                "params": {"name": name, "arguments": arguments or {}},
+            }
+        )
 
         if "error" in response:
             error = response["error"]
@@ -306,7 +343,9 @@ def create_server(unity_client: UnityTcpClient) -> Server:
             messages=[
                 types.PromptMessage(
                     role=msg["role"],
-                    content=types.TextContent(type="text", text=msg.get("content", {}).get("text", "")),
+                    content=types.TextContent(
+                        type="text", text=msg.get("content", {}).get("text", "")
+                    ),
                 )
                 for msg in messages
             ],
@@ -315,12 +354,14 @@ def create_server(unity_client: UnityTcpClient) -> Server:
     @server.list_resources()
     async def list_resources() -> list[types.Resource]:
         """List available resources from Unity."""
-        response = await unity_client.send_request({
-            "jsonrpc": "2.0",
-            "id": "list_resources",
-            "method": "resources/list",
-            "params": {},
-        })
+        response = await unity_client.send_request(
+            {
+                "jsonrpc": "2.0",
+                "id": "list_resources",
+                "method": "resources/list",
+                "params": {},
+            }
+        )
 
         if "error" in response:
             logger.error(f"Error listing resources: {response['error']}")
@@ -343,12 +384,14 @@ def create_server(unity_client: UnityTcpClient) -> Server:
     async def read_resource(uri: AnyUrl) -> str:
         """Read a resource from Unity."""
         uri_str = str(uri)
-        response = await unity_client.send_request({
-            "jsonrpc": "2.0",
-            "id": f"read_resource_{uri_str}",
-            "method": "resources/read",
-            "params": {"uri": uri_str},
-        })
+        response = await unity_client.send_request(
+            {
+                "jsonrpc": "2.0",
+                "id": f"read_resource_{uri_str}",
+                "method": "resources/read",
+                "params": {"uri": uri_str},
+            }
+        )
 
         if "error" in response:
             error = response["error"]
@@ -371,15 +414,19 @@ def create_server(unity_client: UnityTcpClient) -> Server:
 async def run_server(host: str, port: int, retry_time: float, retry_count: int):
     """Run the MCP server with Windows-compatible stdio transport."""
     logger.info(f"Starting Unity Code MCP STDIO Bridge (Unity at {host}:{port})")
-    
+
     unity_client: UnityTcpClient | None = None
     try:
         unity_client = UnityTcpClient(host, port, retry_time, retry_count)
         server = create_server(unity_client)
 
         # Create memory streams for the server
-        client_to_server_send, client_to_server_recv = create_memory_object_stream[SessionMessage | Exception](max_buffer_size=100)
-        server_to_client_send, server_to_client_recv = create_memory_object_stream[SessionMessage](max_buffer_size=100)
+        client_to_server_send, client_to_server_recv = create_memory_object_stream[
+            SessionMessage | Exception
+        ](max_buffer_size=100)
+        server_to_client_send, server_to_client_recv = create_memory_object_stream[
+            SessionMessage
+        ](max_buffer_size=100)
 
         async def stdin_reader():
             """Read JSON-RPC messages from stdin using thread pool."""
@@ -395,7 +442,7 @@ async def run_server(host: str, port: int, retry_time: float, retry_count: int):
                         logger.info("stdin EOF")
                         break
 
-                    line_text = line.decode('utf-8').strip()
+                    line_text = line.decode("utf-8").strip()
                     if not line_text:
                         continue
 
@@ -417,8 +464,12 @@ async def run_server(host: str, port: int, retry_time: float, retry_count: int):
 
             try:
                 async for session_msg in server_to_client_recv:
-                    json_str = session_msg.message.model_dump_json(by_alias=True, exclude_none=True)
-                    await anyio.to_thread.run_sync(lambda: write_data((json_str + "\n").encode('utf-8')))  # type: ignore[attr-defined]
+                    json_str = session_msg.message.model_dump_json(
+                        by_alias=True, exclude_none=True
+                    )
+                    await anyio.to_thread.run_sync(
+                        lambda: write_data((json_str + "\n").encode("utf-8"))
+                    )  # type: ignore[attr-defined]
             except Exception as e:
                 logger.error(f"stdout_writer error: {e}")
 
@@ -447,8 +498,18 @@ def main():
     )
     parser.add_argument("--host", default="localhost", help="Unity TCP Server host")
     parser.add_argument("--port", type=int, default=21088, help="Unity TCP Server port")
-    parser.add_argument("--retry-time", type=float, default=2.0, help="Seconds between connection retries")
-    parser.add_argument("--retry-count", type=int, default=15, help="Maximum number of connection retries")
+    parser.add_argument(
+        "--retry-time",
+        type=float,
+        default=2.0,
+        help="Seconds between connection retries",
+    )
+    parser.add_argument(
+        "--retry-count",
+        type=int,
+        default=15,
+        help="Maximum number of connection retries",
+    )
     parser.add_argument("--verbose", action="store_true", help="Enable verbose logging")
     parser.add_argument("--quiet", action="store_true", help="Suppress logging")
 
@@ -459,7 +520,9 @@ def main():
     elif args.verbose:
         logger.setLevel(logging.DEBUG)
 
-    logger.info(f"Unity Code MCP STDIO Bridge starting (Unity at {args.host}:{args.port})")
+    logger.info(
+        f"Unity Code MCP STDIO Bridge starting (Unity at {args.host}:{args.port})"
+    )
     asyncio.run(run_server(args.host, args.port, args.retry_time, args.retry_count))
 
 

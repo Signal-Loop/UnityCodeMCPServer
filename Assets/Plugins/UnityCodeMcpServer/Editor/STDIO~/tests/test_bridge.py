@@ -10,7 +10,10 @@ from mcp import types
 
 # Import the module under test
 from unity_code_mcp_stdio import UnityTcpClient
-from unity_code_mcp_stdio.unity_code_mcp_bridge_stdio import _convert_content_item, _convert_resource_contents
+from unity_code_mcp_stdio.unity_code_mcp_bridge_stdio import (
+    _convert_content_item,
+    _convert_resource_contents,
+)
 
 
 class MockStreamReader:
@@ -139,6 +142,7 @@ class TestUnityTcpClient:
         response = await unity_client.send_request(request)
 
         assert response == expected_response
+
     @pytest.mark.asyncio
     async def test_send_request_connection_error_retries_success(self, unity_client):
         """Test request retry success after initial connection error."""
@@ -149,17 +153,17 @@ class TestUnityTcpClient:
             "result": {"success": True},
         }
         mock_reader_success.set_response(expected_response)
-        
+
         mock_writer_success = MockStreamWriter()
 
         # Mock connect to first fail (or connect but writer fails), then succeed
         # In this test we simulate a writer failure during send
         unity_client.writer = AsyncMock(spec=MockStreamWriter)
         unity_client.reader = AsyncMock(spec=MockStreamReader)
-        
+
         # Setup the writer to raise an error on the first write/drain
         unity_client.writer.drain.side_effect = [ConnectionResetError("Reset"), None]
-        
+
         # For the reconnection
         with patch("asyncio.open_connection", new_callable=AsyncMock) as mock_open:
             mock_open.return_value = (mock_reader_success, mock_writer_success)
@@ -313,6 +317,9 @@ class TestResourceContentMapping:
 
         assert isinstance(converted, types.EmbeddedResource)
         assert isinstance(converted.resource, types.BlobResourceContents)
-        assert str(converted.resource.uri) == "memory://play_unity_game_video/28f2eae676cb427583741f19fea98b0b.mp4"
+        assert (
+            str(converted.resource.uri)
+            == "memory://play_unity_game_video/28f2eae676cb427583741f19fea98b0b.mp4"
+        )
         assert converted.resource.mimeType == "video/mp4"
         assert converted.resource.blob == "AAAAGGZ0eXBtcDQyAAAAAG1wNDFpc29tAAAAKHV1"
