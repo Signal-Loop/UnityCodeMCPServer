@@ -252,7 +252,7 @@ namespace UnityCodeMcpServer.Protocol
         public static ContentItem ImageContent(string base64Data, string mimeType) =>
             new ContentItem { Type = McpContentTypes.Image, Data = base64Data, MimeType = mimeType };
 
-        public static ContentItem ResourceContent(string uri, string mimeType, string text) =>
+        public static ContentItem ResourceTextContent(string uri, string mimeType, string text) =>
             new ContentItem { Type = McpContentTypes.Resource, Resource = new ResourceContent { Uri = uri, MimeType = mimeType, Text = text } };
 
         public static ContentItem ResourceBlobContent(string uri, string mimeType, string blob) =>
