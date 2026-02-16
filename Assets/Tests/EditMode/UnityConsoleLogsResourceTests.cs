@@ -5,7 +5,7 @@ using UnityEngine.TestTools;
 using System;
 using System.Linq;
 
-namespace UnityCodeMcpServer.Tests
+namespace UnityCodeMcpServer.Tests.EditMode
 {
     /// <summary>
     /// Comprehensive test suite for UnityConsoleLogsResource.

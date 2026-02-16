@@ -12,7 +12,7 @@ using NUnit.Framework;
 using UnityEngine;
 using UnityEngine.TestTools;
 
-namespace UnityCodeMcpServer.Tests
+namespace UnityCodeMcpServer.Tests.EditMode
 {
     [TestFixture]
     public class ExecuteCSharpScriptInUnityEditorTests

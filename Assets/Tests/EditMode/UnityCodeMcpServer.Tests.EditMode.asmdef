@@ -1,6 +1,6 @@
 {
-    "name": "UnityCodeMcpServerTests",
-    "rootNamespace": "UnityCodeMcpServer.Tests",
+    "name": "UnityCodeMcpServerTestsEditMode",
+    "rootNamespace": "UnityCodeMcpServer.Tests.EditMode",
     "references": [
         "UnityCodeMcpServer",
         "UniTask",

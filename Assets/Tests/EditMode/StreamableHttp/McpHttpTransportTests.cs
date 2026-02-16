@@ -1,7 +1,7 @@
 using UnityCodeMcpServer.Protocol;
 using NUnit.Framework;
 
-namespace UnityCodeMcpServer.Tests.StreamableHttp
+namespace UnityCodeMcpServer.Tests.EditMode.StreamableHttp
 {
     [TestFixture]
     public class McpHttpTransportTests

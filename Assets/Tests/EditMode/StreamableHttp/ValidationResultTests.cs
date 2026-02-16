@@ -2,7 +2,7 @@ using System;
 using UnityCodeMcpServer.Servers.StreamableHttp;
 using NUnit.Framework;
 
-namespace UnityCodeMcpServer.Tests.StreamableHttp
+namespace UnityCodeMcpServer.Tests.EditMode.StreamableHttp
 {
     [TestFixture]
     public class ValidationResultTests

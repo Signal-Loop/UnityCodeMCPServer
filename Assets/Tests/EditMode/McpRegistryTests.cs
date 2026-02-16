@@ -8,7 +8,7 @@ using UnityCodeMcpServer.Registry;
 using NUnit.Framework;
 using UnityEngine.TestTools;
 
-namespace UnityCodeMcpServer.Tests
+namespace UnityCodeMcpServer.Tests.EditMode
 {
     [TestFixture]
     public class McpRegistryTests

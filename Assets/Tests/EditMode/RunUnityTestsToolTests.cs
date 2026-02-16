@@ -4,7 +4,7 @@ using NUnit.Framework;
 using UnityEditor.TestTools.TestRunner.Api;
 using System.Collections.Generic;
 
-namespace UnityCodeMcpServer.Tests
+namespace UnityCodeMcpServer.Tests.EditMode
 {
     public class RunUnityTestsToolTests
     {

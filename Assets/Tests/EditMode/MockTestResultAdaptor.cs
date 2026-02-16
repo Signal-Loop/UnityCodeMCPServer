@@ -2,7 +2,7 @@ using System.Collections.Generic;
 using UnityEditor.TestTools.TestRunner.Api;
 using NUnit.Framework.Interfaces;
 
-namespace UnityCodeMcpServer.Tests
+namespace UnityCodeMcpServer.Tests.EditMode
 {
     public class MockTestResultAdaptor : ITestResultAdaptor
     {

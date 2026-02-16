@@ -4,7 +4,7 @@ using UnityCodeMcpServer.Protocol;
 using UnityCodeMcpServer.Registry;
 using NUnit.Framework;
 
-namespace UnityCodeMcpServer.Tests
+namespace UnityCodeMcpServer.Tests.EditMode
 {
     [TestFixture]
     public class McpMessageHandlerTests

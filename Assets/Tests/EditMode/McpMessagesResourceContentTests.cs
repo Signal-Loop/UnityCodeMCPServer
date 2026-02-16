@@ -2,7 +2,7 @@ using NUnit.Framework;
 using System.Text.Json;
 using UnityCodeMcpServer.Protocol;
 
-namespace UnityCodeMcpServer.Tests
+namespace UnityCodeMcpServer.Tests.EditMode
 {
     [TestFixture]
     public class McpMessagesResourceContentTests

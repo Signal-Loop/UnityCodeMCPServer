@@ -5,7 +5,7 @@ using UnityCodeMcpServer.Tools;
 using NUnit.Framework;
 using UnityEngine;
 
-namespace UnityCodeMcpServer.Tests
+namespace UnityCodeMcpServer.Tests.EditMode
 {
     public class ReadUnityConsoleLogsToolTests
     {

@@ -8,7 +8,7 @@ using UnityCodeMcpServer.Servers.StreamableHttp;
 using NUnit.Framework;
 using UnityEngine.TestTools;
 
-namespace UnityCodeMcpServer.Tests.StreamableHttp
+namespace UnityCodeMcpServer.Tests.EditMode.StreamableHttp
 {
     /// <summary>
     /// Integration tests for the HTTP server components.

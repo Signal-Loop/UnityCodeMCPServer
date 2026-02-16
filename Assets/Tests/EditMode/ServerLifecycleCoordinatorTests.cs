@@ -3,7 +3,7 @@ using UnityCodeMcpServer.Settings;
 using NUnit.Framework;
 using UnityEngine;
 
-namespace UnityCodeMcpServer.Tests
+namespace UnityCodeMcpServer.Tests.EditMode
 {
     [TestFixture]
     public class ServerLifecycleCoordinatorTests
