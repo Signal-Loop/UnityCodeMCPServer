@@ -30,6 +30,12 @@ namespace UnityCodeMcpServer.Servers.StreamableHttp
 
         static UnityCodeMcpHttpServer()
         {
+            // Don't start server in batch mode (AssetImportWorkers, build processes, etc.)
+            if (Application.isBatchMode)
+            {
+                return;
+            }
+
             // Subscribe to editor events
             EditorApplication.quitting += OnEditorQuitting;
             AssemblyReloadEvents.beforeAssemblyReload += OnBeforeAssemblyReload;

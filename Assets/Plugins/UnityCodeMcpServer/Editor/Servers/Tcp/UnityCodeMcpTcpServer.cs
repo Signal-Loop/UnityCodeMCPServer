@@ -29,6 +29,12 @@ namespace UnityCodeMcpServer.Servers.Tcp
 
         static UnityCodeMcpTcpServer()
         {
+            // Don't start server in batch mode (AssetImportWorkers, build processes, etc.)
+            if (Application.isBatchMode)
+            {
+                return;
+            }
+
             // Subscribe to editor events
             EditorApplication.quitting += OnEditorQuitting;
             AssemblyReloadEvents.beforeAssemblyReload += OnBeforeAssemblyReload;
@@ -40,7 +46,7 @@ namespace UnityCodeMcpServer.Servers.Tcp
         public static void StartServer()
         {
             var settings = UnityCodeMcpServerSettings.Instance;
-            
+
             if (_isRunning)
             {
                 if (settings.VerboseLogging)
@@ -71,6 +77,8 @@ namespace UnityCodeMcpServer.Servers.Tcp
                 _serverCts = new CancellationTokenSource();
                 _listener = new TcpListener(IPAddress.Loopback, settings.Port);
                 _listener.Server.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);
+                // Set linger option to force immediate socket close on shutdown
+                _listener.Server.LingerState = new LingerOption(true, 0);
                 _listener.Start(settings.Backlog);
                 _isRunning = true;
 
@@ -102,7 +110,12 @@ namespace UnityCodeMcpServer.Servers.Tcp
 
             try
             {
-                _listener?.Server?.Close();
+                // Explicitly dispose the underlying socket first
+                if (_listener?.Server != null)
+                {
+                    _listener.Server.Close(0); // Force immediate close
+                    _listener.Server.Dispose();
+                }
                 _listener?.Stop();
             }
             catch (Exception ex)
@@ -329,8 +342,9 @@ namespace UnityCodeMcpServer.Servers.Tcp
         private static async UniTaskVoid RestartServerAsync()
         {
             StopServer();
-            // Wait for socket to be fully released
-            await UniTask.Delay(100);
+            // Wait for socket to be fully released (increased from 100ms to 500ms)
+            // Windows may keep socket in TIME_WAIT state; this ensures proper cleanup
+            await UniTask.Delay(500);
             StartServer();
         }
 
