@@ -48,24 +48,21 @@ namespace UnityCodeMcpServer.Tools
             }
 
             var api = ScriptableObject.CreateInstance<TestRunnerApi>();
-            var callbacks = new TestCallbacks();
-            api.RegisterCallbacks(callbacks);
-
-            var filter = new Filter()
-            {
-                testMode = options.Mode
-            };
-
-            if (options.TestNames != null && options.TestNames.Length > 0)
-            {
-                filter.testNames = options.TestNames;
-            }
 
             try
             {
-                api.Execute(new ExecutionSettings(filter));
-                var result = await callbacks.ResultTask;
-                return BuildResult(result);
+                if (options.Mode == (TestMode.EditMode | TestMode.PlayMode))
+                {
+                    // Run both modes sequentially
+                    var editResult = await RunModeAsync(api, TestMode.EditMode, options.TestNames);
+                    var playResult = await RunModeAsync(api, TestMode.PlayMode, options.TestNames);
+                    return BuildCombinedResult(editResult, playResult);
+                }
+                else
+                {
+                    var result = await RunModeAsync(api, options.Mode, options.TestNames);
+                    return BuildResult(result);
+                }
             }
             catch (Exception ex)
             {
@@ -73,8 +70,33 @@ namespace UnityCodeMcpServer.Tools
             }
             finally
             {
-                api.UnregisterCallbacks(callbacks);
                 UnityEngine.Object.DestroyImmediate(api);
+            }
+        }
+
+        private async UniTask<ITestResultAdaptor> RunModeAsync(TestRunnerApi api, TestMode mode, string[] testNames)
+        {
+            var callbacks = new TestCallbacks();
+            api.RegisterCallbacks(callbacks);
+
+            var filter = new Filter()
+            {
+                testMode = mode
+            };
+
+            if (testNames != null && testNames.Length > 0)
+            {
+                filter.testNames = testNames;
+            }
+
+            try
+            {
+                api.Execute(new ExecutionSettings(filter));
+                return await callbacks.ResultTask;
+            }
+            finally
+            {
+                api.UnregisterCallbacks(callbacks);
             }
         }
 
@@ -143,6 +165,38 @@ namespace UnityCodeMcpServer.Tools
             }
 
             return ToolsCallResult.TextResult(sb.ToString(), result.FailCount > 0);
+        }
+
+        private static ToolsCallResult BuildCombinedResult(ITestResultAdaptor editResult, ITestResultAdaptor playResult)
+        {
+            var totalTests = editResult.PassCount + editResult.FailCount + editResult.InconclusiveCount + editResult.SkipCount +
+                            playResult.PassCount + playResult.FailCount + playResult.InconclusiveCount + playResult.SkipCount;
+
+            if (totalTests == 0)
+            {
+                return ToolsCallResult.ErrorResult("No tests found matching the provided criteria in either EditMode or PlayMode.");
+            }
+
+            var sb = new System.Text.StringBuilder();
+            sb.AppendLine("Test Run Completed (Both Modes).");
+            sb.AppendLine($"Total Passed: {editResult.PassCount + playResult.PassCount}, Failed: {editResult.FailCount + playResult.FailCount}, Inconclusive: {editResult.InconclusiveCount + playResult.InconclusiveCount}, Skipped: {editResult.SkipCount + playResult.SkipCount}");
+            sb.AppendLine($"Total Duration: {editResult.Duration + playResult.Duration}s");
+
+            sb.AppendLine("\n--- EditMode Results ---");
+            sb.AppendLine($"Status: {editResult.TestStatus}, Passed: {editResult.PassCount}, Failed: {editResult.FailCount}, Duration: {editResult.Duration}s");
+            if (editResult.FailCount > 0)
+            {
+                AppendFailedTests(sb, editResult);
+            }
+
+            sb.AppendLine("\n--- PlayMode Results ---");
+            sb.AppendLine($"Status: {playResult.TestStatus}, Passed: {playResult.PassCount}, Failed: {playResult.FailCount}, Duration: {playResult.Duration}s");
+            if (playResult.FailCount > 0)
+            {
+                AppendFailedTests(sb, playResult);
+            }
+
+            return ToolsCallResult.TextResult(sb.ToString(), editResult.FailCount > 0 || playResult.FailCount > 0);
         }
 
         internal static void AppendFailedTests(System.Text.StringBuilder sb, ITestResultAdaptor result)
