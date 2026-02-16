@@ -25,7 +25,6 @@ Add following feature to Unity using execute script tool:
 <details>
 <summary><strong>AI Agent Result</strong></summary>
 
-
 ```
 Implemented the full “cities from CSV → assets → scene” pipeline.
 
@@ -301,14 +300,7 @@ public class EchoTool : ITool
     {
         var text = arguments.GetStringOrDefault("text", "");
 
-        return new ToolsCallResult
-        {
-            IsError = false,
-            Content = new List<ContentItem>
-                {
-                    ContentItem.TextContent($"Echo: {text}")
-                }
-        };
+        return ToolsCallResult.TextResult($"Echo: {text}");
     }
 }
 ```
@@ -351,14 +343,7 @@ public class DelayedEchoTool : IToolAsync
 
         await UniTask.Delay(delayMs);
 
-        return new ToolsCallResult
-        {
-            IsError = false,
-            Content = new List<ContentItem>
-                {
-                    ContentItem.TextContent($"Delayed Echo (after {delayMs}ms): {text}")
-                }
-        };
+        return ToolsCallResult.TextResult($"Delayed Echo (after {delayMs}ms): {text}");
     }
 }
 ```
@@ -373,7 +358,7 @@ By default, script execution context includes following assemblies:
 - UnityEngine.CoreModule
 - UnityEditor.CoreModule
 
-Unity Code MCP Server settings (Assets/Resources/UnityCodeMcpServerSettings.asset) allow configuring additional assemblies to include in the script execution context. This is useful if your project has assemblies that your generated scripts need to reference. 
+Unity Code MCP Server settings (Assets/Resources/UnityCodeMcpServerSettings.asset) allow configuring additional assemblies to include in the script execution context. This is useful if your project has assemblies that your generated scripts need to reference.
 
 To add additional assemblies use settings 'Additional Assemblies' section.
 

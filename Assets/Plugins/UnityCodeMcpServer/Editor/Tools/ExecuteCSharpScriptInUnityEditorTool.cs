@@ -10,6 +10,7 @@ using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Scripting;
 using Microsoft.CodeAnalysis.Scripting;
 using UnityEngine;
+using UnityEditor;
 
 namespace UnityCodeMcpServer.Tools
 {
@@ -17,7 +18,7 @@ namespace UnityCodeMcpServer.Tools
     /// Executes arbitrary C# script text inside the Unity Editor using Roslyn.
     /// Captures return value, logs, and errors into a single response payload.
     /// </summary>
-    public class ScriptExecutionTool : IToolAsync
+    public class ExecuteCSharpScriptInUnityEditor : IToolAsync
     {
         public string Name => "execute_csharp_script_in_unity_editor";
 
@@ -86,9 +87,7 @@ Returns execution status, output, and any logs/errors.
             var logCapture = new LogCapture();
             string errorDetails;
 
-            string makeSceneDirtyScript = @"var sceneToMakeDirty = UnityEngine.SceneManagement.SceneManager.GetActiveScene();
-if (sceneToMakeDirty.IsValid()) { UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(sceneToMakeDirty); }";
-            script = script + "\n" + makeSceneDirtyScript;
+            script = AppendSceneDirtyScriptIfNeeded(script, EditorApplication.isPlaying);
 
             try
             {
@@ -159,14 +158,7 @@ if (sceneToMakeDirty.IsValid()) { UnityEditor.SceneManagement.EditorSceneManager
                 }
             }
 
-            return new ToolsCallResult
-            {
-                IsError = isError,
-                Content = new System.Collections.Generic.List<ContentItem>
-                {
-                    ContentItem.TextContent(response.ToString())
-                }
-            };
+            return ToolsCallResult.TextResult(response.ToString(), isError);
         }
 
         private static string FormatResult(object executionResult)
@@ -185,6 +177,18 @@ if (sceneToMakeDirty.IsValid()) { UnityEditor.SceneManagement.EditorSceneManager
                 .WithReferences(CreateInMemoryReferences(assemblies))
                 .WithImports("System", "System.Collections.Generic", "System.Linq", "UnityEngine", "UnityEditor")
                 .WithOptimizationLevel(Microsoft.CodeAnalysis.OptimizationLevel.Release);
+        }
+
+        public static string AppendSceneDirtyScriptIfNeeded(string script, bool isPlaying)
+        {
+            if (isPlaying)
+            {
+                return script;
+            }
+
+            string makeSceneDirtyScript = @"var sceneToMakeDirty = UnityEngine.SceneManagement.SceneManager.GetActiveScene();
+if (sceneToMakeDirty.IsValid()) { UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(sceneToMakeDirty); }";
+            return script + "\n" + makeSceneDirtyScript;
         }
 
         private static System.Reflection.Assembly[] ResolveAssemblies()
@@ -239,11 +243,11 @@ if (sceneToMakeDirty.IsValid()) { UnityEditor.SceneManagement.EditorSceneManager
             var text = result.Content != null && result.Content.Count > 0 ? result.Content[0].Text : string.Empty;
             if (result.IsError)
             {
-                Debug.LogError($"{McpProtocol.LogPrefix} ScriptExecutionTool result:\n{text}");
+                Debug.LogError($"${McpProtocol.LogPrefix} ExecuteCSharpScriptInUnityEditor result:\n{text}");
             }
             else
             {
-                Debug.Log($"{McpProtocol.LogPrefix} ScriptExecutionTool result:\n{text}");
+                Debug.Log($"${McpProtocol.LogPrefix} ExecuteCSharpScriptInUnityEditor result:\n{text}");
             }
         }
 

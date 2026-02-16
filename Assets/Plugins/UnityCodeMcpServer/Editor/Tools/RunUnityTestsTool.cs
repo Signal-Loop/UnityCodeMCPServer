@@ -16,8 +16,7 @@ namespace UnityCodeMcpServer.Tools
         public string Name => "run_unity_tests";
 
         public string Description =>
-            "Runs Unity tests using the TestRunnerApi. Can run all tests or specific tests by name. " +
-            "Returns the test results including status and logs.";
+            "Runs Unity tests using the TestRunnerApi. Can run all tests or specific tests by name. Supports test modes `EditMode`, `PlayMode`, or `Both` (default: `EditMode`); set `test_mode` in the input to choose. Returns the test results including status and logs.";
 
         public JsonElement InputSchema => JsonHelper.ParseElement(@"
         {
@@ -43,6 +42,11 @@ namespace UnityCodeMcpServer.Tools
         {
             var options = ParseArguments(arguments);
 
+            if (ShouldBlockEditMode(options.Mode, EditorApplication.isPlaying))
+            {
+                return BuildEditModeBlockedResult();
+            }
+
             var api = ScriptableObject.CreateInstance<TestRunnerApi>();
             var callbacks = new TestCallbacks();
             api.RegisterCallbacks(callbacks);
@@ -65,20 +69,28 @@ namespace UnityCodeMcpServer.Tools
             }
             catch (Exception ex)
             {
-                return new ToolsCallResult
-                {
-                    IsError = true,
-                    Content = new List<ContentItem>
-                    {
-                        ContentItem.TextContent($"Error executing tests: {ex.Message}\n{ex.StackTrace}")
-                    }
-                };
+                return ToolsCallResult.ErrorResult($"Error executing tests: {ex.Message}\n{ex.StackTrace}");
             }
             finally
             {
                 api.UnregisterCallbacks(callbacks);
                 UnityEngine.Object.DestroyImmediate(api);
             }
+        }
+
+        public static bool ShouldBlockEditMode(TestMode mode, bool isPlaying)
+        {
+            if (!isPlaying)
+            {
+                return false;
+            }
+
+            return (mode & TestMode.EditMode) == TestMode.EditMode;
+        }
+
+        public static ToolsCallResult BuildEditModeBlockedResult()
+        {
+            return ToolsCallResult.ErrorResult("Cannot run EditMode tests while the editor is in Play Mode.");
         }
 
         public static TestOptions ParseArguments(JsonElement arguments)
@@ -116,14 +128,7 @@ namespace UnityCodeMcpServer.Tools
 
             if (totalTests == 0)
             {
-                return new ToolsCallResult
-                {
-                    IsError = true,
-                    Content = new List<ContentItem>
-                    {
-                        ContentItem.TextContent("No tests found matching the provided criteria. Please check if the test names are correct (fully qualified like 'Namespace.ClassName.MethodName') and if the test mode (EditMode/PlayMode) is correct.")
-                    }
-                };
+                return ToolsCallResult.ErrorResult("No tests found matching the provided criteria. Please check if the test names are correct (fully qualified like 'Namespace.ClassName.MethodName') and if the test mode (EditMode/PlayMode) is correct.");
             }
 
             var sb = new System.Text.StringBuilder();
@@ -137,14 +142,7 @@ namespace UnityCodeMcpServer.Tools
                 AppendFailedTests(sb, result);
             }
 
-            return new ToolsCallResult
-            {
-                IsError = result.FailCount > 0,
-                Content = new List<ContentItem>
-                {
-                    ContentItem.TextContent(sb.ToString())
-                }
-            };
+            return ToolsCallResult.TextResult(sb.ToString(), result.FailCount > 0);
         }
 
         internal static void AppendFailedTests(System.Text.StringBuilder sb, ITestResultAdaptor result)

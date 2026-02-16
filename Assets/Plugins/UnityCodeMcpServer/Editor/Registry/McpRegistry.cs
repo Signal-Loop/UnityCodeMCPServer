@@ -203,11 +203,7 @@ namespace UnityCodeMcpServer.Registry
                 }
                 catch (Exception ex)
                 {
-                    return new ToolsCallResult
-                    {
-                        IsError = true,
-                        Content = new List<ContentItem> { ContentItem.TextContent($"Tool execution error: {ex.Message}") }
-                    };
+                    return ToolsCallResult.ErrorResult($"Tool execution error: {ex.Message}");
                 }
             }
 
@@ -219,19 +215,11 @@ namespace UnityCodeMcpServer.Registry
                 }
                 catch (Exception ex)
                 {
-                    return new ToolsCallResult
-                    {
-                        IsError = true,
-                        Content = new List<ContentItem> { ContentItem.TextContent($"Tool execution error: {ex.Message}") }
-                    };
+                    return ToolsCallResult.ErrorResult($"Tool execution error: {ex.Message}");
                 }
             }
 
-            return new ToolsCallResult
-            {
-                IsError = true,
-                Content = new List<ContentItem> { ContentItem.TextContent($"Tool not found: {name}") }
-            };
+            return ToolsCallResult.ErrorResult($"Tool not found: {name}");
         }
 
         /// <summary>

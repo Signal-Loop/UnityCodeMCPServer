@@ -159,5 +159,35 @@ namespace UnityCodeMcpServer.Tests
             Assert.IsTrue(result.IsError, "Should be an error if no tests were found matching the criteria");
             Assert.That(result.Content[0].Text, Does.Contain("No tests found"));
         }
+
+        [Test]
+        public void ShouldBlockEditMode_WhenPlaying_AndEditModeRequested()
+        {
+            var shouldBlock = RunUnityTestsTool.ShouldBlockEditMode(TestMode.EditMode, true);
+            Assert.IsTrue(shouldBlock);
+        }
+
+        [Test]
+        public void ShouldBlockEditMode_WhenPlaying_AndBothRequested()
+        {
+            var shouldBlock = RunUnityTestsTool.ShouldBlockEditMode(TestMode.EditMode | TestMode.PlayMode, true);
+            Assert.IsTrue(shouldBlock);
+        }
+
+        [Test]
+        public void ShouldNotBlockEditMode_WhenPlaying_AndPlayModeOnly()
+        {
+            var shouldBlock = RunUnityTestsTool.ShouldBlockEditMode(TestMode.PlayMode, true);
+            Assert.IsFalse(shouldBlock);
+        }
+
+        [Test]
+        public void BuildEditModeBlockedResult_ReturnsErrorMessage()
+        {
+            var result = RunUnityTestsTool.BuildEditModeBlockedResult();
+
+            Assert.IsTrue(result.IsError);
+            Assert.That(result.Content[0].Text, Does.Contain("Cannot run EditMode tests while the editor is in Play Mode"));
+        }
     }
 }

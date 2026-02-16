@@ -172,7 +172,7 @@ async def execute_test_script(session: ClientSession) -> str:
     """
     Execute a simple test script via MCP to trigger DLL loading.
 
-    This causes Roslyn/ScriptExecutionTool to load Assembly-CSharp.dll
+    This causes Roslyn/ExecuteCSharpScriptInUnityEditor to load Assembly-CSharp.dll
     and other project assemblies into memory, potentially locking them.
     """
     script = 'Debug.Log("DLL Lock Test: Script executed successfully at " + System.DateTime.Now);'
