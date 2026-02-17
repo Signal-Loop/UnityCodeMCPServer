@@ -6,8 +6,10 @@ using Cysharp.Threading.Tasks;
 using UnityCodeMcpServer.Interfaces;
 using UnityCodeMcpServer.Protocol;
 using UnityEditor;
+using UnityEditor.SceneManagement;
 using UnityEditor.TestTools.TestRunner.Api;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 
 namespace UnityCodeMcpServer.Tools
 {
@@ -47,6 +49,10 @@ namespace UnityCodeMcpServer.Tools
                 return BuildEditModeBlockedResult();
             }
 
+            // Save dirty scenes and capture current scene state before running tests
+            SaveDirtyScenes();
+            var sceneState = CaptureCurrentSceneState();
+
             var api = ScriptableObject.CreateInstance<TestRunnerApi>();
 
             try
@@ -71,6 +77,7 @@ namespace UnityCodeMcpServer.Tools
             finally
             {
                 UnityEngine.Object.DestroyImmediate(api);
+                RestoreSceneState(sceneState);
             }
         }
 
@@ -113,6 +120,99 @@ namespace UnityCodeMcpServer.Tools
         public static ToolsCallResult BuildEditModeBlockedResult()
         {
             return ToolsCallResult.ErrorResult("Cannot run EditMode tests while the editor is in Play Mode.");
+        }
+
+        /// <summary>
+        /// Checks if any currently open scenes are dirty (have unsaved changes) and saves them.
+        /// </summary>
+        public static void SaveDirtyScenes()
+        {
+            var sceneCount = SceneManager.sceneCount;
+            var dirtyScenes = new List<Scene>();
+
+            for (int i = 0; i < sceneCount; i++)
+            {
+                var scene = SceneManager.GetSceneAt(i);
+                if (scene.isDirty)
+                {
+                    dirtyScenes.Add(scene);
+                }
+            }
+
+            if (dirtyScenes.Count > 0)
+            {
+                var scenesToSave = dirtyScenes.ToArray();
+                EditorSceneManager.SaveScenes(scenesToSave);
+            }
+        }
+
+        /// <summary>
+        /// Captures the paths of currently open scenes.
+        /// </summary>
+        /// <returns>A list of scene paths that are currently open.</returns>
+        private static List<string> CaptureCurrentSceneState()
+        {
+            var sceneState = new List<string>();
+            var sceneCount = SceneManager.sceneCount;
+            for (int i = 0; i < sceneCount; i++)
+            {
+                var scene = SceneManager.GetSceneAt(i);
+                if (!string.IsNullOrEmpty(scene.path))
+                {
+                    sceneState.Add(scene.path);
+                }
+            }
+            return sceneState;
+        }
+
+        /// <summary>
+        /// Restores the scenes that were open before test execution.
+        /// Closes any temporary scenes that were loaded during tests.
+        /// </summary>
+        private static void RestoreSceneState(List<string> originalScenePaths)
+        {
+            try
+            {
+                // Get currently open scenes
+                var currentScenes = new Dictionary<string, Scene>();
+                var sceneCount = SceneManager.sceneCount;
+                for (int i = 0; i < sceneCount; i++)
+                {
+                    var scene = SceneManager.GetSceneAt(i);
+                    if (!string.IsNullOrEmpty(scene.path))
+                    {
+                        currentScenes[scene.path] = scene;
+                    }
+                }
+
+                // Close scenes that weren't in the original state
+                var scenesToClose = new List<Scene>();
+                foreach (var kvp in currentScenes)
+                {
+                    if (!originalScenePaths.Contains(kvp.Key))
+                    {
+                        scenesToClose.Add(kvp.Value);
+                    }
+                }
+
+                foreach (var scene in scenesToClose)
+                {
+                    EditorSceneManager.CloseScene(scene, true);
+                }
+
+                // Reopen original scenes that are not currently open
+                foreach (var scenePath in originalScenePaths)
+                {
+                    if (!currentScenes.ContainsKey(scenePath))
+                    {
+                        EditorSceneManager.OpenScene(scenePath, OpenSceneMode.Additive);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.LogWarning($"Failed to restore scene state: {ex.Message}");
+            }
         }
 
         public static TestOptions ParseArguments(JsonElement arguments)

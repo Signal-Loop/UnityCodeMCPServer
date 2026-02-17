@@ -45,13 +45,13 @@ Returns execution status, output, and any logs/errors.
 - Editor window automation
 - Project structure setup
 - ANY task that modifies Unity Editor state
+- Mathematical calculations or data processing that can be done in C# and may assist with Unity Editor tasks
 
 ### Why This Tool is Required:
 - **Direct execution**: Scripts run immediately in the Unity Editor context using Roslyn
 - **Full API access**: Complete access to UnityEngine, UnityEditor, and all project assemblies
 - **Immediate feedback**: Returns execution status, output, and logs instantly
-- **Scene persistence**: Automatically marks scenes dirty after execution
-- **Selection context**: Automatically captures current Unity Editor selection";
+- **Scene persistence**: Automatically marks scenes dirty after execution";
 
         public JsonElement InputSchema => JsonHelper.ParseElement(@"
         {
