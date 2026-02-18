@@ -61,7 +61,7 @@ namespace UnityCodeMcpServer.Tests.EditMode
             mockFS.Files.Add(source + "/pyproject.toml", "toml content");
             mockFS.Files.Add(source + "/uv.lock", "lock content");
 
-            var installer = new PackageInstaller(mockFS, verboseLogging: false);
+            var installer = new PackageInstaller(mockFS);
 
             // Act
             bool result = installer.Install(source, target);
@@ -98,7 +98,7 @@ namespace UnityCodeMcpServer.Tests.EditMode
             mockFS.Files.Add(target + "/pyproject.toml", "toml content");
             mockFS.Files.Add(target + "/uv.lock", "lock content");
 
-            var installer = new PackageInstaller(mockFS, verboseLogging: false);
+            var installer = new PackageInstaller(mockFS);
 
             // Act
             bool result = installer.Install(source, target);
@@ -131,7 +131,7 @@ namespace UnityCodeMcpServer.Tests.EditMode
             mockFS.Files.Add(target + "/pyproject.toml", "toml content"); // Same content
             mockFS.Files.Add(target + "/uv.lock", "OLD lock content");
 
-            var installer = new PackageInstaller(mockFS, verboseLogging: false);
+            var installer = new PackageInstaller(mockFS);
 
             // Act
             bool result = installer.Install(source, target);
@@ -153,10 +153,10 @@ namespace UnityCodeMcpServer.Tests.EditMode
             string source = "Packages/NonExistent";
             string target = "Assets/Plugins/MyPkg/STDIO~";
 
-            var installer = new PackageInstaller(mockFS, verboseLogging: false);
+            var installer = new PackageInstaller(mockFS);
 
             // Expect error log
-            LogAssert.Expect(UnityEngine.LogType.Error, $"#UnityCodeMcpServer Source directory not found: {source}");
+            LogAssert.Expect(UnityEngine.LogType.Error, $"[ERROR] #UnityCodeMcpServer Source directory not found: {source}");
 
             // Act
             bool result = installer.Install(source, target);

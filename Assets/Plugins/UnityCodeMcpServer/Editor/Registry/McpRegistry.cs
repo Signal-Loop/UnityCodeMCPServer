@@ -4,9 +4,9 @@ using System.Linq;
 using System.Reflection;
 using System.Text.Json;
 using Cysharp.Threading.Tasks;
+using UnityCodeMcpServer.Helpers;
 using UnityCodeMcpServer.Interfaces;
 using UnityCodeMcpServer.Protocol;
-using UnityEngine;
 
 namespace UnityCodeMcpServer.Registry
 {
@@ -20,8 +20,6 @@ namespace UnityCodeMcpServer.Registry
         private readonly Dictionary<string, IToolAsync> _asyncTools = new Dictionary<string, IToolAsync>();
         private readonly Dictionary<string, IPrompt> _prompts = new Dictionary<string, IPrompt>();
         private readonly Dictionary<string, IResource> _resources = new Dictionary<string, IResource>();
-        private bool _verboseLogging;
-
         public IReadOnlyDictionary<string, ITool> SyncTools => _syncTools;
         public IReadOnlyDictionary<string, IToolAsync> AsyncTools => _asyncTools;
         public IReadOnlyDictionary<string, IPrompt> Prompts => _prompts;
@@ -30,9 +28,8 @@ namespace UnityCodeMcpServer.Registry
         /// <summary>
         /// Discovers and registers all implementations of ITool, IToolAsync, IPrompt, and IResource
         /// </summary>
-        public void DiscoverAndRegisterAll(bool verboseLogging = false)
+        public void DiscoverAndRegisterAll()
         {
-            _verboseLogging = verboseLogging;
             _syncTools.Clear();
             _asyncTools.Clear();
             _prompts.Clear();
@@ -48,18 +45,15 @@ namespace UnityCodeMcpServer.Registry
                 }
                 catch (ReflectionTypeLoadException ex)
                 {
-                    Debug.LogWarning($"{McpProtocol.LogPrefix} Failed to load types from assembly {assembly.FullName}: {ex.Message}");
+                    LoopLogger.Warn($"{McpProtocol.LogPrefix} Failed to load types from assembly {assembly.FullName}: {ex.Message}");
                 }
                 catch (Exception ex)
                 {
-                    Debug.LogWarning($"{McpProtocol.LogPrefix} Error discovering types in assembly {assembly.FullName}: {ex.Message}");
+                    LoopLogger.Warn($"{McpProtocol.LogPrefix} Error discovering types in assembly {assembly.FullName}: {ex.Message}");
                 }
             }
 
-            if (_verboseLogging)
-            {
-                Debug.Log($"{McpProtocol.LogPrefix} Registry initialized: {_syncTools.Count} sync tools, {_asyncTools.Count} async tools, {_prompts.Count} prompts, {_resources.Count} resources");
-            }
+            LoopLogger.Debug($"{McpProtocol.LogPrefix} Registry initialized: {_syncTools.Count} sync tools, {_asyncTools.Count} async tools, {_prompts.Count} prompts, {_resources.Count} resources");
         }
 
         private void DiscoverInAssembly(Assembly assembly)
@@ -95,7 +89,7 @@ namespace UnityCodeMcpServer.Registry
                 }
                 catch (Exception ex)
                 {
-                    Debug.LogWarning($"{McpProtocol.LogPrefix} Failed to register type {type.FullName}: {ex.Message}");
+                    LoopLogger.Warn($"{McpProtocol.LogPrefix} Failed to register type {type.FullName}: {ex.Message}");
                 }
             }
         }
@@ -105,14 +99,11 @@ namespace UnityCodeMcpServer.Registry
             var instance = (ITool)Activator.CreateInstance(type);
             if (_syncTools.ContainsKey(instance.Name))
             {
-                Debug.LogWarning($"{McpProtocol.LogPrefix} Duplicate sync tool name: {instance.Name}");
+                LoopLogger.Warn($"{McpProtocol.LogPrefix} Duplicate sync tool name: {instance.Name}");
                 return;
             }
             _syncTools[instance.Name] = instance;
-            if (_verboseLogging)
-            {
-                Debug.Log($"{McpProtocol.LogPrefix} Registered sync tool: {instance.Name}");
-            }
+            LoopLogger.Debug($"{McpProtocol.LogPrefix} Registered sync tool: {instance.Name}");
         }
 
         private void RegisterAsyncTool(Type type)
@@ -120,14 +111,11 @@ namespace UnityCodeMcpServer.Registry
             var instance = (IToolAsync)Activator.CreateInstance(type);
             if (_asyncTools.ContainsKey(instance.Name))
             {
-                Debug.LogWarning($"{McpProtocol.LogPrefix} Duplicate async tool name: {instance.Name}");
+                LoopLogger.Warn($"{McpProtocol.LogPrefix} Duplicate async tool name: {instance.Name}");
                 return;
             }
             _asyncTools[instance.Name] = instance;
-            if (_verboseLogging)
-            {
-                Debug.Log($"{McpProtocol.LogPrefix} Registered async tool: {instance.Name}");
-            }
+            LoopLogger.Debug($"{McpProtocol.LogPrefix} Registered async tool: {instance.Name}");
         }
 
         private void RegisterPrompt(Type type)
@@ -135,14 +123,11 @@ namespace UnityCodeMcpServer.Registry
             var instance = (IPrompt)Activator.CreateInstance(type);
             if (_prompts.ContainsKey(instance.Name))
             {
-                Debug.LogWarning($"{McpProtocol.LogPrefix} Duplicate prompt name: {instance.Name}");
+                LoopLogger.Warn($"{McpProtocol.LogPrefix} Duplicate prompt name: {instance.Name}");
                 return;
             }
             _prompts[instance.Name] = instance;
-            if (_verboseLogging)
-            {
-                Debug.Log($"{McpProtocol.LogPrefix} Registered prompt: {instance.Name}");
-            }
+            LoopLogger.Debug($"{McpProtocol.LogPrefix} Registered prompt: {instance.Name}");
         }
 
         private void RegisterResource(Type type)
@@ -150,14 +135,11 @@ namespace UnityCodeMcpServer.Registry
             var instance = (IResource)Activator.CreateInstance(type);
             if (_resources.ContainsKey(instance.Uri))
             {
-                Debug.LogWarning($"{McpProtocol.LogPrefix} Duplicate resource URI: {instance.Uri}");
+                LoopLogger.Warn($"{McpProtocol.LogPrefix} Duplicate resource URI: {instance.Uri}");
                 return;
             }
             _resources[instance.Uri] = instance;
-            if (_verboseLogging)
-            {
-                Debug.Log($"{McpProtocol.LogPrefix} Registered resource: {instance.Uri}");
-            }
+            LoopLogger.Debug($"{McpProtocol.LogPrefix} Registered resource: {instance.Uri}");
         }
 
         /// <summary>

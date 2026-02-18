@@ -7,9 +7,9 @@ using System.Threading;
 using System.Threading.Tasks;
 using Cysharp.Threading.Tasks;
 using UnityCodeMcpServer.Handlers;
+using UnityCodeMcpServer.Helpers;
 using UnityCodeMcpServer.Protocol;
 using UnityCodeMcpServer.Settings;
-using UnityEngine;
 
 namespace UnityCodeMcpServer.Servers.StreamableHttp
 {
@@ -66,10 +66,7 @@ namespace UnityCodeMcpServer.Servers.StreamableHttp
 
             try
             {
-                if (UnityCodeMcpServerSettings.Instance.VerboseLogging)
-                {
-                    Debug.Log($"{McpProtocol.LogPrefix} [HTTP] {request.HttpMethod} {request.Url.PathAndQuery} from {request.RemoteEndPoint}");
-                }
+                LoopLogger.Trace($"{McpProtocol.LogPrefix} [HTTP] {request.HttpMethod} {request.Url.PathAndQuery} from {request.RemoteEndPoint}");
 
                 // Validate Origin header for security
                 var originValidation = ValidateOrigin(request);
@@ -111,7 +108,7 @@ namespace UnityCodeMcpServer.Servers.StreamableHttp
             }
             catch (Exception ex)
             {
-                Debug.LogError($"{McpProtocol.LogPrefix} [HTTP] Request handler error: {ex}");
+                LoopLogger.Error($"{McpProtocol.LogPrefix} [HTTP] Request handler error: {ex}");
                 try
                 {
                     await SendErrorResponseAsync(response, 500, "Internal Server Error", ct);
@@ -154,7 +151,7 @@ namespace UnityCodeMcpServer.Servers.StreamableHttp
             }
             catch (Exception ex)
             {
-                Debug.LogWarning($"{McpProtocol.LogPrefix} [HTTP] Failed to read request body: {ex.Message}");
+                LoopLogger.Warn($"{McpProtocol.LogPrefix} [HTTP] Failed to read request body: {ex.Message}");
                 await SendErrorResponseAsync(response, 400, "Failed to read request body", ct);
                 return;
             }
@@ -165,10 +162,7 @@ namespace UnityCodeMcpServer.Servers.StreamableHttp
                 return;
             }
 
-            if (UnityCodeMcpServerSettings.Instance.VerboseLogging)
-            {
-                Debug.Log($"{McpProtocol.LogPrefix} [HTTP] Received: {requestBody}");
-            }
+            LoopLogger.Trace($"{McpProtocol.LogPrefix} [HTTP] Received: {requestBody}");
 
             // Parse to determine if this is an initialize request
             bool isInitializeRequest = false;
@@ -295,9 +289,9 @@ namespace UnityCodeMcpServer.Servers.StreamableHttp
 
             // Check Last-Event-ID for resumability (optional feature)
             var lastEventId = request.Headers["Last-Event-ID"];
-            if (!string.IsNullOrEmpty(lastEventId) && UnityCodeMcpServerSettings.Instance.VerboseLogging)
+            if (!string.IsNullOrEmpty(lastEventId))
             {
-                Debug.Log($"{McpProtocol.LogPrefix} [HTTP] Client attempting to resume from event: {lastEventId}");
+                LoopLogger.Debug($"{McpProtocol.LogPrefix} [HTTP] Client attempting to resume from event: {lastEventId}");
             }
 
             // Create SSE stream
@@ -312,10 +306,7 @@ namespace UnityCodeMcpServer.Servers.StreamableHttp
                 session.CloseSseStream();
                 session.SetSseStream(sseWriter);
 
-                if (UnityCodeMcpServerSettings.Instance.VerboseLogging)
-                {
-                    Debug.Log($"{McpProtocol.LogPrefix} [HTTP] SSE stream opened for session: {sessionId}");
-                }
+                LoopLogger.Debug($"{McpProtocol.LogPrefix} [HTTP] SSE stream opened for session: {sessionId}");
 
                 // Keep connection alive with periodic pings
                 var keepAliveInterval = Math.Max(5, UnityCodeMcpServerSettings.Instance.SseKeepAliveIntervalSeconds);
@@ -347,27 +338,21 @@ namespace UnityCodeMcpServer.Servers.StreamableHttp
                 catch (IOException)
                 {
                     // Client disconnected - this is normal
-                    if (UnityCodeMcpServerSettings.Instance.VerboseLogging)
-                    {
-                        Debug.Log($"{McpProtocol.LogPrefix} [HTTP] SSE client disconnected for session: {sessionId}");
-                    }
+                    LoopLogger.Debug($"{McpProtocol.LogPrefix} [HTTP] SSE client disconnected for session: {sessionId}");
                 }
                 catch (Exception ex)
                 {
-                    Debug.LogWarning($"{McpProtocol.LogPrefix} [HTTP] SSE stream error for session {sessionId}: {ex.Message}");
+                    LoopLogger.Warn($"{McpProtocol.LogPrefix} [HTTP] SSE stream error for session {sessionId}: {ex.Message}");
                 }
                 finally
                 {
                     session.CloseSseStream();
-                    if (UnityCodeMcpServerSettings.Instance.VerboseLogging)
-                    {
-                        Debug.Log($"{McpProtocol.LogPrefix} [HTTP] SSE stream closed for session: {sessionId}");
-                    }
+                    LoopLogger.Debug($"{McpProtocol.LogPrefix} [HTTP] SSE stream closed for session: {sessionId}");
                 }
             }
             catch (Exception ex)
             {
-                Debug.LogError($"{McpProtocol.LogPrefix} [HTTP] Failed to setup SSE stream: {ex.Message}");
+                LoopLogger.Error($"{McpProtocol.LogPrefix} [HTTP] Failed to setup SSE stream: {ex.Message}");
                 sseWriter?.Dispose();
                 throw;
             }
@@ -452,7 +437,7 @@ namespace UnityCodeMcpServer.Servers.StreamableHttp
             }
 
             // Block other origins
-            Debug.LogWarning($"{McpProtocol.LogPrefix} [HTTP] Blocked request from origin: {origin}");
+            LoopLogger.Warn($"{McpProtocol.LogPrefix} [HTTP] Blocked request from origin: {origin}");
             return ValidationResult.Failure(403, "Origin not allowed");
         }
 
@@ -473,10 +458,7 @@ namespace UnityCodeMcpServer.Servers.StreamableHttp
             await response.OutputStream.WriteAsync(bytes, 0, bytes.Length, ct);
             response.Close();
 
-            if (UnityCodeMcpServerSettings.Instance.VerboseLogging)
-            {
-                Debug.Log($"{McpProtocol.LogPrefix} [HTTP] Sent: {json}");
-            }
+            LoopLogger.Trace($"{McpProtocol.LogPrefix} [HTTP] Sent: {json}");
         }
 
         /// <summary>

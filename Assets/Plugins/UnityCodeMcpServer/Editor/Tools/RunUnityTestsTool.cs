@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text.Json;
 using Cysharp.Threading.Tasks;
+using UnityCodeMcpServer.Helpers;
 using UnityCodeMcpServer.Interfaces;
 using UnityCodeMcpServer.Protocol;
 using UnityEditor;
@@ -211,7 +212,7 @@ namespace UnityCodeMcpServer.Tools
             }
             catch (Exception ex)
             {
-                Debug.LogWarning($"Failed to restore scene state: {ex.Message}");
+                LoopLogger.Warn($"Failed to restore scene state: {ex.Message}");
             }
         }
 

@@ -3,9 +3,9 @@ using System.Collections.Generic;
 using System.Reflection;
 using System.Text;
 using System.Text.Json;
+using UnityCodeMcpServer.Helpers;
 using UnityCodeMcpServer.Interfaces;
 using UnityCodeMcpServer.Protocol;
-using UnityEngine;
 
 namespace UnityCodeMcpServer.Tools
 {
@@ -92,7 +92,7 @@ namespace UnityCodeMcpServer.Tools
             }
             catch (Exception ex)
             {
-                Debug.LogError($"ReadUnityConsoleLogsTool: error reading logs: {ex.Message}");
+                LoopLogger.Error($"ReadUnityConsoleLogsTool: error reading logs: {ex.Message}");
                 return ($"Error reading logs: {ex.Message}", true);
             }
             finally
@@ -144,7 +144,7 @@ namespace UnityCodeMcpServer.Tools
             }
             catch (Exception ex)
             {
-                Debug.LogError($"ReadUnityConsoleLogsTool: error extracting log messages: {ex.Message}");
+                LoopLogger.Error($"ReadUnityConsoleLogsTool: error extracting log messages: {ex.Message}");
                 return ($"Error extracting log messages: {ex.Message}", true);
             }
 
@@ -159,7 +159,7 @@ namespace UnityCodeMcpServer.Tools
             }
             catch (Exception ex)
             {
-                Debug.LogError($"ReadUnityConsoleLogsTool: error invoking {methodName}: {ex.Message}");
+                LoopLogger.Error($"ReadUnityConsoleLogsTool: error invoking {methodName}: {ex.Message}");
             }
         }
 
@@ -172,7 +172,7 @@ namespace UnityCodeMcpServer.Tools
             }
             catch (Exception ex)
             {
-                Debug.LogError($"ReadUnityConsoleLogsTool: error getting log count: {ex.Message}");
+                LoopLogger.Error($"ReadUnityConsoleLogsTool: error getting log count: {ex.Message}");
                 return 0;
             }
         }

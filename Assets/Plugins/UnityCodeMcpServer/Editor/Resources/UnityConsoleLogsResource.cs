@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Reflection;
 using System.Text;
+using UnityCodeMcpServer.Helpers;
 using UnityCodeMcpServer.Interfaces;
 using UnityCodeMcpServer.Protocol;
 using UnityEditor;
@@ -12,7 +13,7 @@ namespace UnityCodeMcpServer.Resources
     /// <summary>
     /// Resource that exposes Unity Editor Console logs.
     /// 
-/// This resource uses reflection to accessUnity's internal LogEntries API,
+    /// This resource uses reflection to accessUnity's internal LogEntries API,
     /// extracting console logs and providing them as text content. It implements
     /// protective measures including:
     /// - Safe reflection with null-checks and error handling
@@ -182,7 +183,7 @@ namespace UnityCodeMcpServer.Resources
             }
             catch (Exception ex)
             {
-                Debug.LogError($"Error invoking {methodName}: {ex.Message}");
+                LoopLogger.Error($"Error invoking {methodName}: {ex.Message}");
             }
         }
 
@@ -198,7 +199,7 @@ namespace UnityCodeMcpServer.Resources
             }
             catch (Exception ex)
             {
-                Debug.LogError($"Error getting log count: {ex.Message}");
+                LoopLogger.Error($"Error getting log count: {ex.Message}");
                 return 0;
             }
         }

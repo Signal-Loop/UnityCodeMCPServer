@@ -3,9 +3,9 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Threading;
 using Cysharp.Threading.Tasks;
+using UnityCodeMcpServer.Helpers;
 using UnityCodeMcpServer.Protocol;
 using UnityCodeMcpServer.Settings;
-using UnityEngine;
 
 namespace UnityCodeMcpServer.Servers.StreamableHttp
 {
@@ -175,10 +175,7 @@ namespace UnityCodeMcpServer.Servers.StreamableHttp
                 throw new InvalidOperationException("Failed to create session - ID collision");
             }
 
-            if (UnityCodeMcpServerSettings.Instance.VerboseLogging)
-            {
-                Debug.Log($"{McpProtocol.LogPrefix} [HTTP] Session created: {sessionId}");
-            }
+            LoopLogger.Debug($"{McpProtocol.LogPrefix} [HTTP] Session created: {sessionId}");
 
             return sessionId;
         }
@@ -248,10 +245,7 @@ namespace UnityCodeMcpServer.Servers.StreamableHttp
 
             if (_sessions.TryRemove(sessionId, out var session))
             {
-                if (UnityCodeMcpServerSettings.Instance.VerboseLogging)
-                {
-                    Debug.Log($"{McpProtocol.LogPrefix} [HTTP] Session terminated: {sessionId}");
-                }
+                LoopLogger.Debug($"{McpProtocol.LogPrefix} [HTTP] Session terminated: {sessionId}");
 
                 session.Dispose();
                 SessionTerminated?.Invoke(sessionId);
@@ -273,9 +267,9 @@ namespace UnityCodeMcpServer.Servers.StreamableHttp
                 TerminateSession(sessionId);
             }
 
-            if (sessionIds.Count > 0 && UnityCodeMcpServerSettings.Instance.VerboseLogging)
+            if (sessionIds.Count > 0)
             {
-                Debug.Log($"{McpProtocol.LogPrefix} [HTTP] All sessions terminated ({sessionIds.Count} total)");
+                LoopLogger.Debug($"{McpProtocol.LogPrefix} [HTTP] All sessions terminated ({sessionIds.Count} total)");
             }
         }
 
@@ -317,7 +311,7 @@ namespace UnityCodeMcpServer.Servers.StreamableHttp
                 }
                 catch (Exception ex)
                 {
-                    Debug.LogWarning($"{McpProtocol.LogPrefix} [HTTP] Session cleanup error: {ex.Message}");
+                    LoopLogger.Warn($"{McpProtocol.LogPrefix} [HTTP] Session cleanup error: {ex.Message}");
                 }
             }
         }
@@ -344,10 +338,7 @@ namespace UnityCodeMcpServer.Servers.StreamableHttp
 
             foreach (var sessionId in expiredSessions)
             {
-                if (UnityCodeMcpServerSettings.Instance.VerboseLogging)
-                {
-                    Debug.Log($"{McpProtocol.LogPrefix} [HTTP] Session expired: {sessionId}");
-                }
+                LoopLogger.Debug($"{McpProtocol.LogPrefix} [HTTP] Session expired: {sessionId}");
                 TerminateSession(sessionId);
             }
         }

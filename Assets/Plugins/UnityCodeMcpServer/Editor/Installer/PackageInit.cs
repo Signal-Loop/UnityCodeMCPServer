@@ -1,6 +1,6 @@
 using UnityEditor;
 using System.IO;
-using UnityEngine;
+using UnityCodeMcpServer.Helpers;
 
 namespace UnityCodeMcpServer.Editor.Installer
 {
@@ -22,14 +22,9 @@ namespace UnityCodeMcpServer.Editor.Installer
             // This works even if the package is in PackageCache, Embedded, or Local.
             var packageInfo = UnityEditor.PackageManager.PackageInfo.FindForAssembly(typeof(PackageInit).Assembly);
 
-            var settings = Settings.UnityCodeMcpServerSettings.Instance;
-
             if (packageInfo == null)
             {
-                if (settings.VerboseLogging)
-                {
-                    Debug.LogWarning("[PackageInit] PackageInfo not found. Skipping installation.");
-                }
+                LoopLogger.Warn("[PackageInit] PackageInfo not found. Skipping installation.");
                 // Fallback or just return if not found (e.g. during script reloads)
                 return;
             }
@@ -40,20 +35,14 @@ namespace UnityCodeMcpServer.Editor.Installer
 
             // Dependency Injection
             IFileSystem fileSystem = new EditorFileSystem();
-            PackageInstaller installer = new PackageInstaller(fileSystem, settings.VerboseLogging);
+            PackageInstaller installer = new PackageInstaller(fileSystem);
 
-            if (settings.VerboseLogging)
-            {
-                Debug.Log($"{Protocol.McpProtocol.LogPrefix} Installing from {sourcePath} to {targetPath}");
-            }
+            LoopLogger.Debug($"{Protocol.McpProtocol.LogPrefix} Installing from {sourcePath} to {targetPath}");
 
             // Execute
             bool installed = installer.Install(sourcePath, targetPath);
 
-            if (settings.VerboseLogging)
-            {
-                Debug.Log($"{Protocol.McpProtocol.LogPrefix} Package installation process completed.");
-            }
+            LoopLogger.Debug($"{Protocol.McpProtocol.LogPrefix} Package installation process completed.");
 
             // Only refresh if we actually changed something
             if (installed)

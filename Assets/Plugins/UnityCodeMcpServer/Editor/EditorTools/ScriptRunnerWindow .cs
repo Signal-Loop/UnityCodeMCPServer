@@ -3,6 +3,7 @@ using UnityEditor;
 using System;
 using System.Text.RegularExpressions;
 using System.Text.Json;
+using UnityCodeMcpServer.Helpers;
 using UnityEditor.Compilation;
 
 public class ScriptRunnerWindow : EditorWindow
@@ -57,11 +58,11 @@ public class ScriptRunnerWindow : EditorWindow
                 output = result.Content[0].Text ?? "(empty)";
             }
 
-            Debug.Log($"ExecuteCSharpScriptInUnityEditor result:\n{output}");
+            LoopLogger.Info($"ExecuteCSharpScriptInUnityEditor result:\n{output}");
         }
         catch (Exception e)
         {
-            Debug.LogError($"Error executing script with ExecuteCSharpScriptInUnityEditor: {e}");
+            LoopLogger.Error($"Error executing script with ExecuteCSharpScriptInUnityEditor: {e}");
         }
 
         // Repaint the window to show the new result.

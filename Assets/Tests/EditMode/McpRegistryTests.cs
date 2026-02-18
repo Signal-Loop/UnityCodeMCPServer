@@ -28,7 +28,7 @@ namespace UnityCodeMcpServer.Tests.EditMode
         public void DiscoverAndRegisterAll_WithVerbose_FindsAllComponents()
         {
             var registry = new McpRegistry();
-            registry.DiscoverAndRegisterAll(true);
+            registry.DiscoverAndRegisterAll();
 
             Assert.That(registry.HasTool("test_sync_tool"), Is.True);
             Assert.That(registry.HasTool("test_async_tool"), Is.True);

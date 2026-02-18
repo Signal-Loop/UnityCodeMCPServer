@@ -3,6 +3,7 @@ using System.Linq;
 using System.Text;
 using System.Text.Json;
 using Cysharp.Threading.Tasks;
+using UnityCodeMcpServer.Helpers;
 using UnityCodeMcpServer.Interfaces;
 using UnityCodeMcpServer.Protocol;
 using UnityCodeMcpServer.Settings;
@@ -105,7 +106,7 @@ Returns execution status, output, and any logs/errors.
             {
                 logCapture.Stop();
                 errorDetails = string.Join(Environment.NewLine, compilationError.Diagnostics);
-                Debug.LogError($"{McpProtocol.LogPrefix} Script execution compilation error:\n{errorDetails}");
+                LoopLogger.Error($"{McpProtocol.LogPrefix} Script execution compilation error:\n{errorDetails}");
                 var toolCallResult = CreateToolCallResult(isError: true, status: "compilation_error", resultText: null, logs: logCapture.Logs, errors: errorDetails, script: script, assemblies: assembliesDisplay);
                 LogToolCallResult(toolCallResult);
                 return toolCallResult;
@@ -114,7 +115,7 @@ Returns execution status, output, and any logs/errors.
             {
                 logCapture.Stop();
                 errorDetails = ex.ToString();
-                Debug.LogError($"{McpProtocol.LogPrefix} Script execution runtime error:\n{errorDetails}");
+                LoopLogger.Error($"{McpProtocol.LogPrefix} Script execution runtime error:\n{errorDetails}");
                 var toolCallResult = CreateToolCallResult(isError: true, status: "execution_error", resultText: null, logs: logCapture.Logs, errors: errorDetails, script: script, assemblies: assembliesDisplay);
                 LogToolCallResult(toolCallResult);
                 return toolCallResult;
@@ -231,7 +232,7 @@ if (sceneToMakeDirty.IsValid()) { UnityEditor.SceneManagement.EditorSceneManager
                 }
                 catch (Exception ex)
                 {
-                    Debug.LogWarning($"{McpProtocol.LogPrefix} Failed to load metadata for assembly '{assembly.GetName().Name}' at '{location}': {ex.Message}");
+                    LoopLogger.Warn($"{McpProtocol.LogPrefix} Failed to load metadata for assembly '{assembly.GetName().Name}' at '{location}': {ex.Message}");
                 }
             }
 
@@ -243,11 +244,11 @@ if (sceneToMakeDirty.IsValid()) { UnityEditor.SceneManagement.EditorSceneManager
             var text = result.Content != null && result.Content.Count > 0 ? result.Content[0].Text : string.Empty;
             if (result.IsError)
             {
-                Debug.LogError($"${McpProtocol.LogPrefix} ExecuteCSharpScriptInUnityEditor result:\n{text}");
+                LoopLogger.Error($"{McpProtocol.LogPrefix} ExecuteCSharpScriptInUnityEditor result:\n{text}");
             }
             else
             {
-                Debug.Log($"${McpProtocol.LogPrefix} ExecuteCSharpScriptInUnityEditor result:\n{text}");
+                LoopLogger.Debug($"{McpProtocol.LogPrefix} ExecuteCSharpScriptInUnityEditor result:\n{text}");
             }
         }
 

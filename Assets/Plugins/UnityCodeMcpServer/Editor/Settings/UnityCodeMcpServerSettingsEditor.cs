@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using UnityCodeMcpServer.Helpers;
 using UnityEditor;
 using UnityEngine;
 
@@ -77,12 +78,12 @@ namespace UnityCodeMcpServer.Settings.Editor
                         var assemblyName = _availableAssemblyNames[_selectedAssemblyIndex];
                         if (settings.AddAssembly(assemblyName))
                         {
-                            Debug.Log($"{Protocol.McpProtocol.LogPrefix} Added assembly: {assemblyName}");
+                            LoopLogger.Info($"{Protocol.McpProtocol.LogPrefix} Added assembly: {assemblyName}");
                             RefreshAvailableAssemblies();
                         }
                         else
                         {
-                            Debug.LogWarning($"{Protocol.McpProtocol.LogPrefix} Assembly already added or is a default assembly: {assemblyName}");
+                            LoopLogger.Warn($"{Protocol.McpProtocol.LogPrefix} Assembly already added or is a default assembly: {assemblyName}");
                         }
                     }
                 }
@@ -112,7 +113,7 @@ namespace UnityCodeMcpServer.Settings.Editor
                     {
                         if (settings.RemoveAssembly(assemblyName))
                         {
-                            Debug.Log($"{Protocol.McpProtocol.LogPrefix} Removed assembly: {assemblyName}");
+                            LoopLogger.Info($"{Protocol.McpProtocol.LogPrefix} Removed assembly: {assemblyName}");
                             RefreshAvailableAssemblies();
                         }
                     }
@@ -160,7 +161,7 @@ namespace UnityCodeMcpServer.Settings.Editor
             }
             catch (Exception ex)
             {
-                Debug.LogError($"{Protocol.McpProtocol.LogPrefix} Error refreshing assemblies: {ex.Message}");
+                LoopLogger.Error($"{Protocol.McpProtocol.LogPrefix} Error refreshing assemblies: {ex.Message}");
                 _availableAssemblyNames = new[] { "(Error loading assemblies)" };
                 _selectedAssemblyIndex = 0;
             }

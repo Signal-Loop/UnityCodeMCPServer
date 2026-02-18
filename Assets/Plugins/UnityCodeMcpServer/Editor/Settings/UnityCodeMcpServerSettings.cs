@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.Linq;
+using UnityCodeMcpServer.Helpers;
 using UnityEngine;
 using UnityEditor;
 
@@ -35,8 +36,8 @@ namespace UnityCodeMcpServer.Settings
         [Tooltip("Select which server automatically starts in the Unity Editor")]
         public ServerStartupMode StartupServer = ServerStartupMode.Stdio;
 
-        [Tooltip("Enable verbose logging for debugging")]
-        public bool VerboseLogging;
+        [Tooltip("Minimum log level. Messages below this level are suppressed.")]
+        public Helpers.LoopLogger.LogLevel MinLogLevel = Helpers.LoopLogger.LogLevel.Info;
 
         [SerializeField, HideInInspector]
         private int _lastPort;
@@ -159,7 +160,7 @@ namespace UnityCodeMcpServer.Settings
 
                 if (instance == null)
                 {
-                    Debug.Log($"{Protocol.McpProtocol.LogPrefix} No settings found in Resources, using defaults");
+                    LoopLogger.Warn($"{Protocol.McpProtocol.LogPrefix} No settings found in Resources, using defaults");
                     instance = CreateInstance<UnityCodeMcpServerSettings>();
                 }
 
@@ -250,7 +251,7 @@ namespace UnityCodeMcpServer.Settings
                 AssetDatabase.CreateAsset(settings, assetPath);
                 AssetDatabase.SaveAssets();
                 AssetDatabase.Refresh();
-                Debug.Log($"{Protocol.McpProtocol.LogPrefix} Created new UnityCodeMcpServerSettings asset at {assetPath}");
+                LoopLogger.Info($"{Protocol.McpProtocol.LogPrefix} Created new UnityCodeMcpServerSettings asset at {assetPath}");
             }
 
             if (settings != null)

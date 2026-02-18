@@ -4,6 +4,7 @@ using System.Net;
 using System.Threading;
 using Cysharp.Threading.Tasks;
 using UnityCodeMcpServer.Handlers;
+using UnityCodeMcpServer.Helpers;
 using UnityCodeMcpServer.Protocol;
 using UnityCodeMcpServer.Registry;
 using UnityCodeMcpServer.Settings;
@@ -61,7 +62,7 @@ namespace UnityCodeMcpServer.Servers.StreamableHttp
         {
             if (_isRunning)
             {
-                Debug.LogWarning($"{McpProtocol.LogPrefix} [HTTP] Server already running");
+                LoopLogger.Debug($"{McpProtocol.LogPrefix} [HTTP] Server already running");
                 return;
             }
 
@@ -69,10 +70,7 @@ namespace UnityCodeMcpServer.Servers.StreamableHttp
 
             if (settings.StartupServer != UnityCodeMcpServerSettings.ServerStartupMode.Http)
             {
-                if (settings.VerboseLogging)
-                {
-                    Debug.Log($"{McpProtocol.LogPrefix} [HTTP] Startup skipped because server selection is {settings.StartupServer}");
-                }
+                LoopLogger.Debug($"{McpProtocol.LogPrefix} [HTTP] Startup skipped because server selection is {settings.StartupServer}");
                 return;
             }
 
@@ -80,7 +78,7 @@ namespace UnityCodeMcpServer.Servers.StreamableHttp
             {
                 // Initialize registry and handlers
                 _registry = new McpRegistry();
-                _registry.DiscoverAndRegisterAll(settings.VerboseLogging);
+                _registry.DiscoverAndRegisterAll();
                 _messageHandler = new McpMessageHandler(_registry);
                 _sessionManager = new SessionManager(
                     settings.SessionTimeoutSeconds,
@@ -101,27 +99,26 @@ namespace UnityCodeMcpServer.Servers.StreamableHttp
                 _listener.Start();
                 _isRunning = true;
 
-                Debug.Log($"{McpProtocol.LogPrefix} [HTTP] Server started on {prefix}\n{BuildRegistrySummary()}");
+                LoopLogger.Info($"{McpProtocol.LogPrefix} [HTTP] Server started on {prefix}\n{BuildRegistrySummary()}");
 
                 // Start accepting requests
                 AcceptRequestsAsync(_serverCts.Token).Forget();
             }
             catch (HttpListenerException ex) when (ex.ErrorCode == 5)
             {
-                // Access denied - need to run: netsh http add urlacl url=http://127.0.0.1:3001/mcp/ user=Everyone
-                Debug.LogError($"{McpProtocol.LogPrefix} [HTTP] Access denied. Run as admin or add URL reservation:\n" +
+                // Access denied
+                LoopLogger.Error($"{McpProtocol.LogPrefix} [HTTP] Access denied. Run as admin or add URL reservation:\n" +
                     $"netsh http add urlacl url=http://127.0.0.1:{settings.HttpPort}{McpHttpTransport.EndpointPath} user=Everyone");
                 _isRunning = false;
             }
             catch (HttpListenerException ex) when (ex.ErrorCode == 183)
             {
-                // Port already in use
-                Debug.LogError($"{McpProtocol.LogPrefix} [HTTP] Port {settings.HttpPort} is already in use");
+                LoopLogger.Error($"{McpProtocol.LogPrefix} [HTTP] Port {settings.HttpPort} is already in use");
                 _isRunning = false;
             }
             catch (Exception ex)
             {
-                Debug.LogError($"{McpProtocol.LogPrefix} [HTTP] Failed to start server: {ex.Message}");
+                LoopLogger.Error($"{McpProtocol.LogPrefix} [HTTP] Failed to start server: {ex.Message}");
                 _isRunning = false;
             }
         }
@@ -134,10 +131,7 @@ namespace UnityCodeMcpServer.Servers.StreamableHttp
             if (!_isRunning)
                 return;
 
-            if (UnityCodeMcpServerSettings.Instance.VerboseLogging)
-            {
-                Debug.Log($"{McpProtocol.LogPrefix} [HTTP] Stopping server...");
-            }
+            LoopLogger.Debug($"{McpProtocol.LogPrefix} [HTTP] Stopping server...");
 
             // Cancel all pending operations
             _serverCts?.Cancel();
@@ -149,7 +143,7 @@ namespace UnityCodeMcpServer.Servers.StreamableHttp
             }
             catch (Exception ex)
             {
-                Debug.LogWarning($"{McpProtocol.LogPrefix} [HTTP] Error terminating sessions: {ex.Message}");
+                LoopLogger.Warn($"{McpProtocol.LogPrefix} [HTTP] Error terminating sessions: {ex.Message}");
             }
 
             // Dispose session manager
@@ -159,7 +153,7 @@ namespace UnityCodeMcpServer.Servers.StreamableHttp
             }
             catch (Exception ex)
             {
-                Debug.LogWarning($"{McpProtocol.LogPrefix} [HTTP] Error disposing session manager: {ex.Message}");
+                LoopLogger.Warn($"{McpProtocol.LogPrefix} [HTTP] Error disposing session manager: {ex.Message}");
             }
 
             // Stop and close the listener
@@ -170,7 +164,7 @@ namespace UnityCodeMcpServer.Servers.StreamableHttp
             }
             catch (Exception ex)
             {
-                Debug.LogWarning($"{McpProtocol.LogPrefix} [HTTP] Error during listener cleanup: {ex.Message}");
+                LoopLogger.Warn($"{McpProtocol.LogPrefix} [HTTP] Error during listener cleanup: {ex.Message}");
             }
             finally
             {
@@ -184,7 +178,7 @@ namespace UnityCodeMcpServer.Servers.StreamableHttp
             }
             catch (Exception ex)
             {
-                Debug.LogWarning($"{McpProtocol.LogPrefix} [HTTP] Error disposing CTS: {ex.Message}");
+                LoopLogger.Warn($"{McpProtocol.LogPrefix} [HTTP] Error disposing CTS: {ex.Message}");
             }
             finally
             {
@@ -197,10 +191,7 @@ namespace UnityCodeMcpServer.Servers.StreamableHttp
             _registry = null;
             _isRunning = false;
 
-            if (UnityCodeMcpServerSettings.Instance.VerboseLogging)
-            {
-                Debug.Log($"{McpProtocol.LogPrefix} [HTTP] Server stopped");
-            }
+            LoopLogger.Debug($"{McpProtocol.LogPrefix} [HTTP] Server stopped");
         }
 
         private static void OnEditorQuitting()
@@ -241,7 +232,7 @@ namespace UnityCodeMcpServer.Servers.StreamableHttp
                 {
                     if (!ct.IsCancellationRequested)
                     {
-                        Debug.LogError($"{McpProtocol.LogPrefix} [HTTP] Error accepting request: {ex.Message}");
+                        LoopLogger.Error($"{McpProtocol.LogPrefix} [HTTP] Error accepting request: {ex.Message}");
                     }
                 }
             }
@@ -260,7 +251,7 @@ namespace UnityCodeMcpServer.Servers.StreamableHttp
             {
                 if (!ct.IsCancellationRequested)
                 {
-                    Debug.LogError($"{McpProtocol.LogPrefix} [HTTP] Unhandled request error: {ex}");
+                    LoopLogger.Error($"{McpProtocol.LogPrefix} [HTTP] Unhandled request error: {ex}");
                 }
             }
         }
@@ -273,8 +264,8 @@ namespace UnityCodeMcpServer.Servers.StreamableHttp
         [MenuItem("Tools/UnityCodeMcpServer/HTTP/Refresh Registry")]
         public static void RefreshRegistry()
         {
-            _registry?.DiscoverAndRegisterAll(UnityCodeMcpServerSettings.Instance.VerboseLogging);
-            Debug.Log($"{McpProtocol.LogPrefix} [HTTP] Registry refreshed");
+            _registry?.DiscoverAndRegisterAll();
+            LoopLogger.Info($"{McpProtocol.LogPrefix} [HTTP] Registry refreshed");
         }
 
         /// <summary>
@@ -305,7 +296,7 @@ namespace UnityCodeMcpServer.Servers.StreamableHttp
             var status = _isRunning ? "Running" : "Stopped";
             var sessionCount = _sessionManager?.ActiveSessionCount ?? 0;
 
-            Debug.Log($"{McpProtocol.LogPrefix} [HTTP] Server Status:\n" +
+            LoopLogger.Info($"{McpProtocol.LogPrefix} [HTTP] Server Status:\n" +
                 $"  Status: {status}\n" +
                 $"  Port: {settings.HttpPort}\n" +
                 $"  Startup Server: {settings.StartupServer}\n" +
