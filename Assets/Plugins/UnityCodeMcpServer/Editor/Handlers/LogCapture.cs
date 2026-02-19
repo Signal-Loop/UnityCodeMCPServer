@@ -11,8 +11,6 @@ namespace UnityCodeMcpServer.Handlers
         private readonly StringBuilder _errorBuilder = new StringBuilder();
         private bool _isRunning;
 
-        public string Logs => CombineLogs();
-
         public string ErrorLog => _errorBuilder.ToString();
 
         public bool HasErrors => _errorBuilder.Length > 0;
@@ -63,7 +61,7 @@ namespace UnityCodeMcpServer.Handlers
             }
         }
 
-        private string CombineLogs()
+        public string GetLogs()
         {
             if (_errorBuilder.Length == 0 && _logBuilder.Length == 0)
             {

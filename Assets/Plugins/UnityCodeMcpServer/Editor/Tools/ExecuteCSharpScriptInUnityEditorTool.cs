@@ -99,7 +99,7 @@ Returns execution status, output, and any logs/errors.
                 var hasLoggedErrors = logCapture.HasErrors;
                 var statusLabel = hasLoggedErrors ? "success_with_errors" : "success";
                 var errorsText = hasLoggedErrors ? logCapture.ErrorLog : null;
-                var toolCallResult = CreateToolCallResult(isError: false, status: statusLabel, resultText: FormatResult(executionResult), logs: logCapture.Logs, errors: errorsText, script: script, assemblies: assembliesDisplay);
+                var toolCallResult = CreateToolCallResult(isError: false, status: statusLabel, resultText: FormatResult(executionResult), logs: logCapture.GetLogs(), errors: errorsText, script: script, assemblies: assembliesDisplay);
                 LogToolCallResult(toolCallResult);
                 return toolCallResult;
             }
@@ -108,7 +108,7 @@ Returns execution status, output, and any logs/errors.
                 logCapture.Stop();
                 errorDetails = string.Join(Environment.NewLine, compilationError.Diagnostics);
                 LoopLogger.Error($"{McpProtocol.LogPrefix} Script execution compilation error:\n{errorDetails}");
-                var toolCallResult = CreateToolCallResult(isError: true, status: "compilation_error", resultText: null, logs: logCapture.Logs, errors: errorDetails, script: script, assemblies: assembliesDisplay);
+                var toolCallResult = CreateToolCallResult(isError: true, status: "compilation_error", resultText: null, logs: logCapture.GetLogs(), errors: errorDetails, script: script, assemblies: assembliesDisplay);
                 LogToolCallResult(toolCallResult);
                 return toolCallResult;
             }
@@ -117,7 +117,7 @@ Returns execution status, output, and any logs/errors.
                 logCapture.Stop();
                 errorDetails = ex.ToString();
                 LoopLogger.Error($"{McpProtocol.LogPrefix} Script execution runtime error:\n{errorDetails}");
-                var toolCallResult = CreateToolCallResult(isError: true, status: "execution_error", resultText: null, logs: logCapture.Logs, errors: errorDetails, script: script, assemblies: assembliesDisplay);
+                var toolCallResult = CreateToolCallResult(isError: true, status: "execution_error", resultText: null, logs: logCapture.GetLogs(), errors: errorDetails, script: script, assemblies: assembliesDisplay);
                 LogToolCallResult(toolCallResult);
                 return toolCallResult;
             }
