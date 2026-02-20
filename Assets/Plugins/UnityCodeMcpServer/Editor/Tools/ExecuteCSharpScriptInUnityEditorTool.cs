@@ -25,35 +25,23 @@ namespace UnityCodeMcpServer.Tools
         public string Name => "execute_csharp_script_in_unity_editor";
 
         public string Description =>
-    @"Use this tool to perform changes or automate tasks in Unity Editor by creating and executing C# scripts.
-Scripts run in the Unity Editor context using Roslyn with full access to UnityEngine, UnityEditor, and any project assembly. 
-Perfect for creating GameObjects, modifying scenes, configuring components, or automating Unity Editor tasks. 
-Returns execution status, output, and any logs/errors.
+    @"Executes dynamically generated C# scripts in the Unity Editor context via Roslyn. 
 
-**ALWAYS use `execute_csharp_script_in_unity_editor` tool for ANY Unity Editor modifications or automation tasks.**
+**CRITICAL DIRECTIVES:**
+- ALWAYS use this tool for ANY Unity Editor state modifications, data queries, or automation tasks.
+- ALWAYS prefer this tool over manually modifying Unity YAML/asset files.
+- ALWAYS use this tool as a C# code sandbox to compute complex math, spatial geometry, or physics calculations (e.g., trajectories, overlaps, distances) rather than calculating them internally.
 
-**ALWAYS prefer `execute_csharp_script_in_unity_editor` tool to modification of Unity Yaml files.**
+**CAPABILITIES:**
+- **Scene & Asset Manipulation:** Create/modify GameObjects, Prefabs, Components, Transforms, and UI. Perform AssetDatabase operations.
+- **Automation & Queries:** Batch process tasks, set up project structures, and query current editor state.
+- **Calculation Sandbox:** Leverage pure C# or Unity's mathematical API (`Mathf`, `Vector3`, `Quaternion`, `Physics`) to reliably compute and return geometric or physical data.
 
-### When to Use This Tool (Use for ALL of these scenarios):
-- Creating, modifying, or deleting GameObjects in scenes
-- Adding, configuring, or removing Components
-- Adjusting Transform properties (position, rotation, scale)
-- Setting up UI elements and Canvas hierarchies
-- Creating or modifying Prefabs
-- Configuring ScriptableObject instances
-- Scene management (creating, loading, switching scenes)
-- Asset manipulation (importing, configuring, organizing, modifying)
-- Batch operations on multiple GameObjects
-- Editor window automation
-- Project structure setup
-- ANY task that modifies Unity Editor state
-- Mathematical calculations or data processing that can be done in C# and may assist with Unity Editor tasks
-
-### Why This Tool is Required:
-- **Direct execution**: Scripts run immediately in the Unity Editor context using Roslyn
-- **Full API access**: Complete access to UnityEngine, UnityEditor, and all project assemblies
-- **Immediate feedback**: Returns execution status, output, and logs instantly
-- **Scene persistence**: Automatically marks scenes dirty after execution";
+**SCRIPTING GUIDELINES (Follow strictly to prevent errors):**
+- **Namespaces:** You MUST explicitly include required `using` directives (e.g., `using System; using UnityEngine; using UnityEditor;`).
+- **Returning Data:** To read data back from the execution, print it using `Debug.Log()`. The tool captures and returns all console output.
+- **Environment:** Scripts run with full access to all project assemblies. Scenes are marked dirty upon completion.
+- **Format:** Provide raw, valid, top-level C# script code.";
 
         public JsonElement InputSchema => JsonHelper.ParseElement(@"
         {

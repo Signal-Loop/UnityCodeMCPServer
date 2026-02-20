@@ -19,7 +19,22 @@ namespace UnityCodeMcpServer.Tools
         public string Name => "run_unity_tests";
 
         public string Description =>
-            "Runs Unity tests using the TestRunnerApi. Can run all tests or specific tests by name. Supports test modes `EditMode`, `PlayMode`, or `Both` (default: `EditMode`); set `test_mode` in the input to choose. Returns the test results including status and logs.";
+            @"Executes Unity tests via the TestRunnerApi and returns the results.
+
+**CRITICAL DIRECTIVES:**
+- ALWAYS run relevant tests after modifying scripts or editor state to ensure you haven't broken existing functionality.
+- If a test fails, analyze the returned error message and stack trace, then fix the code and re-run the test.
+- Prefer running specific tests by name when debugging a localized issue. Running ALL tests can consume too much time and context window space.
+
+**PARAMETERS & USAGE GUIDELINES:**
+- `test_mode` (String): Determines the execution context.
+  - `EditMode` (Default): Runs quickly in the Editor without entering Play mode. Prefer this for pure C# logic, mathematical calculations, and standard unit tests.
+  - `PlayMode`: Enters Play mode. Use ONLY when testing `MonoBehaviour` lifecycles (Start/Update), physics, or runtime-specific behaviors.
+  - `Both`: Runs EditMode followed by PlayMode.
+- `test_names` (Array/List, Optional): Specific test names to run. If left empty, runs ALL tests for the selected mode.
+
+**OUTPUT:**
+Returns pass/fail status, total execution time, and detailed stack traces for any test failures.";
 
         public JsonElement InputSchema => JsonHelper.ParseElement(@"
         {

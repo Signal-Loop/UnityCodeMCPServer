@@ -33,7 +33,16 @@ namespace UnityCodeMcpServer.Tools
         public string Name => "read_unity_console_logs";
 
         public string Description =>
-            "Reads Unity Editor Console logs. Returns recent log entries as text with an optional max_entries limit.";
+            @"Retrieves recent log entries from the Unity Editor Console. 
+
+**WHEN TO USE:**
+- To debug compilation errors, runtime exceptions, or Unity Editor issues.
+- To investigate why a C# script execution failed or produced unexpected results.
+- To verify the status of background tasks, asset imports, or editor actions that might generate silent warnings/errors.
+
+**PARAMETERS & USAGE GUIDELINES:**
+- `max_entries` (Optional): Limits the number of returned logs. You MUST use this to protect your context window from token bloat. Recommend setting this to 20-50 entries for standard debugging.
+- Output includes the log type (Message, Warning, Error, Exception), the log message, and stack traces where applicable.";
 
         public JsonElement InputSchema => JsonHelper.ParseElement(@"
         {
