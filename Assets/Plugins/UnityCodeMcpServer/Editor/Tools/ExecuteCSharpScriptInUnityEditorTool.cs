@@ -24,32 +24,64 @@ namespace UnityCodeMcpServer.Tools
     {
         public string Name => "execute_csharp_script_in_unity_editor";
 
+        // Engineered Prompt: Uses XML structure for progressive disclosure, explicitly lists
+        // pre-imported namespaces, and enforces strict behavioral rules for the LLM.
         public string Description =>
-    @"Executes dynamically generated C# scripts in the Unity Editor context via Roslyn. 
+    @"<tool_description>
+Executes a C# script in the Unity Editor context using Roslyn scripting. Use this tool to interact with, query, or modify the Unity Editor and its loaded project.
+</tool_description>
 
-**CRITICAL DIRECTIVES:**
-- ALWAYS use this tool for ANY Unity Editor state modifications, data queries, or automation tasks.
-- ALWAYS prefer this tool over manually modifying Unity YAML/asset files.
-- ALWAYS use this tool as a C# code sandbox to compute complex math, spatial geometry, or physics calculations (e.g., trajectories, overlaps, distances) rather than calculating them internally.
+<when_to_use>
+- Modifying scene objects, GameObjects, Components, Transforms, or UI elements.
+- Querying the current Editor or scene state (e.g., listing objects, reading component values).
+- Creating or modifying Prefabs, ScriptableObjects, or other assets via AssetDatabase.
+- Batch-processing or automating Editor tasks.
+- Computing values using Unity math APIs (Mathf, Vector3, Quaternion, Physics) to avoid calculation errors.
+</when_to_use>
 
-**CAPABILITIES:**
-- **Scene & Asset Manipulation:** Create/modify GameObjects, Prefabs, Components, Transforms, and UI. Perform AssetDatabase operations.
-- **Automation & Queries:** Batch process tasks, set up project structures, and query current editor state.
-- **Calculation Sandbox:** Leverage pure C# or Unity's mathematical API (`Mathf`, `Vector3`, `Quaternion`, `Physics`) to reliably compute and return geometric or physical data.
+<when_not_to_use>
+- Do NOT use to edit C# source files — use file editing tools instead.
+- Do NOT use to read/write plain text/JSON/YAML files — use file tools instead.
+- Do NOT use to install packages or change ProjectSettings — requires dedicated tools.
+</when_not_to_use>
 
-**SCRIPTING GUIDELINES (Follow strictly to prevent errors):**
-- **Namespaces:** You MUST explicitly include required `using` directives (e.g., `using System; using UnityEngine; using UnityEditor;`).
-- **Returning Data:** To read data back from the execution, print it using `Debug.Log()`. The tool captures and returns all console output.
-- **Environment:** Scripts run with full access to all project assemblies. Scenes are marked dirty upon completion.
-- **Format:** Provide raw, valid, top-level C# script code.";
+<environment>
+- PRE-IMPORTED NAMESPACES: `System`, `System.Collections.Generic`, `System.Linq`, `UnityEngine`, `UnityEditor`. Do NOT add `using` statements for these.
+- Full access to all project assemblies is available.
+- Synchronous host environment (Main Thread).
+- The active scene is automatically marked dirty after successful execution in edit mode.
+</environment>
 
+<rules>
+1. TOP-LEVEL STATEMENTS ONLY: Write flat code. Do not wrap code in a class or a method body.
+2. EXPLICIT USINGS: Only declare namespaces NOT in the pre-imported list (e.g., `using UnityEngine.UI;`).
+3. NO ASYNC/AWAIT: Do not use async methods or Task-based APIs.
+4. NO BACKGROUND THREADS: All Editor API calls must occur on the main thread. Do not use Task.Run.
+5. OUTPUT CAPTURE: The tool captures `Debug.Log()`, `Debug.LogError()`, and the final evaluated expression. Rely primarily on `Debug.Log()` to return structured data to yourself.
+</rules>
+
+<examples>
+<example>
+<intent>Find a player, handle null, and get position</intent>
+<script>
+var go = GameObject.Find(""Player"");
+if (go == null) { 
+    Debug.LogError(""Player not found""); 
+    return; 
+}
+Debug.Log($""Player position: {go.transform.position}"");
+</script>
+</example>
+</examples>";
+
+        // Explicit JSON schema instruction to prevent markdown wrapping
         public JsonElement InputSchema => JsonHelper.ParseElement(@"
         {
             ""type"": ""object"",
             ""properties"": {
                 ""script"": {
                     ""type"": ""string"",
-                    ""description"": ""C# script text to execute in the Unity Editor context""
+                    ""description"": ""The raw C# script to execute. MUST NOT be wrapped in markdown blocks (do not use ```csharp). Provide the raw text only.""
                 }
             },
             ""required"": [""script""]
@@ -62,6 +94,15 @@ namespace UnityCodeMcpServer.Tools
             if (string.IsNullOrWhiteSpace(script))
             {
                 return CreateToolCallResult(isError: true, status: "error", resultText: null, logs: null, errors: "Script is empty or missing.", script: script);
+            }
+
+            // Strip accidental markdown formatting if the LLM hallucinated it anyway
+            if (script.StartsWith("```"))
+            {
+                var lines = script.Split('\n').ToList();
+                if (lines.Count > 0 && lines[0].StartsWith("```")) lines.RemoveAt(0);
+                if (lines.Count > 0 && lines.Last().Trim() == "```") lines.RemoveAt(lines.Count - 1);
+                script = string.Join("\n", lines).Trim();
             }
 
             var assemblies = ResolveAssemblies();
@@ -77,17 +118,31 @@ namespace UnityCodeMcpServer.Tools
             var logCapture = new LogCapture();
             string errorDetails;
 
-            script = AppendSceneDirtyScriptIfNeeded(script, EditorApplication.isPlaying);
-
             try
             {
                 logCapture.Start();
+
+                // Execute the script
                 object executionResult = await CSharpScript.EvaluateAsync(script, options);
+
                 logCapture.Stop();
+
+                // Mark scene dirty natively AFTER successful execution (Replaces the fragile string-append hack)
+                MarkActiveSceneDirtyIfNeeded();
+
                 var hasLoggedErrors = logCapture.HasErrors;
                 var statusLabel = hasLoggedErrors ? "success_with_errors" : "success";
                 var errorsText = hasLoggedErrors ? logCapture.ErrorLog : null;
-                var toolCallResult = CreateToolCallResult(isError: false, status: statusLabel, resultText: FormatResult(executionResult), logs: logCapture.GetLogs(), errors: errorsText, script: script, assemblies: assembliesDisplay);
+
+                var toolCallResult = CreateToolCallResult(
+                    isError: false,
+                    status: statusLabel,
+                    resultText: FormatResult(executionResult),
+                    logs: logCapture.GetLogs(),
+                    errors: errorsText,
+                    script: script,
+                    assemblies: assembliesDisplay);
+
                 LogToolCallResult(toolCallResult);
                 return toolCallResult;
             }
@@ -96,6 +151,7 @@ namespace UnityCodeMcpServer.Tools
                 logCapture.Stop();
                 errorDetails = string.Join(Environment.NewLine, compilationError.Diagnostics);
                 LoopLogger.Error($"{McpProtocol.LogPrefix} Script execution compilation error:\n{errorDetails}");
+
                 var toolCallResult = CreateToolCallResult(isError: true, status: "compilation_error", resultText: null, logs: logCapture.GetLogs(), errors: errorDetails, script: script, assemblies: assembliesDisplay);
                 LogToolCallResult(toolCallResult);
                 return toolCallResult;
@@ -105,6 +161,7 @@ namespace UnityCodeMcpServer.Tools
                 logCapture.Stop();
                 errorDetails = ex.ToString();
                 LoopLogger.Error($"{McpProtocol.LogPrefix} Script execution runtime error:\n{errorDetails}");
+
                 var toolCallResult = CreateToolCallResult(isError: true, status: "execution_error", resultText: null, logs: logCapture.GetLogs(), errors: errorDetails, script: script, assemblies: assembliesDisplay);
                 LogToolCallResult(toolCallResult);
                 return toolCallResult;
@@ -115,20 +172,36 @@ namespace UnityCodeMcpServer.Tools
             }
         }
 
+        /// <summary>
+        /// Natively marks the scene dirty instead of appending a script to the user's code.
+        /// </summary>
+        public static void MarkActiveSceneDirtyIfNeeded()
+        {
+            if (!EditorApplication.isPlaying)
+            {
+                var sceneToMakeDirty = UnityEngine.SceneManagement.SceneManager.GetActiveScene();
+                if (sceneToMakeDirty.IsValid())
+                {
+                    UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(sceneToMakeDirty);
+                }
+            }
+        }
+
         private static ToolsCallResult CreateToolCallResult(bool isError, string status, string resultText, string logs, string errors, string script, string[] assemblies = null)
         {
             var response = new StringBuilder();
             response.AppendLine($"### Status: {status}");
+
             if (!string.IsNullOrWhiteSpace(resultText))
             {
-                response.AppendLine($"### Result");
-                response.AppendLine("```");
+                response.AppendLine("### Result");
+                response.AppendLine("```text");
                 response.AppendLine(resultText);
                 response.AppendLine("```");
             }
 
             response.AppendLine("### Script");
-            response.AppendLine("```");
+            response.AppendLine("```csharp");
             response.AppendLine(string.IsNullOrWhiteSpace(script) ? "(not provided)" : script);
             response.AppendLine("```");
 
@@ -153,12 +226,7 @@ namespace UnityCodeMcpServer.Tools
 
         private static string FormatResult(object executionResult)
         {
-            if (executionResult == null)
-            {
-                return "(null)";
-            }
-
-            return executionResult.ToString();
+            return executionResult == null ? "(null)" : executionResult.ToString();
         }
 
         private static ScriptOptions CreateScriptOptions(System.Reflection.Assembly[] assemblies)
@@ -167,18 +235,6 @@ namespace UnityCodeMcpServer.Tools
                 .WithReferences(CreateInMemoryReferences(assemblies))
                 .WithImports("System", "System.Collections.Generic", "System.Linq", "UnityEngine", "UnityEditor")
                 .WithOptimizationLevel(Microsoft.CodeAnalysis.OptimizationLevel.Release);
-        }
-
-        public static string AppendSceneDirtyScriptIfNeeded(string script, bool isPlaying)
-        {
-            if (isPlaying)
-            {
-                return script;
-            }
-
-            string makeSceneDirtyScript = @"var sceneToMakeDirty = UnityEngine.SceneManagement.SceneManager.GetActiveScene();
-if (sceneToMakeDirty.IsValid()) { UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(sceneToMakeDirty); }";
-            return script + "\n" + makeSceneDirtyScript;
         }
 
         private static System.Reflection.Assembly[] ResolveAssemblies()
@@ -203,16 +259,10 @@ if (sceneToMakeDirty.IsValid()) { UnityEditor.SceneManagement.EditorSceneManager
             var references = new System.Collections.Generic.List<MetadataReference>(assemblies.Length);
             foreach (var assembly in assemblies)
             {
-                if (assembly == null || assembly.IsDynamic)
-                {
-                    continue;
-                }
+                if (assembly == null || assembly.IsDynamic) continue;
 
                 var location = assembly.Location;
-                if (string.IsNullOrWhiteSpace(location))
-                {
-                    continue;
-                }
+                if (string.IsNullOrWhiteSpace(location)) continue;
 
                 try
                 {
@@ -230,7 +280,13 @@ if (sceneToMakeDirty.IsValid()) { UnityEditor.SceneManagement.EditorSceneManager
 
         private static void LogToolCallResult(ToolsCallResult result)
         {
-            var text = result.Content != null && result.Content.Count > 0 ? result.Content[0].Text : string.Empty;
+            string text = string.Empty;
+            if (result.Content != null && result.Content.Count > 0)
+            {
+                var first = result.Content[0];
+                text = first != null ? first.Text ?? string.Empty : string.Empty;
+            }
+
             if (result.IsError)
             {
                 LoopLogger.Error($"{McpProtocol.LogPrefix} ExecuteCSharpScriptInUnityEditor result:\n{text}");

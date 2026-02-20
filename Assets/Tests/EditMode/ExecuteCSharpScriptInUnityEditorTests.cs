@@ -69,31 +69,41 @@ namespace UnityCodeMcpServer.Tests.EditMode
         });
 
         [UnityTest]
-        public IEnumerator ExecuteAsync_AppendsSceneDirtyScript_WhenNotPlaying() => UniTask.ToCoroutine(async () =>
+        public IEnumerator ExecuteAsync_MarksSceneDirty_AfterSuccessfulExecution() => UniTask.ToCoroutine(async () =>
         {
+            var scene = UnityEditor.SceneManagement.EditorSceneManager.NewScene(
+                UnityEditor.SceneManagement.NewSceneSetup.EmptyScene,
+                UnityEditor.SceneManagement.NewSceneMode.Single);
+            Assert.That(scene.isDirty, Is.False, "Scene should start clean");
+
             var tool = new ExecuteCSharpScriptInUnityEditor();
             var args = JsonHelper.ParseElement(@"{""script"": ""return 1;""}");
 
             var result = await tool.ExecuteAsync(args);
 
             Assert.That(result.IsError, Is.False);
-            Assert.That(result.Content, Is.Not.Empty);
-            var text = result.Content[0].Text;
-            Assert.That(text, Does.Contain("return 1;"));
-            Assert.That(text, Does.Contain("SceneManager.GetActiveScene"));
-            Assert.That(text, Does.Contain("EditorSceneManager.MarkSceneDirty"));
+            Assert.That(scene.isDirty, Is.True, "Scene should be marked dirty after successful ExecuteAsync");
         });
 
         [Test]
-        public void AppendSceneDirtyScriptIfNeeded_DoesNotAppend_WhenPlaying()
+        public void MarkActiveSceneDirtyIfNeeded_MarksSceneDirty_WhenNotPlaying()
         {
-            var script = "return 42;";
+            // Load a new temporary scene so we have a valid, clean scene to mark dirty
+            var scene = UnityEditor.SceneManagement.EditorSceneManager.NewScene(
+                UnityEditor.SceneManagement.NewSceneSetup.EmptyScene,
+                UnityEditor.SceneManagement.NewSceneMode.Single);
 
-            var result = ExecuteCSharpScriptInUnityEditor.AppendSceneDirtyScriptIfNeeded(script, true);
+            Assert.That(scene.isDirty, Is.False, "Fresh scene should not be dirty");
 
-            Assert.That(result, Is.EqualTo(script));
-            Assert.That(result, Does.Not.Contain("SceneManager.GetActiveScene"));
-            Assert.That(result, Does.Not.Contain("EditorSceneManager.MarkSceneDirty"));
+            ExecuteCSharpScriptInUnityEditor.MarkActiveSceneDirtyIfNeeded();
+
+            Assert.That(scene.isDirty, Is.True, "Scene should be marked dirty after calling MarkActiveSceneDirtyIfNeeded");
+        }
+
+        [Test]
+        public void MarkActiveSceneDirtyIfNeeded_DoesNotThrow_WhenSceneIsValid()
+        {
+            Assert.DoesNotThrow(() => ExecuteCSharpScriptInUnityEditor.MarkActiveSceneDirtyIfNeeded());
         }
 
         [UnityTest]
