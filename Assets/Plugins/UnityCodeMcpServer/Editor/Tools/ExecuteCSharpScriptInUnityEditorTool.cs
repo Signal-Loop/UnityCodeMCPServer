@@ -112,6 +112,9 @@ Debug.Log($""Player position: {go.transform.position}"");
         private static ToolsCallResult CreateToolCallResult(bool isError, string status, string resultText, string logs, string errors, string script, string[] assemblies = null)
         {
             var response = new StringBuilder();
+            string mode = EditorApplication.isPlaying ? "Play Mode" : "Edit Mode";
+            response.AppendLine($"**Unity Editor is in {mode}**");
+            response.AppendLine();
             response.AppendLine($"### Status: {status}");
 
             if (!string.IsNullOrWhiteSpace(resultText))

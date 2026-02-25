@@ -270,6 +270,9 @@ Returns pass/fail status, total execution time, and detailed stack traces for an
             }
 
             var sb = new System.Text.StringBuilder();
+            string mode = EditorApplication.isPlaying ? "Play Mode" : "Edit Mode";
+            sb.AppendLine($"**Unity Editor is in {mode}**");
+            sb.AppendLine();
             sb.AppendLine($"Test Run Completed. Status: {result.TestStatus}");
             sb.AppendLine($"Passed: {result.PassCount}, Failed: {result.FailCount}, Inconclusive: {result.InconclusiveCount}, Skipped: {result.SkipCount}");
             sb.AppendLine($"Duration: {result.Duration}s");
@@ -294,6 +297,9 @@ Returns pass/fail status, total execution time, and detailed stack traces for an
             }
 
             var sb = new System.Text.StringBuilder();
+            string mode = EditorApplication.isPlaying ? "Play Mode" : "Edit Mode";
+            sb.AppendLine($"**Unity Editor is in {mode}**");
+            sb.AppendLine();
             sb.AppendLine("Test Run Completed (Both Modes).");
             sb.AppendLine($"Total Passed: {editResult.PassCount + playResult.PassCount}, Failed: {editResult.FailCount + playResult.FailCount}, Inconclusive: {editResult.InconclusiveCount + playResult.InconclusiveCount}, Skipped: {editResult.SkipCount + playResult.SkipCount}");
             sb.AppendLine($"Total Duration: {editResult.Duration + playResult.Duration}s");

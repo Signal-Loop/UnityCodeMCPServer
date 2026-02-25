@@ -6,6 +6,7 @@ using System.Text.Json;
 using UnityCodeMcpServer.Helpers;
 using UnityCodeMcpServer.Interfaces;
 using UnityCodeMcpServer.Protocol;
+using UnityEditor;
 
 namespace UnityCodeMcpServer.Tools
 {
@@ -68,6 +69,9 @@ namespace UnityCodeMcpServer.Tools
             {
                 text = "(No console logs available)";
             }
+
+            string mode = EditorApplication.isPlaying ? "Play Mode" : "Edit Mode";
+            text = $"**Unity Editor is in {mode}**\n\n{text}";
 
             return ToolsCallResult.TextResult(text, isError);
         }
