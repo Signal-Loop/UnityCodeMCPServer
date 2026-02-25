@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 using Cysharp.Threading.Tasks;
 using UnityCodeMcpServer.Protocol;
 using UnityCodeMcpServer.Registry;
+using UnityCodeMcpServer.Services;
 using UnityCodeMcpServer.Tools;
 using NUnit.Framework;
 using UnityEngine;
@@ -95,7 +96,8 @@ namespace UnityCodeMcpServer.Tests.EditMode
 
             Assert.That(scene.isDirty, Is.False, "Fresh scene should not be dirty");
 
-            ExecuteCSharpScriptInUnityEditor.MarkActiveSceneDirtyIfNeeded();
+            var service = new ScriptExecutionService();
+            service.MarkActiveSceneDirtyIfNeeded();
 
             Assert.That(scene.isDirty, Is.True, "Scene should be marked dirty after calling MarkActiveSceneDirtyIfNeeded");
         }
@@ -103,7 +105,8 @@ namespace UnityCodeMcpServer.Tests.EditMode
         [Test]
         public void MarkActiveSceneDirtyIfNeeded_DoesNotThrow_WhenSceneIsValid()
         {
-            Assert.DoesNotThrow(() => ExecuteCSharpScriptInUnityEditor.MarkActiveSceneDirtyIfNeeded());
+            var service = new ScriptExecutionService();
+            Assert.DoesNotThrow(() => service.MarkActiveSceneDirtyIfNeeded());
         }
 
         [UnityTest]

@@ -2,8 +2,8 @@ using UnityEngine;
 using UnityEditor;
 using System;
 using System.Text.RegularExpressions;
-using System.Text.Json;
 using UnityCodeMcpServer.Helpers;
+using UnityCodeMcpServer.Services;
 using UnityEditor.Compilation;
 
 public class ScriptRunnerWindow : EditorWindow
@@ -45,27 +45,41 @@ public class ScriptRunnerWindow : EditorWindow
     {
         try
         {
-            // Use the shared ExecuteCSharpScriptInUnityEditor tool which runs scripts in the Unity Editor context and captures logs/errors.
-            var tool = new UnityCodeMcpServer.Tools.ExecuteCSharpScriptInUnityEditor();
-            var inputJson = System.Text.Json.JsonSerializer.Serialize(new { script = _code });
-            using var doc = JsonDocument.Parse(inputJson);
-            var result = await tool.ExecuteAsync(doc.RootElement);
+            var executionService = new ScriptExecutionService();
+            var result = await executionService.ExecuteScriptAsync(_code);
 
-            // Show the tool's formatted response (first content item) if available.
-            string output = "(no content)";
-            if (result != null && result.Content != null && result.Content.Count > 0)
-            {
-                output = result.Content[0].Text ?? "(empty)";
-            }
-
-            LoopLogger.Info($"ExecuteCSharpScriptInUnityEditor result:\n{output}");
+            var output = FormatExecutionOutput(result);
+            LoopLogger.Info($"Script execution result:\n{output}");
         }
         catch (Exception e)
         {
-            LoopLogger.Error($"Error executing script with ExecuteCSharpScriptInUnityEditor: {e}");
+            LoopLogger.Error($"Error executing script: {e}");
         }
 
         // Repaint the window to show the new result.
         Repaint();
+    }
+
+    private string FormatExecutionOutput(ScriptExecutionService.ExecutionResult result)
+    {
+        var output = new System.Text.StringBuilder();
+        output.AppendLine($"Status: {result.Status}");
+
+        if (!string.IsNullOrWhiteSpace(result.ResultText))
+        {
+            output.AppendLine($"Result: {result.ResultText}");
+        }
+
+        if (!string.IsNullOrWhiteSpace(result.Logs))
+        {
+            output.AppendLine($"Logs:\n{result.Logs}");
+        }
+
+        if (!string.IsNullOrWhiteSpace(result.Errors))
+        {
+            output.AppendLine($"Errors:\n{result.Errors}");
+        }
+
+        return output.ToString();
     }
 }
