@@ -1,7 +1,7 @@
 using System;
 using System.Text.Json;
 using UnityCodeMcpServer.Protocol;
-using UnityCodeMcpServer.Tools;
+using UnityCodeMcpServer.McpTools;
 using NUnit.Framework;
 using UnityEngine;
 

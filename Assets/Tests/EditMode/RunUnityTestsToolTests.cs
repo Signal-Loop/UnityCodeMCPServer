@@ -1,5 +1,5 @@
 using System.Text.Json;
-using UnityCodeMcpServer.Tools;
+using UnityCodeMcpServer.McpTools;
 using NUnit.Framework;
 using UnityEditor.TestTools.TestRunner.Api;
 using System.Collections.Generic;

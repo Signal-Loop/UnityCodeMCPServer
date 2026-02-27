@@ -8,7 +8,7 @@ using UnityCodeMcpServer.Protocol;
 using UnityEditor;
 using UnityEngine;
 
-namespace UnityCodeMcpServer.Resources
+namespace UnityCodeMcpServer.McpResources
 {
     /// <summary>
     /// Resource that exposes Unity Editor Console logs.

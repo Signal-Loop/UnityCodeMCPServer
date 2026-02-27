@@ -8,7 +8,7 @@ using UnityCodeMcpServer.Interfaces;
 using UnityCodeMcpServer.Protocol;
 using UnityEditor;
 
-namespace UnityCodeMcpServer.Tools
+namespace UnityCodeMcpServer.McpTools
 {
     /// <summary>
     /// Tool that reads Unity Editor console logs via reflection.

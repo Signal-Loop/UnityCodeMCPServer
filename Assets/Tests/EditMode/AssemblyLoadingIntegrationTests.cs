@@ -3,7 +3,7 @@ using System.Linq;
 using System.Text.Json;
 using Cysharp.Threading.Tasks;
 using UnityCodeMcpServer.Settings;
-using UnityCodeMcpServer.Tools;
+using UnityCodeMcpServer.McpTools;
 using NUnit.Framework;
 using UnityEngine;
 

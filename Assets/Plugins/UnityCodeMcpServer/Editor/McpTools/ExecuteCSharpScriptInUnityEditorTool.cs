@@ -10,7 +10,7 @@ using UnityCodeMcpServer.Services;
 using UnityEngine;
 using UnityEditor;
 
-namespace UnityCodeMcpServer.Tools
+namespace UnityCodeMcpServer.McpTools
 {
     /// <summary>
     /// Executes arbitrary C# script text inside the Unity Editor using Roslyn.

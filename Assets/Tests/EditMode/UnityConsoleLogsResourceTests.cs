@@ -1,5 +1,5 @@
 using NUnit.Framework;
-using UnityCodeMcpServer.Resources;
+using UnityCodeMcpServer.McpResources;
 using UnityEngine;
 using UnityEngine.TestTools;
 using System;

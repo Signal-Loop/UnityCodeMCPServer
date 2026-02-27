@@ -12,7 +12,7 @@ using UnityEditor.TestTools.TestRunner.Api;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 
-namespace UnityCodeMcpServer.Tools
+namespace UnityCodeMcpServer.McpTools
 {
     public class RunUnityTestsTool : IToolAsync
     {

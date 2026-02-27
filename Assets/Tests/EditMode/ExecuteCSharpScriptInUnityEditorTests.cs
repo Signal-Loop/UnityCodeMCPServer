@@ -8,7 +8,7 @@ using Cysharp.Threading.Tasks;
 using UnityCodeMcpServer.Protocol;
 using UnityCodeMcpServer.Registry;
 using UnityCodeMcpServer.Services;
-using UnityCodeMcpServer.Tools;
+using UnityCodeMcpServer.McpTools;
 using NUnit.Framework;
 using UnityEngine;
 using UnityEngine.TestTools;
