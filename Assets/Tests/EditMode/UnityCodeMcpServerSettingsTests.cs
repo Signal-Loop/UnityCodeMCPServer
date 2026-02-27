@@ -1,5 +1,6 @@
 using System.Reflection;
 using System.Linq;
+using System.IO;
 using UnityCodeMcpServer.Settings;
 using NUnit.Framework;
 using UnityEditor;
@@ -388,5 +389,286 @@ namespace UnityCodeMcpServer.Tests.EditMode
                 ScriptableObject.DestroyImmediate(settings);
             }
         }
+
+        #region Asset Creation Flow Tests
+
+        private const string TestSettingsAssetPath = "Assets/Tests/EditMode/TestResources/TestUnityCodeMcpServerSettings.asset";
+
+        [OneTimeSetUp]
+        public void OneTimeSetUp()
+        {
+            // Use test-specific path for all tests
+            UnityCodeMcpServerSettings.SetAssetPathForTesting(TestSettingsAssetPath);
+        }
+
+        [OneTimeTearDown]
+        public void OneTimeTearDown()
+        {
+            // Reset to default path and clean up test asset
+            DeleteTestAsset();
+            UnityCodeMcpServerSettings.ResetAssetPath();
+        }
+
+        [Test]
+        public void SaveInstance_CreatesAssetWhenNotExists()
+        {
+            // Ensure asset doesn't exist
+            DeleteTestAsset();
+
+            var testInstance = ScriptableObject.CreateInstance<UnityCodeMcpServerSettings>();
+
+            // Call SaveInstance
+            UnityCodeMcpServerSettings.SaveInstance(testInstance);
+
+            try
+            {
+                // Verify asset was created
+                Assert.That(File.Exists(TestSettingsAssetPath), Is.True, "Asset file should be created");
+
+                // Verify asset can be loaded
+                var loadedAsset = AssetDatabase.LoadAssetAtPath<UnityCodeMcpServerSettings>(TestSettingsAssetPath);
+                Assert.That(loadedAsset, Is.Not.Null, "Asset should be loadable from database");
+            }
+            finally
+            {
+                // testInstance is now an asset, just delete the asset file
+                DeleteTestAsset();
+            }
+        }
+
+        [Test]
+        public void SaveInstance_DoesNotOverwriteExistingAsset()
+        {
+            // Ensure asset doesn't exist
+            DeleteTestAsset();
+
+            var firstInstance = ScriptableObject.CreateInstance<UnityCodeMcpServerSettings>();
+            firstInstance.Port = 12345;
+
+            // Create first asset
+            UnityCodeMcpServerSettings.SaveInstance(firstInstance);
+
+            try
+            {
+                // Modify the loaded asset
+                var loadedAsset = AssetDatabase.LoadAssetAtPath<UnityCodeMcpServerSettings>(TestSettingsAssetPath);
+                loadedAsset.Port = 99999;
+                EditorUtility.SetDirty(loadedAsset);
+                AssetDatabase.SaveAssets();
+
+                // Try to save a different instance
+                var secondInstance = ScriptableObject.CreateInstance<UnityCodeMcpServerSettings>();
+                secondInstance.Port = 54321;
+                UnityCodeMcpServerSettings.SaveInstance(secondInstance);
+
+                // Verify original asset was not overwritten
+                var reloadedAsset = AssetDatabase.LoadAssetAtPath<UnityCodeMcpServerSettings>(TestSettingsAssetPath);
+                Assert.That(reloadedAsset.Port, Is.EqualTo(99999), "Existing asset should not be overwritten");
+
+                // Second instance was not saved, can be destroyed
+                ScriptableObject.DestroyImmediate(secondInstance);
+            }
+            finally
+            {
+                // Both instances are either assets or destroyed
+                DeleteTestAsset();
+            }
+        }
+
+        [Test]
+        public void SaveInstance_HandlesNullInstance()
+        {
+            // Should not throw, just log warning
+            Assert.DoesNotThrow(() => UnityCodeMcpServerSettings.SaveInstance(null));
+        }
+
+        [Test]
+        public void SaveInstance_CreatesDirectoryIfNeeded()
+        {
+            // Delete the entire directory
+            var directoryPath = Path.GetDirectoryName(TestSettingsAssetPath);
+            if (Directory.Exists(directoryPath))
+            {
+                Directory.Delete(directoryPath, true);
+                AssetDatabase.Refresh();
+            }
+
+            var testInstance = ScriptableObject.CreateInstance<UnityCodeMcpServerSettings>();
+
+            // Call SaveInstance - should create directory
+            UnityCodeMcpServerSettings.SaveInstance(testInstance);
+
+            try
+            {
+                // Verify directory was created
+                Assert.That(Directory.Exists(directoryPath), Is.True, "Directory should be created");
+
+                // Verify asset was created
+                Assert.That(File.Exists(TestSettingsAssetPath), Is.True, "Asset should be created");
+            }
+            finally
+            {
+                // testInstance is now an asset, just delete the asset file
+                DeleteTestAsset();
+            }
+        }
+
+        [Test]
+        public void GetOrCreateSettingsAsset_ReturnsExistingAsset()
+        {
+            // Ensure clean state
+            DeleteTestAsset();
+
+            // Create an asset first
+            var originalAsset = ScriptableObject.CreateInstance<UnityCodeMcpServerSettings>();
+            originalAsset.Port = 77777;
+            UnityCodeMcpServerSettings.SaveInstance(originalAsset);
+            // originalAsset is now an asset, don't hold reference
+
+            try
+            {
+                // Call GetOrCreateSettingsAsset
+                var retrievedAsset = UnityCodeMcpServerSettings.GetOrCreateSettingsAsset();
+
+                // Verify it returned the existing asset
+                Assert.That(retrievedAsset, Is.Not.Null);
+                Assert.That(retrievedAsset.Port, Is.EqualTo(77777), "Should return existing asset with same values");
+            }
+            finally
+            {
+                DeleteTestAsset();
+            }
+        }
+
+        [Test]
+        public void GetOrCreateSettingsAsset_CreatesAssetWhenNotExists()
+        {
+            // Ensure asset doesn't exist
+            DeleteTestAsset();
+
+            try
+            {
+                // Call GetOrCreateSettingsAsset
+                var asset = UnityCodeMcpServerSettings.GetOrCreateSettingsAsset();
+
+                // Verify asset was created
+                Assert.That(asset, Is.Not.Null);
+                Assert.That(File.Exists(TestSettingsAssetPath), Is.True, "Asset file should be created");
+
+                // Verify it has default values
+                Assert.That(asset.Port, Is.EqualTo(21088), "Should have default port value");
+            }
+            finally
+            {
+                DeleteTestAsset();
+            }
+        }
+
+        [Test]
+        public void Instance_ReturnsSameCachedInstance()
+        {
+            // Clear the cached instance using reflection
+            ResetInstanceCache();
+            DeleteTestAsset();
+
+            try
+            {
+                // Get instance twice
+                var firstCall = UnityCodeMcpServerSettings.Instance;
+                var secondCall = UnityCodeMcpServerSettings.Instance;
+
+                // Verify they are the same object
+                Assert.That(ReferenceEquals(firstCall, secondCall), Is.True, "Instance should be cached and return same object");
+            }
+            finally
+            {
+                ResetInstanceCache();
+                DeleteTestAsset();
+            }
+        }
+
+        [Test]
+        public void Instance_CreatesAssetOnFirstAccess()
+        {
+            // Clear cache and delete asset
+            ResetInstanceCache();
+            DeleteTestAsset();
+
+            try
+            {
+                // Access Instance
+                var instance = UnityCodeMcpServerSettings.Instance;
+
+                // Verify asset was created
+                Assert.That(instance, Is.Not.Null);
+                Assert.That(File.Exists(TestSettingsAssetPath), Is.True, "Asset should be created on first access");
+            }
+            finally
+            {
+                ResetInstanceCache();
+                DeleteTestAsset();
+            }
+        }
+
+        [Test]
+        public void ShowSettings_SelectsOrCreatesSettingsAsset()
+        {
+            // ShowSettings finds any existing settings asset or creates one
+            // It uses AssetDatabase.FindAssets which may find production or test assets
+
+            // Call ShowSettings
+            UnityCodeMcpServerSettings.ShowSettings();
+
+            // Verify an asset is selected
+            Assert.That(Selection.activeObject, Is.Not.Null, "ShowSettings should select an asset");
+            Assert.That(Selection.activeObject, Is.InstanceOf<UnityCodeMcpServerSettings>(),
+                "Selected object should be UnityCodeMcpServerSettings");
+        }
+
+        [Test]
+        public void MinLogLevel_HasCorrectDefaultValue()
+        {
+            var settings = ScriptableObject.CreateInstance<UnityCodeMcpServerSettings>();
+
+            try
+            {
+                Assert.That(settings.MinLogLevel, Is.EqualTo(UnityCodeMcpServer.Helpers.LoopLogger.LogLevel.Info),
+                    "Default MinLogLevel should be Info");
+            }
+            finally
+            {
+                ScriptableObject.DestroyImmediate(settings);
+            }
+        }
+
+        #endregion
+
+        #region Helper Methods
+
+        private void DeleteTestAsset()
+        {
+            if (File.Exists(TestSettingsAssetPath))
+            {
+                AssetDatabase.DeleteAsset(TestSettingsAssetPath);
+                AssetDatabase.SaveAssets();
+                AssetDatabase.Refresh();
+            }
+        }
+
+        private void ResetInstanceCache()
+        {
+            // Use reflection to reset the cached _instance field
+            var instanceField = typeof(UnityCodeMcpServerSettings)
+                .GetField("_instance", BindingFlags.Static | BindingFlags.NonPublic);
+
+            if (instanceField != null)
+            {
+                // Just clear the reference, don't try to destroy
+                // If it's an asset, Unity manages it; if not, it will be GC'd
+                instanceField.SetValue(null, null);
+            }
+        }
+
+        #endregion
     }
 }

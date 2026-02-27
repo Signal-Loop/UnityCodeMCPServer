@@ -1,6 +1,7 @@
 using UnityEditor;
 using System.IO;
 using UnityCodeMcpServer.Helpers;
+using UnityCodeMcpServer.Settings;
 
 namespace UnityCodeMcpServer.Editor.Installer
 {
@@ -22,16 +23,33 @@ namespace UnityCodeMcpServer.Editor.Installer
             // This works even if the package is in PackageCache, Embedded, or Local.
             var packageInfo = UnityEditor.PackageManager.PackageInfo.FindForAssembly(typeof(PackageInit).Assembly);
 
+            string packageRoot;
             if (packageInfo == null)
             {
-                LoopLogger.Warn("[PackageInit] PackageInfo not found. Skipping installation.");
-                // Fallback or just return if not found (e.g. during script reloads)
-                return;
+                // Fallback for when it's not a formal package (e.g. just raw files in Assets)
+                packageRoot = Path.GetFullPath("Assets/Plugins/UnityCodeMcpServer");
+                if (!Directory.Exists(packageRoot))
+                {
+                    LoopLogger.Warn("[PackageInit] PackageInfo not found and fallback path does not exist. Skipping installation.");
+                    return;
+                }
+            }
+            else
+            {
+                packageRoot = packageInfo.resolvedPath;
             }
 
-            string packageRoot = packageInfo.resolvedPath;
             string sourcePath = Path.Combine(packageRoot, SOURCE_FOLDER);
             string targetPath = Path.GetFullPath(TARGET_FOLDER);
+
+            // If source and target are the same, skip copy to avoid errors and unnecessary work
+            if (string.Equals(Path.GetFullPath(sourcePath).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar),
+                              Path.GetFullPath(targetPath).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar),
+                              System.StringComparison.OrdinalIgnoreCase))
+            {
+                LoopLogger.Debug($"{Protocol.McpProtocol.LogPrefix} Source and target are the same, skipping installation.");
+                return;
+            }
 
             // Dependency Injection
             IFileSystem fileSystem = new EditorFileSystem();
@@ -47,6 +65,7 @@ namespace UnityCodeMcpServer.Editor.Installer
             // Only refresh if we actually changed something
             if (installed)
             {
+
                 AssetDatabase.Refresh();
             }
         }

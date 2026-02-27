@@ -8,11 +8,26 @@ namespace UnityCodeMcpServer.Settings
 {
     /// <summary>
     /// ScriptableObject for configuring the MCP Server settings.
-    /// Create via Assets > Create > UnityCodeMcpServer > Server Settings
     /// </summary>
-    [CreateAssetMenu(fileName = "UnityCodeMcpServerSettings", menuName = "UnityCodeMcpServer/Server Settings")]
     public class UnityCodeMcpServerSettings : ScriptableObject
     {
+        private static string _settingsAssetPath = "Assets/Plugins/UnityCodeMcpServer/Editor/Resources/UnityCodeMcpServerSettings.asset";
+
+        /// <summary>
+        /// Override the settings asset path for testing purposes.
+        /// </summary>
+        public static void SetAssetPathForTesting(string path)
+        {
+            _settingsAssetPath = path;
+        }
+
+        /// <summary>
+        /// Reset the settings asset path to default.
+        /// </summary>
+        public static void ResetAssetPath()
+        {
+            _settingsAssetPath = "Assets/Plugins/UnityCodeMcpServer/Editor/Resources/UnityCodeMcpServerSettings.asset";
+        }
         public enum ServerStartupMode
         {
             Stdio,
@@ -77,6 +92,7 @@ namespace UnityCodeMcpServer.Settings
         [Header("Script Execution Assemblies")]
         [Tooltip("Additional assemblies to load for C# script execution (beyond default assemblies)")]
         public List<string> AdditionalAssemblyNames = new List<string>();
+        private static UnityCodeMcpServerSettings _instance;
 
         /// <summary>
         /// Get all assembly names to be loaded for script execution (default + additional)
@@ -156,16 +172,42 @@ namespace UnityCodeMcpServer.Settings
         {
             get
             {
-                var instance = UnityEngine.Resources.Load<UnityCodeMcpServerSettings>("UnityCodeMcpServerSettings");
-
-                if (instance == null)
+                if (_instance != null)
                 {
-                    LoopLogger.Warn($"{Protocol.McpProtocol.LogPrefix} No settings found in Resources, using defaults");
-                    instance = CreateInstance<UnityCodeMcpServerSettings>();
+                    return _instance;
                 }
+                _instance = CreateInstance<UnityCodeMcpServerSettings>();
 
-                return instance;
+                SaveInstance(_instance);
+
+                return _instance;
             }
+        }
+
+        public static void SaveInstance(UnityCodeMcpServerSettings instance)
+        {
+            if (instance == null)
+            {
+                Debug.LogWarning($"{Protocol.McpProtocol.LogPrefix} Cannot save null settings instance.");
+                return;
+            }
+            if (string.IsNullOrEmpty(_settingsAssetPath))
+            {
+                Debug.LogWarning($"{Protocol.McpProtocol.LogPrefix} Settings asset path is null or empty. Cannot save settings instance.");
+                return;
+            }
+            if (System.IO.File.Exists(_settingsAssetPath))
+            {
+                return;
+            }
+            if (!AssetDatabase.IsValidFolder(System.IO.Path.GetDirectoryName(_settingsAssetPath)))
+            {
+                System.IO.Directory.CreateDirectory(System.IO.Path.GetDirectoryName(_settingsAssetPath));
+            }
+            AssetDatabase.CreateAsset(instance, _settingsAssetPath);
+            AssetDatabase.SaveAssets();
+            AssetDatabase.ImportAsset(_settingsAssetPath, ImportAssetOptions.ForceUpdate);
+            Debug.Log($"{Protocol.McpProtocol.LogPrefix} Created new UnityCodeMcpServerSettings asset at {_settingsAssetPath}");
         }
 
         private void OnValidate()
@@ -227,7 +269,7 @@ namespace UnityCodeMcpServer.Settings
         /// <summary>
         /// Show the settings asset in the inspector
         /// </summary>
-        [MenuItem("Tools/UnityCodeMcpServer/Show Settings")]
+        [MenuItem("Tools/UnityCodeMcpServer/Show or Create Settings")]
         public static void ShowSettings()
         {
             var guids = AssetDatabase.FindAssets($"t:{typeof(UnityCodeMcpServerSettings).Name}");
@@ -239,19 +281,7 @@ namespace UnityCodeMcpServer.Settings
             }
             else
             {
-                // Create new settings asset in Assets/Resources
-                var resourcesPath = "Assets/Resources";
-                if (!System.IO.Directory.Exists(resourcesPath))
-                {
-                    System.IO.Directory.CreateDirectory(resourcesPath);
-                }
-
-                settings = CreateInstance<UnityCodeMcpServerSettings>();
-                var assetPath = System.IO.Path.Combine(resourcesPath, "UnityCodeMcpServerSettings.asset");
-                AssetDatabase.CreateAsset(settings, assetPath);
-                AssetDatabase.SaveAssets();
-                AssetDatabase.Refresh();
-                LoopLogger.Info($"{Protocol.McpProtocol.LogPrefix} Created new UnityCodeMcpServerSettings asset at {assetPath}");
+                settings = GetOrCreateSettingsAsset();
             }
 
             if (settings != null)
@@ -259,6 +289,36 @@ namespace UnityCodeMcpServer.Settings
                 EditorGUIUtility.PingObject(settings);
                 Selection.activeObject = settings;
             }
+        }
+
+        public static UnityCodeMcpServerSettings GetOrCreateSettingsAsset()
+        {
+            // Check if asset file already exists
+            var settingsAsset = LoadSettingsAsset(_settingsAssetPath);
+            if (settingsAsset != null)
+            {
+                return settingsAsset;
+            }
+
+            settingsAsset = CreateInstance<UnityCodeMcpServerSettings>();
+            SaveInstance(settingsAsset);
+            return settingsAsset;
+        }
+
+        private static UnityCodeMcpServerSettings LoadSettingsAsset(string settingsAssetPath)
+        {
+            if (string.IsNullOrEmpty(settingsAssetPath))
+            {
+                Debug.LogWarning($"{Protocol.McpProtocol.LogPrefix} Settings asset path is null or empty.");
+                return null;
+            }
+
+            var settings = AssetDatabase.LoadAssetAtPath<UnityCodeMcpServerSettings>(settingsAssetPath);
+            if (settings != null)
+            {
+                return settings;
+            }
+            return null;
         }
     }
 }
