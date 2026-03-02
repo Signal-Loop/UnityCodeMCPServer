@@ -283,10 +283,10 @@ namespace UnityCodeMcpServer.Tests.EditMode
             try
             {
                 settings.StartupServer = UnityCodeMcpServerSettings.ServerStartupMode.Stdio;
-                settings.Port = 21088;
+                settings.StdioPort = 21088;
                 InvokeOnValidate(settings);
 
-                settings.Port = 21099;
+                settings.StdioPort = 21099;
                 InvokeOnValidate(settings);
 
                 Assert.That(restartCount, Is.EqualTo(1));
@@ -314,10 +314,10 @@ namespace UnityCodeMcpServer.Tests.EditMode
             try
             {
                 settings.StartupServer = UnityCodeMcpServerSettings.ServerStartupMode.Http;
-                settings.Port = 21088;
+                settings.StdioPort = 21088;
                 InvokeOnValidate(settings);
 
-                settings.Port = 21100;
+                settings.StdioPort = 21100;
                 InvokeOnValidate(settings);
 
                 Assert.That(restartCount, Is.EqualTo(0));
@@ -443,7 +443,7 @@ namespace UnityCodeMcpServer.Tests.EditMode
             DeleteTestAsset();
 
             var firstInstance = ScriptableObject.CreateInstance<UnityCodeMcpServerSettings>();
-            firstInstance.Port = 12345;
+            firstInstance.StdioPort = 12345;
 
             // Create first asset
             UnityCodeMcpServerSettings.SaveInstance(firstInstance);
@@ -452,18 +452,18 @@ namespace UnityCodeMcpServer.Tests.EditMode
             {
                 // Modify the loaded asset
                 var loadedAsset = AssetDatabase.LoadAssetAtPath<UnityCodeMcpServerSettings>(TestSettingsAssetPath);
-                loadedAsset.Port = 99999;
+                loadedAsset.StdioPort = 99999;
                 EditorUtility.SetDirty(loadedAsset);
                 AssetDatabase.SaveAssets();
 
                 // Try to save a different instance
                 var secondInstance = ScriptableObject.CreateInstance<UnityCodeMcpServerSettings>();
-                secondInstance.Port = 54321;
+                secondInstance.StdioPort = 54321;
                 UnityCodeMcpServerSettings.SaveInstance(secondInstance);
 
                 // Verify original asset was not overwritten
                 var reloadedAsset = AssetDatabase.LoadAssetAtPath<UnityCodeMcpServerSettings>(TestSettingsAssetPath);
-                Assert.That(reloadedAsset.Port, Is.EqualTo(99999), "Existing asset should not be overwritten");
+                Assert.That(reloadedAsset.StdioPort, Is.EqualTo(99999), "Existing asset should not be overwritten");
 
                 // Second instance was not saved, can be destroyed
                 ScriptableObject.DestroyImmediate(secondInstance);
@@ -521,7 +521,7 @@ namespace UnityCodeMcpServer.Tests.EditMode
 
             // Create an asset first
             var originalAsset = ScriptableObject.CreateInstance<UnityCodeMcpServerSettings>();
-            originalAsset.Port = 77777;
+            originalAsset.StdioPort = 77777;
             UnityCodeMcpServerSettings.SaveInstance(originalAsset);
             // originalAsset is now an asset, don't hold reference
 
@@ -532,7 +532,7 @@ namespace UnityCodeMcpServer.Tests.EditMode
 
                 // Verify it returned the existing asset
                 Assert.That(retrievedAsset, Is.Not.Null);
-                Assert.That(retrievedAsset.Port, Is.EqualTo(77777), "Should return existing asset with same values");
+                Assert.That(retrievedAsset.StdioPort, Is.EqualTo(77777), "Should return existing asset with same values");
             }
             finally
             {
@@ -556,7 +556,7 @@ namespace UnityCodeMcpServer.Tests.EditMode
                 Assert.That(File.Exists(TestSettingsAssetPath), Is.True, "Asset file should be created");
 
                 // Verify it has default values
-                Assert.That(asset.Port, Is.EqualTo(21088), "Should have default port value");
+                Assert.That(asset.StdioPort, Is.EqualTo(21088), "Should have default port value");
             }
             finally
             {

@@ -34,7 +34,7 @@ namespace UnityCodeMcpServer.Settings
             Stdio,
             Http
         }
-        
+
         /// <summary>
         /// Default assemblies that are always included and cannot be removed.
         /// These are the core assemblies required for script execution.
@@ -69,7 +69,8 @@ namespace UnityCodeMcpServer.Settings
 
         [Header("STDIO Server Configuration")]
         [Tooltip("The port the STDIO bridge will use to connect to Unity")]
-        public int Port = 21088;
+        [UnityEngine.Serialization.FormerlySerializedAs("Port")]
+        public int StdioPort = 21088;
 
         [Tooltip("Maximum number of pending connections in the listen queue")]
         public int Backlog = 10;
@@ -223,16 +224,16 @@ namespace UnityCodeMcpServer.Settings
             if (!_hasInitializedPortTracking)
             {
                 _hasInitializedPortTracking = true;
-                _lastPort = Port;
+                _lastPort = StdioPort;
                 return false;
             }
 
-            if (_lastPort == Port)
+            if (_lastPort == StdioPort)
             {
                 return false;
             }
 
-            _lastPort = Port;
+            _lastPort = StdioPort;
 
             // Only restart the STDIO server when it's the selected transport.
             return StartupServer == ServerStartupMode.Stdio;

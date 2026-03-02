@@ -70,14 +70,14 @@ namespace UnityCodeMcpServer.Servers.Tcp
 
                 // Start TCP listener
                 _serverCts = new CancellationTokenSource();
-                _listener = new TcpListener(IPAddress.Loopback, settings.Port);
+                _listener = new TcpListener(IPAddress.Loopback, settings.StdioPort);
                 _listener.Server.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);
                 // Set linger option to force immediate socket close on shutdown
                 _listener.Server.LingerState = new LingerOption(true, 0);
                 _listener.Start(settings.Backlog);
                 _isRunning = true;
 
-                LoopLogger.Info($"{McpProtocol.LogPrefix} [STDIO] Server started on port {settings.Port}\n{BuildRegistrySummary()}");
+                LoopLogger.Info($"{McpProtocol.LogPrefix} [STDIO] Server started on port {settings.StdioPort}\n{BuildRegistrySummary()}");
 
                 // Start accepting connections
                 AcceptClientsAsync(_serverCts.Token).Forget();
@@ -292,8 +292,6 @@ namespace UnityCodeMcpServer.Servers.Tcp
         [MenuItem("Tools/UnityCodeMcpServer/STDIO/Print MCP configuration to console")]
         public static void LogMcpConfiguration()
         {
-            var settings = UnityCodeMcpServerSettings.Instance;
-
             string pathToStdio = System.IO.Path.GetFullPath("Assets/Plugins/UnityCodeMcpServer/Editor/STDIO~").Replace("\\", "/");
 
             string template = $@"{{
@@ -304,11 +302,7 @@ namespace UnityCodeMcpServer.Servers.Tcp
         ""run"",
         ""--directory"",
         ""{pathToStdio}"",
-        ""unity-code-mcp-stdio"",
-        ""--host"",
-        ""localhost"",
-        ""--port"",
-        ""{settings.Port}""
+        ""unity-code-mcp-stdio""
       ]
     }}
   }}

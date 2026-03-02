@@ -37,26 +37,26 @@ curl -LsSf https://astral.sh/uv/install.sh | sh
 No installation needed! uv runs the package directly:
 
 ```bash
-uv run --directory /path/to/STDIO~ unity-code-mcp-stdio --host localhost --port 21088
+uv run --directory /path/to/STDIO~ unity-code-mcp-stdio
 ```
 
 ### Using pip (Alternative)
 
 ```bash
 pip install -e /path/to/STDIO~
-unity-code-mcp-stdio --host localhost --port 21088
+unity-code-mcp-stdio
 ```
 
 ## Usage
 
 ### Command Line Arguments
 
-| Argument        | Default     | Description                          |
-| --------------- | ----------- | ------------------------------------ |
-| `--host`        | `localhost` | Unity TCP Server host                |
-| `--port`        | `21088`     | Unity TCP Server port                |
-| `--retry-time`  | `2`         | Seconds between connection retries   |
-| `--retry-count` | `5`         | Maximum number of connection retries |
+| Argument        | Default | Description                          |
+| --------------- | ------- | ------------------------------------ |
+| `--retry-time`  | `2`     | Seconds between connection retries   |
+| `--retry-count` | `5`     | Maximum number of connection retries |
+
+> **Note:** The host is hardcoded to `localhost` and the port is read automatically from `UnityCodeMcpServerSettings.asset` inside the Unity project.
 
 ### Examples
 
@@ -66,9 +66,6 @@ uv run unity-code-mcp-stdio
 
 # Run from any directory using --directory
 uv run --directory "C:/path/to/STDIO~" unity-code-mcp-stdio
-
-# Custom host and port
-uv run --directory "C:/path/to/STDIO~" unity-code-mcp-stdio --host 127.0.0.1 --port 12345
 
 # With retry configuration
 uv run --directory "C:/path/to/STDIO~" unity-code-mcp-stdio --retry-time 3 --retry-count 10
@@ -85,18 +82,14 @@ uv run --directory "C:/path/to/STDIO~" unity-code-mcp-stdio --retry-time 3 --ret
         "run",
         "--directory",
         "C:/Users/YOUR_USERNAME/path/to/Assets/Plugins/UnityCodeMcpServer/Editor/STDIO~",
-        "unity-code-mcp-stdio",
-        "--host",
-        "localhost",
-        "--port",
-        "21088"
+        "unity-code-mcp-stdio"
       ]
     }
   }
 }
 ```
 
-> **Note:** Replace `C:/Users/YOUR_USERNAME/path/to/...` with the actual path to your Unity project's STDIO folder.
+> **Note:** Replace `C:/Users/YOUR_USERNAME/path/to/...` with the actual path to your Unity project's STDIO folder. The port is read automatically from `UnityCodeMcpServerSettings.asset` inside the Unity project.
 
 ## Architecture
 
@@ -126,6 +119,7 @@ uv run --extra dev pytest tests/
 ```
 
 > **Windows Note:** If you encounter "Failed to canonicalize script path" errors with `uv run`, use the venv Python directly as shown below.
+
 ```
 # Use the venv Python directly (avoids uv script canonicalization issues):
 .\.venv\Scripts\python.exe -m pytest tests/ -v
@@ -155,14 +149,13 @@ Postman supports MCP (Model Context Protocol) natively, including STDIO transpor
 1. **Open Postman** and create or select a workspace
 
 2. **Create a new MCP request:**
-
    - Click **New** → **MCP**
    - Select **STDIO** as the transport type
 
 3. **Configure the STDIO command:**
 
    ```
-   uv run --directory "C:/Users/YOUR_USERNAME/path/to/Assets/Plugins/UnityCodeMcpServer/Editor/STDIO" unity-code-mcp-stdio --host localhost --port 21088
+   uv run --directory "C:/Users/YOUR_USERNAME/path/to/Assets/Plugins/UnityCodeMcpServer/Editor/STDIO" unity-code-mcp-stdio
    ```
 
    > **Tip:** You can also paste JSON configuration directly:
@@ -174,11 +167,7 @@ Postman supports MCP (Model Context Protocol) natively, including STDIO transpor
    >     "run",
    >     "--directory",
    >     "C:/Users/YOUR_USERNAME/path/to/Assets/Plugins/UnityCodeMcpServer/Editor/STDIO~",
-   >     "unity-code-mcp-stdio",
-   >     "--host",
-   >     "localhost",
-   >     "--port",
-   >     "21088"
+   >     "unity-code-mcp-stdio"
    >   ]
    > }
    > ```

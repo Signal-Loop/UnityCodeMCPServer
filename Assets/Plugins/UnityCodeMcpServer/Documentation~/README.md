@@ -162,11 +162,7 @@ Example configuration (using `uv` to run the bridge):
         "run",
         "--directory",
         "C:/Users/YOUR_USERNAME/path/to/UnityProject/Assets/Plugins/UnityCodeMcpServer/Editor/STDIO~",
-        "unity-code-mcp-stdio",
-        "--host",
-        "localhost",
-        "--port",
-        "21088"
+        "unity-code-mcp-stdio"
       ]
     }
   }

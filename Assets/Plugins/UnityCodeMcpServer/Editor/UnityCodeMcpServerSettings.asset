@@ -18,7 +18,7 @@ MonoBehaviour:
   _hasInitializedPortTracking: 0
   _lastHttpPort: 0
   _hasInitializedHttpPortTracking: 0
-  Port: 21088
+  StdioPort: 21088
   Backlog: 10
   ReadTimeoutMs: 30000
   WriteTimeoutMs: 30000
