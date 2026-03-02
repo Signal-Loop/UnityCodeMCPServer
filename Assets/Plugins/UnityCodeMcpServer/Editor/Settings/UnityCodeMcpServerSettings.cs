@@ -11,7 +11,8 @@ namespace UnityCodeMcpServer.Settings
     /// </summary>
     public class UnityCodeMcpServerSettings : ScriptableObject
     {
-        private static string _settingsAssetPath = "Assets/Plugins/UnityCodeMcpServer/Editor/Resources/UnityCodeMcpServerSettings.asset";
+        private const string _defaultSettingsAssetPath = "Assets/Plugins/UnityCodeMcpServer/Editor/UnityCodeMcpServerSettings.asset";
+        private static string _settingsAssetPath = _defaultSettingsAssetPath;
 
         /// <summary>
         /// Override the settings asset path for testing purposes.
@@ -26,14 +27,14 @@ namespace UnityCodeMcpServer.Settings
         /// </summary>
         public static void ResetAssetPath()
         {
-            _settingsAssetPath = "Assets/Plugins/UnityCodeMcpServer/Editor/Resources/UnityCodeMcpServerSettings.asset";
+            _settingsAssetPath = _defaultSettingsAssetPath;
         }
         public enum ServerStartupMode
         {
             Stdio,
             Http
         }
-
+        
         /// <summary>
         /// Default assemblies that are always included and cannot be removed.
         /// These are the core assemblies required for script execution.

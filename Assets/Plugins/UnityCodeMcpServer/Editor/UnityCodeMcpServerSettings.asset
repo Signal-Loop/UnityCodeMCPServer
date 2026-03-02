@@ -14,11 +14,11 @@ MonoBehaviour:
   m_EditorClassIdentifier: UnityCodeMcpServer::UnityCodeMcpServer.Settings.UnityCodeMcpServerSettings
   StartupServer: 0
   MinLogLevel: 2
-  _lastPort: 21089
-  _hasInitializedPortTracking: 1
-  _lastHttpPort: 3001
-  _hasInitializedHttpPortTracking: 1
-  Port: 21089
+  _lastPort: 0
+  _hasInitializedPortTracking: 0
+  _lastHttpPort: 0
+  _hasInitializedHttpPortTracking: 0
+  Port: 21088
   Backlog: 10
   ReadTimeoutMs: 30000
   WriteTimeoutMs: 30000
