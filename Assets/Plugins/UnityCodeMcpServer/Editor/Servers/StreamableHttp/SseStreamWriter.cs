@@ -4,9 +4,9 @@ using System.Net;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using UnityCodeMcpServer.Helpers;
 using UnityCodeMcpServer.Protocol;
 using UnityCodeMcpServer.Settings;
-using UnityEngine;
 
 namespace UnityCodeMcpServer.Servers.StreamableHttp
 {
@@ -117,10 +117,7 @@ namespace UnityCodeMcpServer.Servers.StreamableHttp
 
             await WriteEventAsync(jsonRpcMessage, eventId, McpHttpTransport.SseEventMessage, ct);
 
-            if (UnityCodeMcpServerSettings.Instance.VerboseLogging)
-            {
-                Debug.Log($"{McpProtocol.LogPrefix} [HTTP] SSE sent: {jsonRpcMessage}");
-            }
+            LoopLogger.Trace($"{McpProtocol.LogPrefix} [HTTP] SSE sent: {jsonRpcMessage}");
         }
 
         /// <summary>
@@ -135,10 +132,7 @@ namespace UnityCodeMcpServer.Servers.StreamableHttp
 
             await WriteRawAsync(": keepalive\n\n", ct);
 
-            if (UnityCodeMcpServerSettings.Instance.VerboseLogging)
-            {
-                Debug.Log($"{McpProtocol.LogPrefix} [HTTP] SSE keepalive sent");
-            }
+            LoopLogger.Trace($"{McpProtocol.LogPrefix} [HTTP] SSE keepalive sent");
         }
 
         /// <summary>

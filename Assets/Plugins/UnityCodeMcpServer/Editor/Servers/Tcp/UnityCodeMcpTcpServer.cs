@@ -6,6 +6,7 @@ using System.Text;
 using System.Threading;
 using Cysharp.Threading.Tasks;
 using UnityCodeMcpServer.Handlers;
+using UnityCodeMcpServer.Helpers;
 using UnityCodeMcpServer.Protocol;
 using UnityCodeMcpServer.Registry;
 using UnityCodeMcpServer.Settings;
@@ -29,6 +30,12 @@ namespace UnityCodeMcpServer.Servers.Tcp
 
         static UnityCodeMcpTcpServer()
         {
+            // Don't start server in batch mode (AssetImportWorkers, build processes, etc.)
+            if (Application.isBatchMode)
+            {
+                return;
+            }
+
             // Subscribe to editor events
             EditorApplication.quitting += OnEditorQuitting;
             AssemblyReloadEvents.beforeAssemblyReload += OnBeforeAssemblyReload;
@@ -40,13 +47,10 @@ namespace UnityCodeMcpServer.Servers.Tcp
         public static void StartServer()
         {
             var settings = UnityCodeMcpServerSettings.Instance;
-            
+
             if (_isRunning)
             {
-                if (settings.VerboseLogging)
-                {
-                    Debug.LogWarning($"{McpProtocol.LogPrefix} [STDIO] Server already running");
-                }
+                LoopLogger.Debug($"{McpProtocol.LogPrefix} [STDIO] Server already running");
                 return;
             }
 
@@ -55,33 +59,32 @@ namespace UnityCodeMcpServer.Servers.Tcp
 
                 if (settings.StartupServer != UnityCodeMcpServerSettings.ServerStartupMode.Stdio)
                 {
-                    if (settings.VerboseLogging)
-                    {
-                        Debug.Log($"{McpProtocol.LogPrefix} [STDIO] Startup skipped because server selection is {settings.StartupServer}");
-                    }
+                    LoopLogger.Debug($"{McpProtocol.LogPrefix} [STDIO] Startup skipped because server selection is {settings.StartupServer}");
                     return;
                 }
 
                 // Initialize registry and handler
                 _registry = new McpRegistry();
-                _registry.DiscoverAndRegisterAll(settings.VerboseLogging);
+                _registry.DiscoverAndRegisterAll();
                 _messageHandler = new McpMessageHandler(_registry);
 
                 // Start TCP listener
                 _serverCts = new CancellationTokenSource();
-                _listener = new TcpListener(IPAddress.Loopback, settings.Port);
+                _listener = new TcpListener(IPAddress.Loopback, settings.StdioPort);
                 _listener.Server.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);
+                // Set linger option to force immediate socket close on shutdown
+                _listener.Server.LingerState = new LingerOption(true, 0);
                 _listener.Start(settings.Backlog);
                 _isRunning = true;
 
-                Debug.Log($"{McpProtocol.LogPrefix} [STDIO] Server started on port {settings.Port}\n{BuildRegistrySummary()}");
+                LoopLogger.Info($"{McpProtocol.LogPrefix} [STDIO] Server started on port {settings.StdioPort}\n{BuildRegistrySummary()}");
 
                 // Start accepting connections
                 AcceptClientsAsync(_serverCts.Token).Forget();
             }
             catch (Exception ex)
             {
-                Debug.LogError($"{McpProtocol.LogPrefix} [STDIO] Failed to start server: {ex.Message}");
+                LoopLogger.Error($"{McpProtocol.LogPrefix} [STDIO] Failed to start server: {ex.Message}");
                 _isRunning = false;
             }
         }
@@ -91,10 +94,7 @@ namespace UnityCodeMcpServer.Servers.Tcp
             if (!_isRunning)
                 return;
 
-            if (UnityCodeMcpServerSettings.Instance.VerboseLogging)
-            {
-                Debug.Log($"{McpProtocol.LogPrefix} [STDIO] Stopping server...");
-            }
+            LoopLogger.Debug($"{McpProtocol.LogPrefix} [STDIO] Stopping server...");
 
             _serverCts?.Cancel();
             _serverCts?.Dispose();
@@ -102,12 +102,17 @@ namespace UnityCodeMcpServer.Servers.Tcp
 
             try
             {
-                _listener?.Server?.Close();
+                // Explicitly dispose the underlying socket first
+                if (_listener?.Server != null)
+                {
+                    _listener.Server.Close(0); // Force immediate close
+                    _listener.Server.Dispose();
+                }
                 _listener?.Stop();
             }
             catch (Exception ex)
             {
-                Debug.LogWarning($"{McpProtocol.LogPrefix} [STDIO] Error during listener cleanup: {ex.Message}");
+                LoopLogger.Warn($"{McpProtocol.LogPrefix} [STDIO] Error during listener cleanup: {ex.Message}");
             }
             finally
             {
@@ -116,10 +121,7 @@ namespace UnityCodeMcpServer.Servers.Tcp
 
             _isRunning = false;
 
-            if (UnityCodeMcpServerSettings.Instance.VerboseLogging)
-            {
-                Debug.Log($"{McpProtocol.LogPrefix} [STDIO] Server stopped");
-            }
+            LoopLogger.Debug($"{McpProtocol.LogPrefix} [STDIO] Server stopped");
         }
 
         private static void OnEditorQuitting()
@@ -140,10 +142,7 @@ namespace UnityCodeMcpServer.Servers.Tcp
                 {
                     var client = await _listener.AcceptTcpClientAsync();
 
-                    if (UnityCodeMcpServerSettings.Instance.VerboseLogging)
-                    {
-                        Debug.Log($"{McpProtocol.LogPrefix} [STDIO] Client connected from {client.Client.RemoteEndPoint}");
-                    }
+                    LoopLogger.Debug($"{McpProtocol.LogPrefix} [STDIO] Client connected from {client.Client.RemoteEndPoint}");
 
                     HandleClientAsync(client, ct).Forget();
                 }
@@ -161,7 +160,7 @@ namespace UnityCodeMcpServer.Servers.Tcp
                 {
                     if (!ct.IsCancellationRequested)
                     {
-                        Debug.LogError($"{McpProtocol.LogPrefix} [STDIO] Error accepting client: {ex.Message}");
+                        LoopLogger.Error($"{McpProtocol.LogPrefix} [STDIO] Error accepting client: {ex.Message}");
                     }
                 }
             }
@@ -195,7 +194,7 @@ namespace UnityCodeMcpServer.Servers.Tcp
 
                         if (messageLength <= 0 || messageLength > 10 * 1024 * 1024) // Max 10MB
                         {
-                            Debug.LogWarning($"{McpProtocol.LogPrefix} [STDIO] Invalid message length: {messageLength}");
+                            LoopLogger.Warn($"{McpProtocol.LogPrefix} [STDIO] Invalid message length: {messageLength}");
                             break;
                         }
 
@@ -204,16 +203,13 @@ namespace UnityCodeMcpServer.Servers.Tcp
                         bytesRead = await ReadExactAsync(stream, messageBuffer, 0, messageLength, ct);
                         if (bytesRead < messageLength)
                         {
-                            Debug.LogWarning($"{McpProtocol.LogPrefix} [STDIO] Incomplete message received");
+                            LoopLogger.Warn($"{McpProtocol.LogPrefix} [STDIO] Incomplete message received");
                             break;
                         }
 
                         var message = Encoding.UTF8.GetString(messageBuffer);
 
-                        if (settings.VerboseLogging)
-                        {
-                            Debug.Log($"{McpProtocol.LogPrefix} [STDIO] Received: {message}");
-                        }
+                        LoopLogger.Trace($"{McpProtocol.LogPrefix} [STDIO] Received: {message}");
 
                         // Process message on main thread to access Unity APIs
                         await UniTask.SwitchToMainThread();
@@ -233,10 +229,7 @@ namespace UnityCodeMcpServer.Servers.Tcp
                             await stream.WriteAsync(responseBytes, 0, responseBytes.Length, ct);
                             await stream.FlushAsync(ct);
 
-                            if (settings.VerboseLogging)
-                            {
-                                Debug.Log($"{McpProtocol.LogPrefix} [STDIO] Sent: {response}");
-                            }
+                            LoopLogger.Trace($"{McpProtocol.LogPrefix} [STDIO] Sent: {response}");
                         }
                     }
                 }
@@ -249,15 +242,12 @@ namespace UnityCodeMcpServer.Servers.Tcp
             {
                 if (!ct.IsCancellationRequested)
                 {
-                    Debug.LogError($"{McpProtocol.LogPrefix} [STDIO] Client handler error: {ex.Message}");
+                    LoopLogger.Error($"{McpProtocol.LogPrefix} [STDIO] Client handler error: {ex.Message}");
                 }
             }
             finally
             {
-                if (settings.VerboseLogging)
-                {
-                    Debug.Log($"{McpProtocol.LogPrefix} [STDIO] Client disconnected");
-                }
+                LoopLogger.Debug($"{McpProtocol.LogPrefix} [STDIO] Client disconnected");
             }
         }
 
@@ -283,8 +273,8 @@ namespace UnityCodeMcpServer.Servers.Tcp
         [MenuItem("Tools/UnityCodeMcpServer/STDIO/Refresh Registry")]
         public static void RefreshRegistry()
         {
-            _registry?.DiscoverAndRegisterAll(UnityCodeMcpServerSettings.Instance.VerboseLogging);
-            Debug.Log($"{McpProtocol.LogPrefix} [STDIO] Registry refreshed");
+            _registry?.DiscoverAndRegisterAll();
+            LoopLogger.Info($"{McpProtocol.LogPrefix} [STDIO] Registry refreshed");
         }
 
         /// <summary>
@@ -302,8 +292,6 @@ namespace UnityCodeMcpServer.Servers.Tcp
         [MenuItem("Tools/UnityCodeMcpServer/STDIO/Print MCP configuration to console")]
         public static void LogMcpConfiguration()
         {
-            var settings = UnityCodeMcpServerSettings.Instance;
-
             string pathToStdio = System.IO.Path.GetFullPath("Assets/Plugins/UnityCodeMcpServer/Editor/STDIO~").Replace("\\", "/");
 
             string template = $@"{{
@@ -314,11 +302,7 @@ namespace UnityCodeMcpServer.Servers.Tcp
         ""run"",
         ""--directory"",
         ""{pathToStdio}"",
-        ""unity-code-mcp-stdio"",
-        ""--host"",
-        ""localhost"",
-        ""--port"",
-        ""{settings.Port}""
+        ""unity-code-mcp-stdio""
       ]
     }}
   }}
@@ -329,8 +313,9 @@ namespace UnityCodeMcpServer.Servers.Tcp
         private static async UniTaskVoid RestartServerAsync()
         {
             StopServer();
-            // Wait for socket to be fully released
-            await UniTask.Delay(100);
+            // Wait for socket to be fully released (increased from 100ms to 500ms)
+            // Windows may keep socket in TIME_WAIT state; this ensures proper cleanup
+            await UniTask.Delay(500);
             StartServer();
         }
 

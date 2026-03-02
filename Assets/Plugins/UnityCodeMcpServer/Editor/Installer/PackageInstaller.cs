@@ -1,4 +1,4 @@
-using UnityEngine;
+using UnityCodeMcpServer.Helpers;
 using System.IO;
 using System.Collections.Generic;
 using System.Linq;
@@ -8,7 +8,6 @@ namespace UnityCodeMcpServer.Editor.Installer
     public class PackageInstaller
     {
         private readonly IFileSystem _fileSystem;
-        private readonly bool _verboseLogging;
 
         // Files to copy relative to source directory
         private static readonly string[] FilesToCopy =
@@ -19,17 +18,16 @@ namespace UnityCodeMcpServer.Editor.Installer
             "uv.lock"
         };
 
-        public PackageInstaller(IFileSystem fileSystem, bool verboseLogging = false)
+        public PackageInstaller(IFileSystem fileSystem)
         {
             _fileSystem = fileSystem;
-            _verboseLogging = verboseLogging;
         }
 
         public bool Install(string sourcePath, string targetPath)
         {
             if (!_fileSystem.DirectoryExists(sourcePath))
             {
-                Debug.LogError($"{Protocol.McpProtocol.LogPrefix} Source directory not found: {sourcePath}");
+                LoopLogger.Error($"{Protocol.McpProtocol.LogPrefix} Source directory not found: {sourcePath}");
                 return false;
             }
 
@@ -39,18 +37,18 @@ namespace UnityCodeMcpServer.Editor.Installer
 
                 if (anyFilesCopied)
                 {
-                    Debug.Log($"{Protocol.McpProtocol.LogPrefix} Successfully installed assets to: {targetPath}");
+                    LoopLogger.Info($"{Protocol.McpProtocol.LogPrefix} Successfully installed assets to: {targetPath}");
                 }
-                else if (_verboseLogging)
+                else
                 {
-                    Debug.Log($"{Protocol.McpProtocol.LogPrefix} No files needed updating in: {targetPath}");
+                    LoopLogger.Debug($"{Protocol.McpProtocol.LogPrefix} No files needed updating in: {targetPath}");
                 }
 
                 return anyFilesCopied;
             }
             catch (System.Exception ex)
             {
-                Debug.LogError($"{Protocol.McpProtocol.LogPrefix} Failed to install assets. Error: {ex.Message}");
+                LoopLogger.Error($"{Protocol.McpProtocol.LogPrefix} Failed to install assets. Error: {ex.Message}");
                 return false;
             }
         }
@@ -66,7 +64,7 @@ namespace UnityCodeMcpServer.Editor.Installer
 
                 if (!_fileSystem.FileExists(sourcePath))
                 {
-                    Debug.LogError($"{Protocol.McpProtocol.LogPrefix} Required file not found: {sourcePath}");
+                    LoopLogger.Error($"{Protocol.McpProtocol.LogPrefix} Required file not found: {sourcePath}");
                     continue;
                 }
 
@@ -79,19 +77,16 @@ namespace UnityCodeMcpServer.Editor.Installer
                     if (!string.IsNullOrEmpty(destDirectory) && !_fileSystem.DirectoryExists(destDirectory))
                     {
                         _fileSystem.CreateDirectory(destDirectory);
-                        if (_verboseLogging)
-                        {
-                            Debug.Log($"{Protocol.McpProtocol.LogPrefix} Created directory: {destDirectory}");
-                        }
+                        LoopLogger.Debug($"{Protocol.McpProtocol.LogPrefix} Created directory: {destDirectory}");
                     }
 
                     _fileSystem.CopyFile(sourcePath, destPath, true);
-                    Debug.Log($"{Protocol.McpProtocol.LogPrefix} Copied: {NormalizePath(Path.Combine(targetDir, relativeFilePath))}");
+                    LoopLogger.Info($"{Protocol.McpProtocol.LogPrefix} Copied: {NormalizePath(Path.Combine(targetDir, relativeFilePath))}");
                     anyFilesCopied = true;
                 }
-                else if (_verboseLogging)
+                else
                 {
-                    Debug.Log($"{Protocol.McpProtocol.LogPrefix} Skipped (unchanged): {NormalizePath(Path.Combine(targetDir, relativeFilePath))}");
+                    LoopLogger.Debug($"{Protocol.McpProtocol.LogPrefix} Skipped (unchanged): {NormalizePath(Path.Combine(targetDir, relativeFilePath))}");
                 }
             }
 
@@ -115,7 +110,7 @@ namespace UnityCodeMcpServer.Editor.Installer
             }
             catch (System.Exception ex)
             {
-                Debug.LogWarning($"{Protocol.McpProtocol.LogPrefix} Failed to compute hash, will copy file. Error: {ex.Message}");
+                LoopLogger.Warn($"{Protocol.McpProtocol.LogPrefix} Failed to compute hash, will copy file. Error: {ex.Message}");
                 return true; // Copy on hash error to be safe
             }
         }

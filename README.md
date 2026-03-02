@@ -162,11 +162,7 @@ Example configuration (using `uv` to run the bridge):
         "run",
         "--directory",
         "C:/Users/YOUR_USERNAME/path/to/UnityProject/Assets/Plugins/UnityCodeMcpServer/Editor/STDIO~",
-        "unity-code-mcp-stdio",
-        "--host",
-        "localhost",
-        "--port",
-        "21088"
+        "unity-code-mcp-stdio"
       ]
     }
   }
@@ -188,11 +184,8 @@ Example configuration (using `uv` to run the bridge):
 
 ### Server configuration (Unity)
 
-Access settings via **Tools/UnityCodeMcpServer/Show Settings** or create manually:
-
-1. Navigate to the `Assets/Resources/` (or any Resources folder) folder
-2. Create the settings asset: **Right Click > Create > UnityCodeMcpServer > Server Settings**
-3. Configure options:
+1. Access (and create if necessary) settings via **Tools/UnityCodeMcpServer/Show Settings**.
+2. Configure options:
    - **Server Selection**: Choose STDIO (TCP) or HTTP server for auto-start
    - **Verbose Logging**: Enable detailed logging for debugging
 
@@ -358,7 +351,7 @@ By default, script execution context includes following assemblies:
 - UnityEngine.CoreModule
 - UnityEditor.CoreModule
 
-Unity Code MCP Server settings (Assets/Resources/UnityCodeMcpServerSettings.asset) allow configuring additional assemblies to include in the script execution context. This is useful if your project has assemblies that your generated scripts need to reference.
+Unity Code MCP Server settings (Assets/Plugins/UnityCodeMcpServer/Editor/Resources/UnityCodeMcpServerSettings.asset) allow configuring additional assemblies to include in the script execution context. This is useful if your project has assemblies that your generated scripts need to reference.
 
 To add additional assemblies use settings 'Additional Assemblies' section.
 

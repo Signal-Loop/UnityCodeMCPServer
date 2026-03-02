@@ -1,8 +1,21 @@
-"""Tests for the Unity Code MCP STDIO Bridge."""
+"""
+Tests for the Unity Code MCP STDIO Bridge.
+
+Running Tests
+-------------
+From the STDIO~ directory:
+
+    uv run --extra dev pytest tests/ -v
+
+Windows (if uv raises "Failed to canonicalize script path"):
+
+    .venv\\Scripts\\python.exe -m pytest tests/ -v
+"""
 
 import asyncio
 import json
 import struct
+from pathlib import Path
 from unittest.mock import AsyncMock, patch
 
 import pytest
@@ -11,8 +24,12 @@ from mcp import types
 # Import the module under test
 from unity_code_mcp_stdio import UnityTcpClient
 from unity_code_mcp_stdio.unity_code_mcp_bridge_stdio import (
+    DEFAULT_PORT,
+    _SETTINGS_FILE,
     _convert_content_item,
     _convert_resource_contents,
+    get_stdio_port,
+    read_port_from_settings,
 )
 
 
@@ -91,6 +108,27 @@ class TestUnityTcpClient:
             assert result is True
             assert unity_client.reader is mock_reader
             assert unity_client.writer is mock_writer
+
+    @pytest.mark.asyncio
+    async def test_connect_uses_configured_host_and_port(self):
+        """Test that connect uses the host and port stored at construction time."""
+        client = UnityTcpClient(
+            host="127.0.0.1",
+            port=12345,
+            retry_time=0.0,
+            retry_count=1,
+        )
+
+        mock_reader = MockStreamReader()
+        mock_writer = MockStreamWriter()
+
+        with patch("asyncio.open_connection", new_callable=AsyncMock) as mock_open:
+            mock_open.return_value = (mock_reader, mock_writer)
+            await client.connect()
+
+        args = mock_open.call_args[0]
+        assert args[0] == "127.0.0.1"
+        assert args[1] == 12345
 
     @pytest.mark.asyncio
     async def test_connect_failure_retries(self, unity_client):
@@ -207,6 +245,91 @@ class TestUnityTcpClient:
             assert response["error"]["code"] == -32000
             assert "Failed to communicate" in response["error"]["message"]
 
+    @pytest.mark.asyncio
+    async def test_port_resolver_no_change_does_not_disconnect(self):
+        """If port_resolver returns the same port, no disconnect/reconnect happens."""
+        resolver = lambda: 21088  # noqa: E731
+        client = UnityTcpClient(
+            host="localhost",
+            port=21088,
+            retry_time=0.0,
+            retry_count=1,
+            port_resolver=resolver,
+        )
+
+        mock_reader = MockStreamReader()
+        mock_writer = MockStreamWriter()
+        expected_response = {"jsonrpc": "2.0", "id": "test", "result": {}}
+        mock_reader.set_response(expected_response)
+
+        client.reader = mock_reader
+        client.writer = mock_writer
+
+        await client.send_request({"jsonrpc": "2.0", "id": "test", "method": "ping"})
+
+        # Writer should NOT have been closed
+        assert mock_writer.closed is False
+        assert client.port == 21088
+
+    @pytest.mark.asyncio
+    async def test_port_resolver_port_change_disconnects_and_updates_port(self):
+        """If port_resolver returns a new port, client disconnects and updates self.port."""
+        new_port = 22000
+        resolver = lambda: new_port  # noqa: E731
+        client = UnityTcpClient(
+            host="localhost",
+            port=21088,
+            retry_time=0.0,
+            retry_count=1,
+            port_resolver=resolver,
+        )
+
+        old_writer = MockStreamWriter()
+        old_reader = MockStreamReader()
+        client.reader = old_reader
+        client.writer = old_writer
+
+        mock_reader = MockStreamReader()
+        mock_writer = MockStreamWriter()
+        expected_response = {"jsonrpc": "2.0", "id": "test", "result": {}}
+        mock_reader.set_response(expected_response)
+
+        with patch("asyncio.open_connection", new_callable=AsyncMock) as mock_open:
+            mock_open.return_value = (mock_reader, mock_writer)
+            await client.send_request(
+                {"jsonrpc": "2.0", "id": "test", "method": "ping"}
+            )
+
+        # Old writer should have been closed (disconnect called)
+        assert old_writer.closed is True
+        # Port should be updated to the new value
+        assert client.port == new_port
+        # Reconnection should have been attempted on the new port
+        assert mock_open.called
+        args = mock_open.call_args[0]
+        assert args[1] == new_port
+
+    @pytest.mark.asyncio
+    async def test_no_port_resolver_does_not_change_port(self):
+        """Without a port_resolver, port stays fixed regardless of settings."""
+        client = UnityTcpClient(
+            host="localhost",
+            port=21088,
+            retry_time=0.0,
+            retry_count=1,
+        )
+
+        mock_reader = MockStreamReader()
+        mock_writer = MockStreamWriter()
+        expected_response = {"jsonrpc": "2.0", "id": "test", "result": {}}
+        mock_reader.set_response(expected_response)
+        client.reader = mock_reader
+        client.writer = mock_writer
+
+        await client.send_request({"jsonrpc": "2.0", "id": "test", "method": "ping"})
+
+        assert client.port == 21088
+
 
 class TestMessageFraming:
     """Tests for message framing."""
@@ -267,6 +390,108 @@ class TestJsonRpcMessages:
 
         assert "result" not in response
         assert response["error"]["code"] == -32601
+
+
+class TestSettingsDiscovery:
+    """Tests for Unity settings file discovery and port reading."""
+
+    # -- fixed settings path ------------------------------------------------
+
+    def test_settings_file_path_is_absolute(self):
+        """_SETTINGS_FILE is an absolute path."""
+        assert _SETTINGS_FILE.is_absolute()
+
+    def test_settings_file_points_to_expected_name(self):
+        """_SETTINGS_FILE ends with the expected filename."""
+        assert _SETTINGS_FILE.name == "UnityCodeMcpServerSettings.asset"
+
+    def test_settings_file_matches_known_relative_location(self):
+        """_SETTINGS_FILE is 4 parent levels above __file__ and in Editor/."""
+        import unity_code_mcp_stdio.unity_code_mcp_bridge_stdio as bridge
+
+        # __file__ → parent(unity_code_mcp_stdio/) → parent(src/) → parent(STDIO~/) → parent(Editor/)
+        expected = (
+            Path(bridge.__file__).parent.parent.parent.parent
+            / "UnityCodeMcpServerSettings.asset"
+        ).resolve()
+        assert _SETTINGS_FILE.resolve() == expected
+
+    # -- read_port_from_settings --------------------------------------------
+
+    def test_read_port_from_settings_valid(self, tmp_path):
+        """Parses a valid StdioPort line from the settings file."""
+        settings_file = tmp_path / "settings.asset"
+        settings_file.write_text(
+            "StartupServer: 0\nStdioPort: 21088\nBacklog: 10\n",
+            encoding="utf-8",
+        )
+
+        assert read_port_from_settings(settings_file) == 21088
+
+    def test_read_port_from_settings_custom_port(self, tmp_path):
+        """Parses a non-default port value."""
+        settings_file = tmp_path / "settings.asset"
+        settings_file.write_text("StdioPort: 12345\n", encoding="utf-8")
+
+        assert read_port_from_settings(settings_file) == 12345
+
+    def test_read_port_from_settings_missing_key(self, tmp_path):
+        """Returns None when StdioPort key is absent."""
+        settings_file = tmp_path / "settings.asset"
+        settings_file.write_text("StartupServer: 0\nBacklog: 10\n", encoding="utf-8")
+
+        assert read_port_from_settings(settings_file) is None
+
+    def test_read_port_from_settings_invalid_value(self, tmp_path):
+        """Returns None when the StdioPort value is not a valid integer."""
+        settings_file = tmp_path / "settings.asset"
+        settings_file.write_text("StdioPort: not_a_number\n", encoding="utf-8")
+
+        assert read_port_from_settings(settings_file) is None
+
+    def test_read_port_from_settings_file_not_found(self, tmp_path):
+        """Returns None when the file does not exist."""
+        missing_file = tmp_path / "nonexistent.asset"
+
+        assert read_port_from_settings(missing_file) is None
+
+    # -- get_stdio_port -----------------------------------------------------
+
+    def test_get_stdio_port_reads_from_settings(self, tmp_path):
+        """Returns the port from the settings file when found."""
+        settings_file = tmp_path / "UnityCodeMcpServerSettings.asset"
+        settings_file.write_text("StdioPort: 22000\n", encoding="utf-8")
+
+        result = get_stdio_port(_settings_file=settings_file)
+
+        assert result == 22000
+
+    def test_get_stdio_port_defaults_when_settings_missing(self, tmp_path):
+        """Falls back to DEFAULT_PORT when the settings file is not found."""
+        missing = tmp_path / "UnityCodeMcpServerSettings.asset"
+        # File intentionally not created
+        result = get_stdio_port(_settings_file=missing)
+
+        assert result == DEFAULT_PORT
+
+    def test_get_stdio_port_defaults_when_port_unparsable(self, tmp_path):
+        """Falls back to DEFAULT_PORT when StdioPort cannot be parsed."""
+        settings_file = tmp_path / "UnityCodeMcpServerSettings.asset"
+        settings_file.write_text("StdioPort: bad_value\n", encoding="utf-8")
+
+        result = get_stdio_port(_settings_file=settings_file)
+
+        assert result == DEFAULT_PORT
+
+    def test_get_stdio_port_returns_int(self, tmp_path):
+        """get_stdio_port always returns an int."""
+        settings_file = tmp_path / "UnityCodeMcpServerSettings.asset"
+        settings_file.write_text("StdioPort: 19999\n", encoding="utf-8")
+
+        result = get_stdio_port(_settings_file=settings_file)
+
+        assert isinstance(result, int)
+        assert result == 19999
 
 
 class TestResourceContentMapping:

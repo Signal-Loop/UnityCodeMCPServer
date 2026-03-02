@@ -12,6 +12,7 @@ import json
 import logging
 from logging.handlers import RotatingFileHandler
 import os
+from pathlib import Path
 import struct
 import sys
 from typing import Any
@@ -53,14 +54,118 @@ file_handler.setFormatter(formatter)
 logger.addHandler(file_handler)
 
 
-class UnityTcpClient:
-    """TCP client that connects to Unity MCP Server with retry support."""
+# ---------------------------------------------------------------------------
+# Settings discovery
+# ---------------------------------------------------------------------------
 
-    def __init__(self, host: str, port: int, retry_time: float, retry_count: int):
+DEFAULT_PORT: int = 21088
+"""Fallback TCP port used when the settings file cannot be found or read."""
+
+# Fixed path to the settings asset: this script lives at
+#   <project>/Assets/Plugins/UnityCodeMcpServer/Editor/STDIO~/src/unity_code_mcp_stdio/
+# The settings asset is always at
+#   <project>/Assets/Plugins/UnityCodeMcpServer/Editor/UnityCodeMcpServerSettings.asset
+# which is exactly 4 parent directories up from this file.
+_SETTINGS_FILE: Path = (
+    Path(__file__).parent.parent.parent.parent / "UnityCodeMcpServerSettings.asset"
+)
+"""Absolute path to the Unity settings asset derived from this module's location."""
+
+
+def read_port_from_settings(settings_file: Path) -> int | None:
+    """Parse the TCP port from a Unity settings asset file.
+
+    Looks for a YAML-style line of the form ``StdioPort: <number>``.
+
+    Args:
+        settings_file: Path to the ``UnityCodeMcpServerSettings.asset`` file.
+
+    Returns:
+        Port number, or ``None`` if the file cannot be read or parsed.
+    """
+    try:
+        content = settings_file.read_text(encoding="utf-8")
+    except OSError as exc:
+        logger.warning(f"Could not read settings file '{settings_file}': {exc}")
+        return None
+
+    for line in content.splitlines():
+        stripped = line.strip()
+        if stripped.startswith("StdioPort:"):
+            _, _, raw = stripped.partition(":")
+            try:
+                return int(raw.strip())
+            except ValueError:
+                logger.warning(f"Invalid port value in settings: '{stripped}'")
+                return None
+
+    logger.warning(f"'StdioPort' key not found in settings file: {settings_file}")
+    return None
+
+
+def get_stdio_port(_settings_file: Path | None = None) -> int:
+    """Resolve the TCP port from Unity project settings.
+
+    Reads ``StdioPort`` from the settings asset at the fixed path
+    :data:`_SETTINGS_FILE`. Falls back to :data:`DEFAULT_PORT` if the file
+    is absent or the port cannot be parsed.
+
+    This function is safe to call on every request: file reads are small and
+    cheap, and calling it repeatedly allows the port to reflect runtime
+    changes made inside the Unity Editor.
+
+    Args:
+        _settings_file: Override the settings file path. Intended for testing
+            only; production code should rely on the default fixed path.
+
+    Returns:
+        TCP port number.
+    """
+    settings_file = _SETTINGS_FILE if _settings_file is None else _settings_file
+    if not settings_file.is_file():
+        logger.info(
+            f"Settings file not found at '{settings_file}'. "
+            f"Using default port {DEFAULT_PORT}."
+        )
+        return DEFAULT_PORT
+
+    port = read_port_from_settings(settings_file)
+    if port is None:
+        logger.info(
+            f"Could not read port from '{settings_file}'. "
+            f"Using default port {DEFAULT_PORT}."
+        )
+        return DEFAULT_PORT
+
+    logger.debug(f"Using port {port} from '{settings_file}'.")
+    return port
+
+
+# ---------------------------------------------------------------------------
+# TCP client
+# ---------------------------------------------------------------------------
+
+
+UNITY_HOST: str = "localhost"
+"""Default Unity TCP Server host. Unity never listens on remote interfaces."""
+
+
+class UnityTcpClient:
+    """TCP client that connects to the Unity MCP Server."""
+
+    def __init__(
+        self,
+        host: str,
+        port: int,
+        retry_time: float,
+        retry_count: int,
+        port_resolver: Any = None,
+    ):
         self.host = host
         self.port = port
         self.retry_time = retry_time
         self.retry_count = retry_count
+        self._port_resolver = port_resolver
         self.reader: asyncio.StreamReader | None = None
         self.writer: asyncio.StreamWriter | None = None
         self._lock = asyncio.Lock()
@@ -70,7 +175,8 @@ class UnityTcpClient:
         for attempt in range(self.retry_count):
             try:
                 logger.info(
-                    f"Connecting to Unity at {self.host}:{self.port} (attempt {attempt + 1}/{self.retry_count})"
+                    f"Connecting to Unity at {self.host}:{self.port}"
+                    f" (attempt {attempt + 1}/{self.retry_count})"
                 )
                 self.reader, self.writer = await asyncio.open_connection(
                     self.host, self.port
@@ -99,7 +205,21 @@ class UnityTcpClient:
             logger.info("Disconnected from Unity")
 
     async def send_request(self, request: dict[str, Any]) -> dict[str, Any]:
-        """Send a JSON-RPC request to Unity and return the response."""
+        """Send a JSON-RPC request to Unity and return the response.
+
+        The port is resolved fresh before every request so that runtime changes
+        made inside the Unity Editor are picked up automatically.
+        """
+        if self._port_resolver is not None:
+            current_port = self._port_resolver()
+            if current_port != self.port:
+                logger.info(
+                    f"Port changed from {self.port} to {current_port}. "
+                    "Disconnecting to reconnect on new port."
+                )
+                await self.disconnect()
+                self.port = current_port
+
         last_error = None
 
         for attempt in range(self.retry_count):
@@ -412,7 +532,9 @@ async def run_server(host: str, port: int, retry_time: float, retry_count: int):
 
     unity_client: UnityTcpClient | None = None
     try:
-        unity_client = UnityTcpClient(host, port, retry_time, retry_count)
+        unity_client = UnityTcpClient(
+            host, port, retry_time, retry_count, port_resolver=get_stdio_port
+        )
         server = create_server(unity_client)
 
         # Create memory streams for the server
@@ -491,8 +613,6 @@ def main():
         description="MCP STDIO Bridge for Unity Code MCP Server",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
-    parser.add_argument("--host", default="localhost", help="Unity TCP Server host")
-    parser.add_argument("--port", type=int, default=21088, help="Unity TCP Server port")
     parser.add_argument(
         "--retry-time",
         type=float,
@@ -515,10 +635,10 @@ def main():
     elif args.verbose:
         logger.setLevel(logging.DEBUG)
 
-    logger.info(
-        f"Unity Code MCP STDIO Bridge starting (Unity at {args.host}:{args.port})"
-    )
-    asyncio.run(run_server(args.host, args.port, args.retry_time, args.retry_count))
+    host = UNITY_HOST
+    port = get_stdio_port()
+    logger.info(f"Unity Code MCP STDIO Bridge starting (Unity at {host}:{port})")
+    asyncio.run(run_server(host, port, args.retry_time, args.retry_count))
 
 
 if __name__ == "__main__":
