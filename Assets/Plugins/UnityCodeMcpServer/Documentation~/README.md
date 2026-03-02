@@ -260,6 +260,12 @@ Runs Unity tests using the TestRunnerApi. Can run all tests or specific tests by
 Returns the test results including status and logs.
 ```
 
+### get_unity_info
+
+```
+Returns Unity Editor project path, Unity version, and current server settings. Useful for verifying server configuration and troubleshooting connectivity issues.
+```
+
 ## Extending (adding tools)
 
 Add Tools, Prompts, Resources, or Async Tools by implementing the relevant interfaces (ITool, IToolAsync, IPrompt, IResource) anywhere in your codebase. The server will automatically detect and register them.
