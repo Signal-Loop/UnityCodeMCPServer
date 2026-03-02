@@ -127,6 +127,7 @@ namespace UnityCodeMcpServer.Settings.Editor
             }
 
             serializedObject.ApplyModifiedProperties();
+            AssetDatabase.SaveAssetIfDirty(settings);
         }
 
         private void RefreshAvailableAssemblies()

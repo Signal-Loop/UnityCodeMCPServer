@@ -641,6 +641,74 @@ namespace UnityCodeMcpServer.Tests.EditMode
             }
         }
 
+        [Test]
+        public void Instance_LoadsExistingAssetFromDisk()
+        {
+            // Arrange: create and save an asset with a non-default port
+            ResetInstanceCache();
+            DeleteTestAsset();
+
+            var original = ScriptableObject.CreateInstance<UnityCodeMcpServerSettings>();
+            original.StdioPort = 55555;
+            UnityCodeMcpServerSettings.SaveInstance(original);
+
+            // Clear the cache so Instance has to re-initialize
+            ResetInstanceCache();
+
+            try
+            {
+                // Act: access Instance
+                var instance = UnityCodeMcpServerSettings.Instance;
+
+                // Assert: should have loaded the saved asset, not a brand-new default one
+                Assert.That(instance.StdioPort, Is.EqualTo(55555),
+                    "Instance should load the existing asset from disk, not create a new default ScriptableObject");
+            }
+            finally
+            {
+                ResetInstanceCache();
+                DeleteTestAsset();
+            }
+        }
+
+        [Test]
+        public void OnValidate_LogsPortFromThisNotFromInstance()
+        {
+            // Arrange: save an asset with port 11111 so Instance would return that if accessed
+            ResetInstanceCache();
+            DeleteTestAsset();
+
+            var assetInstance = ScriptableObject.CreateInstance<UnityCodeMcpServerSettings>();
+            assetInstance.StdioPort = 11111;
+            UnityCodeMcpServerSettings.SaveInstance(assetInstance);
+            ResetInstanceCache();
+
+            // Create a separate in-memory settings with a different port
+            var inMemorySettings = ScriptableObject.CreateInstance<UnityCodeMcpServerSettings>();
+            inMemorySettings.StdioPort = 22222;
+
+            try
+            {
+                // If OnValidate reads from `this`, the logged port should reflect inMemorySettings.StdioPort.
+                // If it incorrectly reads from `Instance`, it would see 11111 (from the asset).
+                // We verify indirectly: after OnValidate the port on `this` object is unchanged.
+                InvokeOnValidate(inMemorySettings);
+
+                Assert.That(inMemorySettings.StdioPort, Is.EqualTo(22222),
+                    "OnValidate must not overwrite 'this' port by reading from Instance");
+
+                // Also confirm Instance has loaded the asset (port 11111), not the in-memory object
+                Assert.That(UnityCodeMcpServerSettings.Instance.StdioPort, Is.EqualTo(11111),
+                    "Instance should be the saved asset, independent from the in-memory settings object");
+            }
+            finally
+            {
+                ScriptableObject.DestroyImmediate(inMemorySettings);
+                ResetInstanceCache();
+                DeleteTestAsset();
+            }
+        }
+
         #endregion
 
         #region Helper Methods

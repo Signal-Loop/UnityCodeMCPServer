@@ -168,12 +168,17 @@ namespace UnityCodeMcpServer.Settings
         }
 
         /// <summary>
-        /// Get the singleton instance, always loading fresh from Resources to pick up changes
+        /// Get the singleton instance
         /// </summary>
         public static UnityCodeMcpServerSettings Instance
         {
             get
             {
+                if (_instance != null)
+                {
+                    return _instance;
+                }
+                _instance = LoadSettingsAsset(_settingsAssetPath);
                 if (_instance != null)
                 {
                     return _instance;
@@ -184,6 +189,7 @@ namespace UnityCodeMcpServer.Settings
 
                 return _instance;
             }
+
         }
 
         public static void SaveInstance(UnityCodeMcpServerSettings instance)
