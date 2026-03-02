@@ -1,3 +1,4 @@
+using System.Collections;
 using System.Reflection;
 using System.Linq;
 using System.IO;
@@ -5,6 +6,7 @@ using UnityCodeMcpServer.Settings;
 using NUnit.Framework;
 using UnityEditor;
 using UnityEngine;
+using UnityEngine.TestTools;
 
 namespace UnityCodeMcpServer.Tests.EditMode
 {
@@ -707,6 +709,65 @@ namespace UnityCodeMcpServer.Tests.EditMode
                 ResetInstanceCache();
                 DeleteTestAsset();
             }
+        }
+
+        #endregion
+
+        #region OnInspectorGUI Persistence Tests
+
+        /// <summary>
+        /// Minimal EditorWindow that delegates OnGUI to a given custom editor.
+        /// Used to provide a real IMGUI context so OnInspectorGUI can be exercised in tests.
+        /// </summary>
+        private class SettingsEditorTestWindow : EditorWindow
+        {
+            public UnityCodeMcpServer.Settings.Editor.UnityCodeMcpServerSettingsEditor Inspector;
+
+            private void OnGUI()
+            {
+                Inspector?.OnInspectorGUI();
+            }
+        }
+
+        [UnityTest]
+        public IEnumerator OnInspectorGUI_SavesDirtySettingsToDisk()
+        {
+            // Arrange: create a settings asset on disk with a known port value
+            DeleteTestAsset();
+            var initial = ScriptableObject.CreateInstance<UnityCodeMcpServerSettings>();
+            initial.StdioPort = 11111;
+            UnityCodeMcpServerSettings.SaveInstance(initial);
+
+            var loadedSettings = AssetDatabase.LoadAssetAtPath<UnityCodeMcpServerSettings>(TestSettingsAssetPath);
+            Assert.That(loadedSettings, Is.Not.Null);
+
+            // Act: change the port and mark the asset dirty, then let the inspector run
+            loadedSettings.StdioPort = 22222;
+            EditorUtility.SetDirty(loadedSettings);
+
+            var inspector = (UnityCodeMcpServer.Settings.Editor.UnityCodeMcpServerSettingsEditor)
+                UnityEditor.Editor.CreateEditor(
+                    loadedSettings,
+                    typeof(UnityCodeMcpServer.Settings.Editor.UnityCodeMcpServerSettingsEditor));
+
+            // Open an EditorWindow whose OnGUI calls inspector.OnInspectorGUI().
+            // This is necessary because IMGUI functions require a real OnGUI context.
+            var window = EditorWindow.GetWindow<SettingsEditorTestWindow>("Settings Editor Test");
+            window.Inspector = inspector;
+            window.Repaint();
+
+            // Yield one editor frame so OnGUI fires and AssetDatabase.SaveAssetIfDirty runs
+            yield return null;
+
+            window.Close();
+            Object.DestroyImmediate(inspector);
+
+            // Assert: the .asset file on disk must now contain the updated port
+            var diskContent = File.ReadAllText(TestSettingsAssetPath);
+            Assert.That(diskContent, Does.Contain("22222"),
+                "StdioPort change should be flushed to disk by OnInspectorGUI via AssetDatabase.SaveAssetIfDirty");
+
+            DeleteTestAsset();
         }
 
         #endregion

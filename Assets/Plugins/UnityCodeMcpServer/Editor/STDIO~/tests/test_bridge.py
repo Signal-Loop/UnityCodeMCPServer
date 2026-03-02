@@ -1,4 +1,16 @@
-"""Tests for the Unity Code MCP STDIO Bridge."""
+"""
+Tests for the Unity Code MCP STDIO Bridge.
+
+Running Tests
+-------------
+From the STDIO~ directory:
+
+    uv run --extra dev pytest tests/ -v
+
+Windows (if uv raises "Failed to canonicalize script path"):
+
+    .venv\\Scripts\\python.exe -m pytest tests/ -v
+"""
 
 import asyncio
 import json
@@ -232,6 +244,91 @@ class TestUnityTcpClient:
             assert "error" in response
             assert response["error"]["code"] == -32000
             assert "Failed to communicate" in response["error"]["message"]
+
+    @pytest.mark.asyncio
+    async def test_port_resolver_no_change_does_not_disconnect(self):
+        """If port_resolver returns the same port, no disconnect/reconnect happens."""
+        resolver = lambda: 21088  # noqa: E731
+        client = UnityTcpClient(
+            host="localhost",
+            port=21088,
+            retry_time=0.0,
+            retry_count=1,
+            port_resolver=resolver,
+        )
+
+        mock_reader = MockStreamReader()
+        mock_writer = MockStreamWriter()
+        expected_response = {"jsonrpc": "2.0", "id": "test", "result": {}}
+        mock_reader.set_response(expected_response)
+
+        client.reader = mock_reader
+        client.writer = mock_writer
+
+        await client.send_request({"jsonrpc": "2.0", "id": "test", "method": "ping"})
+
+        # Writer should NOT have been closed
+        assert mock_writer.closed is False
+        assert client.port == 21088
+
+    @pytest.mark.asyncio
+    async def test_port_resolver_port_change_disconnects_and_updates_port(self):
+        """If port_resolver returns a new port, client disconnects and updates self.port."""
+        new_port = 22000
+        resolver = lambda: new_port  # noqa: E731
+        client = UnityTcpClient(
+            host="localhost",
+            port=21088,
+            retry_time=0.0,
+            retry_count=1,
+            port_resolver=resolver,
+        )
+
+        old_writer = MockStreamWriter()
+        old_reader = MockStreamReader()
+        client.reader = old_reader
+        client.writer = old_writer
+
+        mock_reader = MockStreamReader()
+        mock_writer = MockStreamWriter()
+        expected_response = {"jsonrpc": "2.0", "id": "test", "result": {}}
+        mock_reader.set_response(expected_response)
+
+        with patch("asyncio.open_connection", new_callable=AsyncMock) as mock_open:
+            mock_open.return_value = (mock_reader, mock_writer)
+            await client.send_request(
+                {"jsonrpc": "2.0", "id": "test", "method": "ping"}
+            )
+
+        # Old writer should have been closed (disconnect called)
+        assert old_writer.closed is True
+        # Port should be updated to the new value
+        assert client.port == new_port
+        # Reconnection should have been attempted on the new port
+        assert mock_open.called
+        args = mock_open.call_args[0]
+        assert args[1] == new_port
+
+    @pytest.mark.asyncio
+    async def test_no_port_resolver_does_not_change_port(self):
+        """Without a port_resolver, port stays fixed regardless of settings."""
+        client = UnityTcpClient(
+            host="localhost",
+            port=21088,
+            retry_time=0.0,
+            retry_count=1,
+        )
+
+        mock_reader = MockStreamReader()
+        mock_writer = MockStreamWriter()
+        expected_response = {"jsonrpc": "2.0", "id": "test", "result": {}}
+        mock_reader.set_response(expected_response)
+        client.reader = mock_reader
+        client.writer = mock_writer
+
+        await client.send_request({"jsonrpc": "2.0", "id": "test", "method": "ping"})
+
+        assert client.port == 21088
 
 
 class TestMessageFraming:

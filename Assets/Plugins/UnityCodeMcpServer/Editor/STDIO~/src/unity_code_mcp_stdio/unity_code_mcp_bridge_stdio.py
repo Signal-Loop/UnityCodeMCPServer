@@ -159,11 +159,13 @@ class UnityTcpClient:
         port: int,
         retry_time: float,
         retry_count: int,
+        port_resolver: Any = None,
     ):
         self.host = host
         self.port = port
         self.retry_time = retry_time
         self.retry_count = retry_count
+        self._port_resolver = port_resolver
         self.reader: asyncio.StreamReader | None = None
         self.writer: asyncio.StreamWriter | None = None
         self._lock = asyncio.Lock()
@@ -203,7 +205,21 @@ class UnityTcpClient:
             logger.info("Disconnected from Unity")
 
     async def send_request(self, request: dict[str, Any]) -> dict[str, Any]:
-        """Send a JSON-RPC request to Unity and return the response."""
+        """Send a JSON-RPC request to Unity and return the response.
+
+        The port is resolved fresh before every request so that runtime changes
+        made inside the Unity Editor are picked up automatically.
+        """
+        if self._port_resolver is not None:
+            current_port = self._port_resolver()
+            if current_port != self.port:
+                logger.info(
+                    f"Port changed from {self.port} to {current_port}. "
+                    "Disconnecting to reconnect on new port."
+                )
+                await self.disconnect()
+                self.port = current_port
+
         last_error = None
 
         for attempt in range(self.retry_count):
@@ -516,7 +532,9 @@ async def run_server(host: str, port: int, retry_time: float, retry_count: int):
 
     unity_client: UnityTcpClient | None = None
     try:
-        unity_client = UnityTcpClient(host, port, retry_time, retry_count)
+        unity_client = UnityTcpClient(
+            host, port, retry_time, retry_count, port_resolver=get_stdio_port
+        )
         server = create_server(unity_client)
 
         # Create memory streams for the server

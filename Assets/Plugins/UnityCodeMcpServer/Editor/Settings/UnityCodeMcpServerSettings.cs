@@ -215,7 +215,7 @@ namespace UnityCodeMcpServer.Settings
             AssetDatabase.CreateAsset(instance, _settingsAssetPath);
             AssetDatabase.SaveAssets();
             AssetDatabase.ImportAsset(_settingsAssetPath, ImportAssetOptions.ForceUpdate);
-            Debug.Log($"{Protocol.McpProtocol.LogPrefix} Created new UnityCodeMcpServerSettings asset at {_settingsAssetPath}");
+            Debug.Log($"{Protocol.McpProtocol.LogPrefix} Created new UnityCodeMcpServerSettings asset at {_settingsAssetPath}");  
         }
 
         private void OnValidate()
