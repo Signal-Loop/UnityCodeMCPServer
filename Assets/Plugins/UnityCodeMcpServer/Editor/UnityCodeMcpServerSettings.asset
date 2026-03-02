@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: UnityCodeMcpServerSettings
   m_EditorClassIdentifier: UnityCodeMcpServer::UnityCodeMcpServer.Settings.UnityCodeMcpServerSettings
   StartupServer: 0
-  MinLogLevel: 1
+  MinLogLevel: 2
   _lastPort: 21099
   _hasInitializedPortTracking: 1
   _lastHttpPort: 3001
