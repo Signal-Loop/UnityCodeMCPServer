@@ -1,12 +1,8 @@
 using System;
 using System.Collections.Generic;
-using System.Reflection;
-using System.Text;
 using UnityCodeMcpServer.Helpers;
 using UnityCodeMcpServer.Interfaces;
 using UnityCodeMcpServer.Protocol;
-using UnityEditor;
-using UnityEngine;
 
 namespace UnityCodeMcpServer.McpResources
 {
@@ -38,6 +34,18 @@ namespace UnityCodeMcpServer.McpResources
         /// <summary>Description of what this resource provides.</summary>
         private const string ResourceDescription = "Reads the Unity Editor Console logs.";
 
+        private readonly Func<int, (string text, bool isError)> _logReader;
+
+        public UnityConsoleLogsResource()
+            : this(null)
+        {
+        }
+
+        public UnityConsoleLogsResource(Func<int, (string text, bool isError)> logReader)
+        {
+            _logReader = logReader ?? UnityConsoleLogReader.ReadTail;
+        }
+
         public string Uri => ResourceUri;
 
         public string Name => ResourceName;
@@ -55,153 +63,8 @@ namespace UnityCodeMcpServer.McpResources
         /// <returns>A ResourcesReadResult containing the log content or error message.</returns>
         public ResourcesReadResult Read()
         {
-            var sb = new StringBuilder();
-
-            // Validate that required reflection types exist
-            if (!TryGetLogEntryTypes(out var logEntriesType, out var logEntryType))
-            {
-                return CreateErrorResult("Error: Could not find UnityEditor.LogEntries or LogEntry types.");
-            }
-
-            // Validate that required reflection methods exist
-            if (!TryGetLogEntryMethods(logEntriesType, out var startGettingEntries, out var getCount,
-                                       out var getEntryInternal, out var endGettingEntries))
-            {
-                return CreateErrorResult("Error: Could not find necessary methods on UnityEditor.LogEntries.");
-            }
-
-            try
-            {
-                return RetrieveAndFormatLogs(logEntriesType, logEntryType, startGettingEntries, getCount,
-                                            getEntryInternal);
-            }
-            catch (Exception ex)
-            {
-                return CreateErrorResult($"Error reading logs: {ex.Message}");
-            }
-            finally
-            {
-                // Ensure cleanup is always performed
-                SafeInvokeMethod(endGettingEntries, "EndGettingEntries");
-            }
-        }
-
-        /// <summary>
-        /// Attempts to retrieve the LogEntries and LogEntry types via reflection.
-        /// </summary>
-        private bool TryGetLogEntryTypes(out Type logEntriesType, out Type logEntryType)
-        {
-            logEntriesType = System.Type.GetType("UnityEditor.LogEntries, UnityEditor.dll");
-            logEntryType = System.Type.GetType("UnityEditor.LogEntry, UnityEditor.dll");
-            return logEntriesType != null && logEntryType != null;
-        }
-
-        /// <summary>
-        /// Attempts to retrieve the required methods from LogEntries type via reflection.
-        /// </summary>
-        private bool TryGetLogEntryMethods(Type logEntriesType, out MethodInfo startGettingEntries,
-                                         out MethodInfo getCount, out MethodInfo getEntryInternal,
-                                         out MethodInfo endGettingEntries)
-        {
-            startGettingEntries = logEntriesType.GetMethod("StartGettingEntries");
-            getCount = logEntriesType.GetMethod("GetCount");
-            getEntryInternal = logEntriesType.GetMethod("GetEntryInternal");
-            endGettingEntries = logEntriesType.GetMethod("EndGettingEntries");
-
-            return startGettingEntries != null && getCount != null &&
-                   getEntryInternal != null && endGettingEntries != null;
-        }
-
-        /// <summary>
-        /// Safely retrieves and formats log entries.
-        /// </summary>
-        private ResourcesReadResult RetrieveAndFormatLogs(Type logEntriesType, Type logEntryType,
-                                                         MethodInfo startGettingEntries, MethodInfo getCount,
-                                                         MethodInfo getEntryInternal)
-        {
-            var sb = new StringBuilder();
-
-            SafeInvokeMethod(startGettingEntries, "StartGettingEntries");
-
-            int count = SafeGetLogCount(getCount);
-            if (count == 0)
-            {
-                return CreateSuccessResult("(No console logs available)");
-            }
-
-            int logStart = Math.Max(0, count - MaxLogEntries);
-            if (count > MaxLogEntries)
-            {
-                sb.AppendLine($"--- Showing last {MaxLogEntries} logs (Total: {count}) ---");
-            }
-
-            ExtractLogMessages(logEntryType, getEntryInternal, logStart, count, sb);
-
-            return CreateSuccessResult(sb.ToString());
-        }
-
-        /// <summary>
-        /// Extracts individual log messages from the console.
-        /// </summary>
-        private void ExtractLogMessages(Type logEntryType, MethodInfo getEntryInternal, int start, int count, StringBuilder sb)
-        {
-            var messageField = logEntryType.GetField("message");
-            if (messageField == null)
-            {
-                sb.AppendLine("Error: Could not find 'message' field on LogEntry type.");
-                return;
-            }
-
-            try
-            {
-                for (int i = start; i < count; i++)
-                {
-                    object logEntry = Activator.CreateInstance(logEntryType);
-                    getEntryInternal.Invoke(null, new object[] { i, logEntry });
-
-                    string message = (string)messageField.GetValue(logEntry);
-                    if (message != null)
-                    {
-                        sb.AppendLine(message);
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                sb.AppendLine($"Error extracting log messages: {ex.Message}");
-            }
-        }
-
-        /// <summary>
-        /// Safely invokes a method, catching any exceptions.
-        /// </summary>
-        private void SafeInvokeMethod(MethodInfo method, string methodName)
-        {
-            try
-            {
-                method?.Invoke(null, null);
-            }
-            catch (Exception ex)
-            {
-                LoopLogger.Error($"Error invoking {methodName}: {ex.Message}");
-            }
-        }
-
-        /// <summary>
-        /// Safely retrieves the log count from Unity's LogEntries.
-        /// </summary>
-        private int SafeGetLogCount(MethodInfo getCount)
-        {
-            try
-            {
-                object result = getCount.Invoke(null, null);
-                return result is int count ? count : 0;
-            }
-            catch (Exception ex)
-            {
-                LoopLogger.Error($"Error getting log count: {ex.Message}");
-                return 0;
-            }
+            var (text, _) = _logReader(MaxLogEntries);
+            return CreateSuccessResult(string.IsNullOrWhiteSpace(text) ? "(No console logs available)" : text);
         }
 
         /// <summary>

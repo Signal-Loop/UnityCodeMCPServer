@@ -1,5 +1,7 @@
 using System;
+using System.Collections.Generic;
 using System.Text.Json;
+using UnityCodeMcpServer.Helpers;
 using UnityCodeMcpServer.Protocol;
 using UnityCodeMcpServer.McpTools;
 using NUnit.Framework;
@@ -118,6 +120,48 @@ namespace UnityCodeMcpServer.Tests.EditMode
             Assert.AreEqual(1, capturedLimit);
             Assert.IsFalse(result.IsError);
             StringAssert.Contains("Showing last 1 logs", result.Content[0].Text);
+        }
+
+        [Test]
+        public void Execute_Replaces_EmptyReaderText_WithPlaceholder()
+        {
+            var tool = new ReadUnityConsoleLogsTool(_ => ("   ", false));
+
+            var result = tool.Execute(JsonHelper.ParseElement("{}"));
+
+            Assert.IsFalse(result.IsError);
+            StringAssert.Contains("(No console logs available)", result.Content[0].Text);
+        }
+
+        [Test]
+        public void SelectTail_ReturnsNewestLogs_LikeTail()
+        {
+            IReadOnlyList<UnityConsoleLogEntry> tail = UnityConsoleLogReader.SelectTail(
+                new[]
+                {
+                    new UnityConsoleLogEntry("oldest", null),
+                    new UnityConsoleLogEntry("middle", null),
+                    new UnityConsoleLogEntry("newest", null)
+                },
+                2);
+
+            Assert.AreEqual(2, tail.Count);
+            Assert.AreEqual("middle", tail[0].Message);
+            Assert.AreEqual("newest", tail[1].Message);
+        }
+
+        [Test]
+        public void FormatEntries_IncludesTimestamp_WhenAvailable()
+        {
+            string text = UnityConsoleLogReader.FormatEntries(
+                new[]
+                {
+                    new UnityConsoleLogEntry("message", "[11:07:59]")
+                },
+                1,
+                1);
+
+            StringAssert.Contains("[11:07:59] message", text);
         }
     }
 }
