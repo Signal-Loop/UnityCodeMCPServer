@@ -1,6 +1,6 @@
 [
   {
     "name": "Debug",
-    "script": "Debug.Log(\"Test\");"
+    "script": "Debug.Log(\"Hello!\");\nreturn 2 + 3;"
   }
 ]

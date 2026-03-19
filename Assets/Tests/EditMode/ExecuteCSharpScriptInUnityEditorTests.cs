@@ -66,7 +66,7 @@ namespace UnityCodeMcpServer.Tests.EditMode
             Assert.That(result.Content, Is.Not.Empty);
             Assert.That(result.Content[0].Text, Does.Contain("### Result"));
             Assert.That(result.Content[0].Text, Does.Contain("5"));
-            Assert.That(result.Content[0].Text, Does.Contain("Status: success"));
+            Assert.That(result.Content[0].Text, Does.Contain("Status: SUCCESS"));
         });
 
         [UnityTest]
@@ -121,7 +121,7 @@ namespace UnityCodeMcpServer.Tests.EditMode
             var result = await tool.ExecuteAsync(args);
 
             Assert.That(result.IsError, Is.True);
-            Assert.That(result.Content[0].Text, Does.Contain("compilation_error"));
+            Assert.That(result.Content[0].Text, Does.Contain("COMPILATION_ERROR"));
         });
 
         [UnityTest]
@@ -140,7 +140,7 @@ namespace UnityCodeMcpServer.Tests.EditMode
             Assert.That(result.Content, Is.Not.Empty);
             var text = result.Content[0].Text;
 
-            Assert.That(text, Does.Contain("Status: success_with_errors"));
+            Assert.That(text, Does.Contain("Status: SUCCESS_WITH_ERRORS"));
             Assert.That(text, Does.Contain("Standard Log:"));
             Assert.That(text, Does.Contain("warning log"));
             Assert.That(text, Does.Contain("debug log"));
@@ -164,7 +164,7 @@ namespace UnityCodeMcpServer.Tests.EditMode
             Assert.That(result.IsError, Is.True);
             Assert.That(result.Content, Is.Not.Empty);
             var text = result.Content[0].Text;
-            Assert.That(text, Does.Contain("Status: execution_error"));
+            Assert.That(text, Does.Contain("Status: EXECUTION_ERROR"));
             Assert.That(text, Does.Contain("InvalidOperationException"));
             Assert.That(text, Does.Contain("runtime boom"));
             Assert.That(text, Does.Contain("### Errors"));
@@ -183,7 +183,7 @@ namespace UnityCodeMcpServer.Tests.EditMode
             Assert.That(result.Content, Is.Not.Empty);
             Assert.That(result.Content[0].Text, Does.Contain("### Result"));
             Assert.That(result.Content[0].Text, Does.Contain("5"));
-            Assert.That(result.Content[0].Text, Does.Contain("Status: success"));
+            Assert.That(result.Content[0].Text, Does.Contain("Status: SUCCESS"));
         });
 
         private static JsonElement BuildScriptArguments(string script)

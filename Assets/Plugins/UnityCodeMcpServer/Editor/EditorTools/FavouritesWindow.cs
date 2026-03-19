@@ -69,23 +69,40 @@ namespace UnityCodeMcpServer.Editor.EditorTools
 
         private void DrawFavouriteDropdown()
         {
-            EditorGUILayout.LabelField("Scripts", EditorStyles.boldLabel);
+            EditorGUILayout.BeginHorizontal();
+            EditorGUILayout.LabelField("Scripts", EditorStyles.boldLabel);            
+            EditorGUILayout.EndHorizontal();
 
-            if (_favourites.Count == 0)
+            // Create dropdown options including "New Script" at index 0
+            string[] names = new string[_favourites.Count + 1];
+            names[0] = "<New Script>";
+            for (int i = 0; i < _favourites.Count; i++)
             {
-                EditorGUILayout.HelpBox("No scripts saved.", MessageType.Info);
-                _selectedFavouriteIndex = -1;
-                return;
+                names[i + 1] = _favourites[i].Name;
             }
 
-            string[] names = _favourites.Select(f => f.Name).ToArray();
-            int safeIndex = Mathf.Clamp(_selectedFavouriteIndex, 0, _favourites.Count - 1);
-            int newIndex = EditorGUILayout.Popup("Select Script", safeIndex, names);
+            // Map selected index: -1 or new script maps to 0, otherwise add 1 offset
+            int displayIndex = _selectedFavouriteIndex < 0 ? 0 : _selectedFavouriteIndex + 1;
+            displayIndex = Mathf.Clamp(displayIndex, 0, names.Length - 1);
+            
+            int newDisplayIndex = EditorGUILayout.Popup("Select Script", displayIndex, names);
 
-            if (newIndex != _selectedFavouriteIndex || _selectedFavouriteIndex < 0)
+            // Map back from display index to actual index
+            if (newDisplayIndex == 0)
             {
-                _selectedFavouriteIndex = newIndex;
-                LoadSelectedScript();
+                if (_selectedFavouriteIndex != -1)
+                {
+                    CreateNewScript();
+                }
+            }
+            else
+            {
+                int newIndex = newDisplayIndex - 1;
+                if (newIndex != _selectedFavouriteIndex)
+                {
+                    _selectedFavouriteIndex = newIndex;
+                    LoadSelectedScript();
+                }
             }
         }
 
@@ -109,6 +126,11 @@ namespace UnityCodeMcpServer.Editor.EditorTools
         private void DrawActionButtons()
         {
             EditorGUILayout.BeginHorizontal();
+            
+            if (GUILayout.Button("+", GUILayout.Height(20)))
+            {
+                CreateNewScript();
+            }
 
             if (GUILayout.Button("Save", GUILayout.Height(20)))
             {
@@ -136,6 +158,14 @@ namespace UnityCodeMcpServer.Editor.EditorTools
             }
         }
 
+        private void CreateNewScript()
+        {
+            _selectedFavouriteIndex = -1;
+            _scriptName = string.Empty;
+            _scriptContent = string.Empty;
+            _selectedScriptName = string.Empty;
+        }
+
         private void LoadSelectedScript()
         {
             if (_selectedFavouriteIndex >= 0 && _selectedFavouriteIndex < _favourites.Count)
@@ -154,7 +184,7 @@ namespace UnityCodeMcpServer.Editor.EditorTools
                 _selectedFavouriteIndex = -1;
                 _selectedScriptName = string.Empty;
                 _scriptName = string.Empty;
-                _scriptContent = string.Empty;
+                _scriptContent = "Debug.Log(\"Hello!\");\nreturn 2 + 3;";
                 return;
             }
 
@@ -281,7 +311,7 @@ namespace UnityCodeMcpServer.Editor.EditorTools
                 var result = await _scriptExecutionService.ExecuteScriptAsync(_scriptContent);
 
                 var output = FormatExecutionOutput(result);
-                LoopLogger.Info($"Script execution result:\n{output}");
+                LoopLogger.Info(output);
             }
             catch (Exception ex)
             {
@@ -294,21 +324,16 @@ namespace UnityCodeMcpServer.Editor.EditorTools
         private string FormatExecutionOutput(ScriptExecutionService.ExecutionResult result)
         {
             var output = new System.Text.StringBuilder();
-            output.AppendLine($"Status: {result.Status}");
-
-            if (!string.IsNullOrWhiteSpace(result.ResultText))
-            {
-                output.AppendLine($"Result: {result.ResultText}");
-            }
+            output.AppendLine($"Script Execution Status: {result.Status}, Result: {result.ResultText}");
 
             if (!string.IsNullOrWhiteSpace(result.Logs))
             {
-                output.AppendLine($"Logs:\n{result.Logs}");
+                output.AppendLine($"\n-----\nLogs:\n{result.Logs}");
             }
 
             if (!string.IsNullOrWhiteSpace(result.Errors))
             {
-                output.AppendLine($"Errors:\n{result.Errors}");
+                output.AppendLine($"\n-----\nErrors:\n{result.Errors}");
             }
 
             return output.ToString();
