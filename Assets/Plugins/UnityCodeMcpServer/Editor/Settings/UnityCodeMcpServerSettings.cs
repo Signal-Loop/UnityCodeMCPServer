@@ -94,6 +94,11 @@ namespace UnityCodeMcpServer.Settings
         [Header("Script Execution Assemblies")]
         [Tooltip("Additional assemblies to load for C# script execution (beyond default assemblies)")]
         public List<string> AdditionalAssemblyNames = new List<string>();
+
+        [Header("Skills Installer")]
+        [Tooltip("Target directory for skill file installation (persists across sessions)")]
+        public string SkillsTargetPath = "";
+
         private static UnityCodeMcpServerSettings _instance;
 
         /// <summary>

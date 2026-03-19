@@ -1,0 +1,6 @@
+[
+  {
+    "name": "Debug",
+    "script": "Debug.Log(\"Test\");"
+  }
+]

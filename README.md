@@ -51,6 +51,7 @@ Full chat transcript: [ChatTranscript.md](Assets/Plugins/UnityCodeMcpServer/Docu
 - [Architecture](#architecture)
 - [Quick start](#quick-start)
 - [Built-in tools](#built-in-tools)
+- [Agent skills](#agent-skills)
 - [Extending (adding tools)](#extending-adding-tools)
 - [Script execution context](#script-execution-context)
 - [STDIO bridge](#stdio-bridge)
@@ -140,6 +141,11 @@ https://github.com/Cysharp/UniTask.git?path=src/UniTask/Assets/Plugins/UniTask
 ```
 https://github.com/Signal-Loop/UnityCodeMCPServer.git?path=Assets/Plugins/UnityCodeMcpServer
 ```
+
+4. Install Skills (Markdown files that teach your agent how to use the server's tools effectively):
+   - In Unity Editor, open server settings: **Tools/UnityCodeMcpServer/Show Settings**
+   - Scroll to the **Skills** section
+   - Choose a target directory for skills (e.g. `.github/skills/`) and click **Install / Update Skills**
 
 ### First Run
 
@@ -259,6 +265,35 @@ Reads Unity Editor Console logs. Returns recent log entries as text with an opti
 Runs Unity tests using the TestRunnerApi. Can run all tests or specific tests by name.
 Returns the test results including status and logs.
 ```
+
+### get_unity_info
+
+```
+Returns Unity Editor project path, Unity version, and current server settings. Useful for verifying server configuration and troubleshooting connectivity issues.
+```
+
+## Agent skills
+
+Unity Code MCP Server ships a set of **AI agent skill files** (Markdown documents that teach your agent how to use the server's tools effectively). Skills can be installed directly from the Unity Editor into your agent's skills directory.
+
+### Installing skills
+
+1. Open the server settings: **Tools/UnityCodeMcpServer/Show Settings**.
+2. Scroll to the **Skills** section.
+3. Choose a target directory:
+   - Click **.github/skills/** to target `.github/skills/` (workspace-relative)
+   - Click **.claude/skills/** to target `.claude/skills/` (workspace-relative)
+   - Click **.agents/skills/** to target `.agents/skills/` (workspace-relative)
+   - Or type a custom path / click **Custom** to pick any folder.
+4. Click **Install / Update Skills**.
+
+Only `.md` files are copied. Files that are already up to date (matching content hash) are skipped.
+
+### Included skills
+
+| Skill                                      | Description                                                                                                                                                                                                                                 |
+| ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `executing-csharp-scripts-in-unity-editor` | Teaches the agent when and how to use `execute_csharp_script_in_unity_editor`, `read_unity_console_logs`, and `run_unity_tests` together as a reliable pipeline. Covers forbidden patterns, debugging loops, and common scripting patterns. |
 
 ## Extending (adding tools)
 

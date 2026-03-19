@@ -46,7 +46,7 @@ namespace UnityCodeMcpServer.Services
                 return new ExecutionResult
                 {
                     IsSuccess = false,
-                    Status = "error",
+                    Status = "ERROR",
                     Errors = "Script is empty or missing."
                 };
             }
@@ -74,7 +74,7 @@ namespace UnityCodeMcpServer.Services
                 MarkActiveSceneDirtyIfNeeded();
 
                 var hasLoggedErrors = logCapture.HasErrors;
-                var statusLabel = hasLoggedErrors ? "success_with_errors" : "success";
+                var statusLabel = hasLoggedErrors ? "SUCCESS_WITH_ERRORS" : "SUCCESS";
                 var errorsText = hasLoggedErrors ? logCapture.ErrorLog : null;
 
                 return new ExecutionResult
@@ -97,7 +97,7 @@ namespace UnityCodeMcpServer.Services
                 return new ExecutionResult
                 {
                     IsSuccess = false,
-                    Status = "compilation_error",
+                    Status = "COMPILATION_ERROR",
                     Errors = errorDetails,
                     Logs = logCapture.GetLogs(),
                     LoadedAssemblies = assembliesDisplay
@@ -112,7 +112,7 @@ namespace UnityCodeMcpServer.Services
                 return new ExecutionResult
                 {
                     IsSuccess = false,
-                    Status = "execution_error",
+                    Status = "EXECUTION_ERROR",
                     Errors = errorDetails,
                     Logs = logCapture.GetLogs(),
                     LoadedAssemblies = assembliesDisplay
