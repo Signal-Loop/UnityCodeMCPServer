@@ -17,7 +17,8 @@
         "System.Collections.Immutable.dll",
         "Microsoft.CodeAnalysis.dll",
         "Microsoft.CodeAnalysis.Scripting.dll",
-        "Microsoft.CodeAnalysis.CSharp.Scripting.dll"
+        "Microsoft.CodeAnalysis.CSharp.Scripting.dll",
+        "System.Text.Encodings.Web.dll"
     ],
     "autoReferenced": true,
     "defineConstraints": [],
