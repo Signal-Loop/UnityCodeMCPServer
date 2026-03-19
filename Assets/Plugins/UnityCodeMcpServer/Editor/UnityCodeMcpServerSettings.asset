@@ -26,4 +26,4 @@ MonoBehaviour:
   SessionTimeoutSeconds: 3600
   SseKeepAliveIntervalSeconds: 30
   AdditionalAssemblyNames: []
-  SkillsTargetPath: 
+  SkillsTargetPath: C:\Users\tbory\source\Workspaces\Loop\UnityCodeMcpServer\.agents\skills\

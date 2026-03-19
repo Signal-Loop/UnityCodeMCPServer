@@ -27,9 +27,9 @@ namespace UnityCodeMcpServer.Settings.Editor
 
         private static readonly (string Label, string RelativePath)[] SkillsPresets =
         {
-            ("GitHub Copilot", ".github/skills/"),
-            ("Claude",         ".claude/skills/"),
-            ("Default Agents", ".agents/skills/"),
+            (".github/skills/", ".github/skills/"),
+            (".claude/skills/", ".claude/skills/"),
+            (".agents/skills/", ".agents/skills/"),
         };
 
         private string GetSelectedSkillsTargetPath(UnityCodeMcpServerSettings settings)
@@ -197,7 +197,7 @@ namespace UnityCodeMcpServer.Settings.Editor
                 SetSelectedSkillsTargetPath(settings, newPath);
             selectedPath = newPath;
 
-            if (GUILayout.Button("Browse", GUILayout.Width(60)))
+            if (GUILayout.Button("Custom", GUILayout.Width(60)))
             {
                 string chosen = EditorUtility.OpenFolderPanel(
                     "Select skills target folder",

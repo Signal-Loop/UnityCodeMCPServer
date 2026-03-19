@@ -142,6 +142,11 @@ https://github.com/Cysharp/UniTask.git?path=src/UniTask/Assets/Plugins/UniTask
 https://github.com/Signal-Loop/UnityCodeMCPServer.git?path=Assets/Plugins/UnityCodeMcpServer
 ```
 
+4. Install Skills (Markdown files that teach your agent how to use the server's tools effectively):
+   - In Unity Editor, open server settings: **Tools/UnityCodeMcpServer/Show Settings**
+   - Scroll to the **Skills** section
+   - Choose a target directory for skills (e.g. `.github/skills/`) and click **Install / Update Skills**
+
 ### First Run
 
 ### MCP client configuration
@@ -276,10 +281,10 @@ Unity Code MCP Server ships a set of **AI agent skill files** (Markdown document
 1. Open the server settings: **Tools/UnityCodeMcpServer/Show Settings**.
 2. Scroll to the **Skills** section.
 3. Choose a target directory:
-   - Click **GitHub Copilot** to target `.github/skills/` (workspace-relative)
-   - Click **Claude** to target `.claude/skills/` (workspace-relative)
-   - Click **Default Agents** to target `.agents/skills/` (workspace-relative)
-   - Or type a custom path / click **Browse** to pick any folder.
+   - Click **.github/skills/** to target `.github/skills/` (workspace-relative)
+   - Click **.claude/skills/** to target `.claude/skills/` (workspace-relative)
+   - Click **.agents/skills/** to target `.agents/skills/` (workspace-relative)
+   - Or type a custom path / click **Custom** to pick any folder.
 4. Click **Install / Update Skills**.
 
 Only `.md` files are copied. Files that are already up to date (matching content hash) are skipped.
