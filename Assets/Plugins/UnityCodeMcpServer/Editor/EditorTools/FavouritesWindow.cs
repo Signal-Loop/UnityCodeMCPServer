@@ -118,7 +118,7 @@ namespace UnityCodeMcpServer.Editor.EditorTools
 
             _textAreaStyle ??= new GUIStyle(EditorStyles.textArea) { wordWrap = true };
 
-            _scriptScrollPosition = EditorGUILayout.BeginScrollView(_scriptScrollPosition, GUILayout.Height(300));
+            _scriptScrollPosition = EditorGUILayout.BeginScrollView(_scriptScrollPosition, GUILayout.ExpandHeight(true));
             _scriptContent = EditorGUILayout.TextArea(_scriptContent, _textAreaStyle, GUILayout.ExpandHeight(true));
             EditorGUILayout.EndScrollView();
         }
