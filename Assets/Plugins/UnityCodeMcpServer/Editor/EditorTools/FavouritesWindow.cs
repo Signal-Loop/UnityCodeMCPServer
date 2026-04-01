@@ -70,7 +70,7 @@ namespace UnityCodeMcpServer.Editor.EditorTools
         private void DrawFavouriteDropdown()
         {
             EditorGUILayout.BeginHorizontal();
-            EditorGUILayout.LabelField("Scripts", EditorStyles.boldLabel);            
+            EditorGUILayout.LabelField("Scripts", EditorStyles.boldLabel);
             EditorGUILayout.EndHorizontal();
 
             // Create dropdown options including "New Script" at index 0
@@ -84,7 +84,7 @@ namespace UnityCodeMcpServer.Editor.EditorTools
             // Map selected index: -1 or new script maps to 0, otherwise add 1 offset
             int displayIndex = _selectedFavouriteIndex < 0 ? 0 : _selectedFavouriteIndex + 1;
             displayIndex = Mathf.Clamp(displayIndex, 0, names.Length - 1);
-            
+
             int newDisplayIndex = EditorGUILayout.Popup("Select Script", displayIndex, names);
 
             // Map back from display index to actual index
@@ -118,7 +118,7 @@ namespace UnityCodeMcpServer.Editor.EditorTools
 
             _textAreaStyle ??= new GUIStyle(EditorStyles.textArea) { wordWrap = true };
 
-            _scriptScrollPosition = EditorGUILayout.BeginScrollView(_scriptScrollPosition, GUILayout.Height(300));
+            _scriptScrollPosition = EditorGUILayout.BeginScrollView(_scriptScrollPosition, GUILayout.ExpandHeight(true));
             _scriptContent = EditorGUILayout.TextArea(_scriptContent, _textAreaStyle, GUILayout.ExpandHeight(true));
             EditorGUILayout.EndScrollView();
         }
@@ -126,7 +126,7 @@ namespace UnityCodeMcpServer.Editor.EditorTools
         private void DrawActionButtons()
         {
             EditorGUILayout.BeginHorizontal();
-            
+
             if (GUILayout.Button("+", GUILayout.Height(20)))
             {
                 CreateNewScript();

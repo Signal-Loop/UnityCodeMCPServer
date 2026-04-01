@@ -1,6 +1,6 @@
 ---
 name: executing-csharp-scripts-in-unity-editor
-description: Use this skill always when you need to use execute_csharp_script_in_unity_editor tool to modify scenes, add, remove or modify game objects, components, scriptable objects or perform any other task in Unity Editor using C# scripts. Also covers when and how to use read_unity_console_logs and run_unity_tests tools as part of the same workflow.
+description: Use this skill always when you need to use execute_csharp_script_in_unity_editor tool to modify scenes, add, remove or modify game objects, components, scriptable objects or perform any other task in Unity Editor using C# scripts. Also covers when and how to use read_unity_console_logs and run_unity_tests tools as part of the same workflow  and create or modify favourite scripts used to automate tasks.
 ---
 
 # Executing C# Scripts in Unity Editor
@@ -12,8 +12,9 @@ description: Use this skill always when you need to use execute_csharp_script_in
 3. Forbidden Patterns
 4. Usage Workflow
 5. Debugging Loop
-6. Script Context and APIs
-7. Common Scripting Patterns
+6. Favourite Scripts
+7. Script Context and APIs
+8. Common Scripting Patterns
 
 ---
 
@@ -81,6 +82,51 @@ When a script execution returns errors or unexpected results:
 3. Otherwise, identify the root cause from the script output: missing object, bad asset path, wrong API usage, or null reference.
 4. Fix the script and re-execute.
 5. Repeat until the tool result confirms success with no errors.
+
+---
+
+## Favourite Scripts
+
+Favourite Scripts are reusable C# scripts stored in `.unityCodeMcpServer/favouriteScripts.json` at the project root. They share the same execution engine as `execute_csharp_script_in_unity_editor` and are accessible from the Unity Editor at **Tools > UnityCodeMcpServer > Favourite Scripts**.
+
+Use Favourite Scripts for any automation that is likely to be run again — bulk asset updates, scene wiring, import fixes, procedural placement. Once saved, the script is a one-click tool.
+
+### File Location and Format
+
+```
+{project root}/.unityCodeMcpServer/favouriteScripts.json
+```
+
+```json
+[
+  {
+    "name": "Script Name",
+    "script": "// C# top-level statements — same rules as execute_csharp_script_in_unity_editor"
+  }
+]
+```
+
+### Saving a Favourite Script
+
+When the user asks to save a script as a favourite, use file tools to read the current JSON, upsert the entry (match by `name`, case-insensitive), then write it back.
+
+```
+1. Read `.unityCodeMcpServer/favouriteScripts.json` (create as empty array `[]` if missing).
+2. Find an existing entry whose `name` matches — replace it. Otherwise append.
+3. Write the updated array back with indentation.
+```
+
+Always preserve all existing entries when writing back. Never overwrite the file with only the new entry.
+
+### Updating and Deleting
+
+- **Update:** same upsert flow — match by name, replace the `script` value.
+- **Delete:** remove the matching entry and write the array back.
+
+### Workflow
+
+1. Write and refine the script using `execute_csharp_script_in_unity_editor` until the output is correct.
+2. When the user is satisfied, save it as a favourite. The user can then run it any time from the Editor window without the agent.
 
 ---
 
