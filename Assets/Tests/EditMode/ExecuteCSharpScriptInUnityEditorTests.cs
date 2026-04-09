@@ -54,6 +54,24 @@ namespace UnityCodeMcpServer.Tests.EditMode
             Assert.That(text, Does.Contain("error line"));
         }
 
+        [Test]
+        public void BuildCompilationBlockedResult_ReturnsCompilerErrorMessage()
+        {
+            var result = ExecuteCSharpScriptInUnityEditor.BuildCompilationBlockedResult(isCompiling: false, hasCompileErrors: true);
+
+            Assert.That(result.IsError, Is.True);
+            Assert.That(result.Content[0].Text, Does.Contain("Cannot execute C# scripts while the project has compiler errors"));
+        }
+
+        [Test]
+        public void BuildCompilationBlockedResult_ReturnsCompilingMessage()
+        {
+            var result = ExecuteCSharpScriptInUnityEditor.BuildCompilationBlockedResult(isCompiling: true, hasCompileErrors: false);
+
+            Assert.That(result.IsError, Is.True);
+            Assert.That(result.Content[0].Text, Does.Contain("Cannot execute C# scripts while the editor is compiling scripts"));
+        }
+
         [UnityTest]
         public IEnumerator ExecuteAsync_ReturnsSuccess_ForSimpleScript() => UniTask.ToCoroutine(async () =>
         {
