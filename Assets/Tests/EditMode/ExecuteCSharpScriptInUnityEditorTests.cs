@@ -109,6 +109,31 @@ namespace UnityCodeMcpServer.Tests.EditMode
             Assert.DoesNotThrow(() => service.MarkActiveSceneDirtyIfNeeded());
         }
 
+        [Test]
+        public void ExecuteScript_ReturnsSuccess_ForSimpleScript()
+        {
+            var service = new ScriptExecutionService();
+
+            var result = service.ExecuteScript("return 2 + 3;");
+
+            Assert.That(result.IsSuccess, Is.True);
+            Assert.That(result.Status, Is.EqualTo("SUCCESS"));
+            Assert.That(result.ResultText, Is.EqualTo("5"));
+        }
+
+        [Test]
+        public void ExecuteScript_ReturnsCompilationError_ForInvalidScript()
+        {
+            var service = new ScriptExecutionService();
+
+            LogAssert.Expect(LogType.Error, new Regex("Script execution compilation error", RegexOptions.Singleline));
+            var result = service.ExecuteScript("this is not valid csharp");
+
+            Assert.That(result.IsSuccess, Is.False);
+            Assert.That(result.Status, Is.EqualTo("COMPILATION_ERROR"));
+            Assert.That(result.Errors, Does.Contain("error"));
+        }
+
         [UnityTest]
         public IEnumerator ExecuteAsync_ReturnsError_ForCompilationIssue() => UniTask.ToCoroutine(async () =>
         {

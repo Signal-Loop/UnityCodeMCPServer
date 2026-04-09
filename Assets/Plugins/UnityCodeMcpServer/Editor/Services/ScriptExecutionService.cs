@@ -73,20 +73,7 @@ namespace UnityCodeMcpServer.Services
                 // Mark scene dirty after successful execution
                 MarkActiveSceneDirtyIfNeeded();
 
-                var hasLoggedErrors = logCapture.HasErrors;
-                var statusLabel = hasLoggedErrors ? "SUCCESS_WITH_ERRORS" : "SUCCESS";
-                var errorsText = hasLoggedErrors ? logCapture.ErrorLog : null;
-
-                return new ExecutionResult
-                {
-                    IsSuccess = true,
-                    Status = statusLabel,
-                    ResultValue = executionResult,
-                    ResultText = FormatResult(executionResult),
-                    Logs = logCapture.GetLogs(),
-                    Errors = errorsText,
-                    LoadedAssemblies = assembliesDisplay
-                };
+                return CreateSuccessResult(executionResult, logCapture, assembliesDisplay);
             }
             catch (CompilationErrorException compilationError)
             {
@@ -94,14 +81,7 @@ namespace UnityCodeMcpServer.Services
                 errorDetails = string.Join(Environment.NewLine, compilationError.Diagnostics);
                 LoopLogger.Error($"{McpProtocol.LogPrefix} Script execution compilation error:\n{errorDetails}");
 
-                return new ExecutionResult
-                {
-                    IsSuccess = false,
-                    Status = "COMPILATION_ERROR",
-                    Errors = errorDetails,
-                    Logs = logCapture.GetLogs(),
-                    LoadedAssemblies = assembliesDisplay
-                };
+                return CreateErrorResult("COMPILATION_ERROR", errorDetails, logCapture, assembliesDisplay);
             }
             catch (Exception ex)
             {
@@ -109,14 +89,67 @@ namespace UnityCodeMcpServer.Services
                 errorDetails = ex.ToString();
                 LoopLogger.Error($"{McpProtocol.LogPrefix} Script execution runtime error:\n{errorDetails}");
 
+                return CreateErrorResult("EXECUTION_ERROR", errorDetails, logCapture, assembliesDisplay);
+            }
+            finally
+            {
+                logCapture.Dispose();
+            }
+        }
+
+        /// <summary>
+        /// Executes a C# script synchronously in the Unity Editor context using Roslyn.
+        /// </summary>
+        /// <param name="script">The C# script code to execute</param>
+        /// <returns>Execution result containing status, output, and errors</returns>
+        public ExecutionResult ExecuteScript(string script)
+        {
+            if (string.IsNullOrWhiteSpace(script))
+            {
                 return new ExecutionResult
                 {
                     IsSuccess = false,
-                    Status = "EXECUTION_ERROR",
-                    Errors = errorDetails,
-                    Logs = logCapture.GetLogs(),
-                    LoadedAssemblies = assembliesDisplay
+                    Status = "ERROR",
+                    Errors = "Script is empty or missing."
                 };
+            }
+
+            script = StripMarkdownFormatting(script);
+
+            var assemblies = ResolveAssemblies();
+            var options = CreateScriptOptions(assemblies);
+            var assembliesDisplay = GetLoadedAssembliesDisplay(assemblies);
+
+            var logCapture = new LogCapture();
+            string errorDetails;
+
+            try
+            {
+                logCapture.Start();
+
+                object executionResult = CSharpScript.EvaluateAsync(script, options).GetAwaiter().GetResult();
+
+                logCapture.Stop();
+
+                MarkActiveSceneDirtyIfNeeded();
+
+                return CreateSuccessResult(executionResult, logCapture, assembliesDisplay);
+            }
+            catch (CompilationErrorException compilationError)
+            {
+                logCapture.Stop();
+                errorDetails = string.Join(Environment.NewLine, compilationError.Diagnostics);
+                LoopLogger.Error($"{McpProtocol.LogPrefix} Script execution compilation error:\n{errorDetails}");
+
+                return CreateErrorResult("COMPILATION_ERROR", errorDetails, logCapture, assembliesDisplay);
+            }
+            catch (Exception ex)
+            {
+                logCapture.Stop();
+                errorDetails = ex.ToString();
+                LoopLogger.Error($"{McpProtocol.LogPrefix} Script execution runtime error:\n{errorDetails}");
+
+                return CreateErrorResult("EXECUTION_ERROR", errorDetails, logCapture, assembliesDisplay);
             }
             finally
             {
@@ -191,6 +224,36 @@ namespace UnityCodeMcpServer.Services
         public string FormatResult(object executionResult)
         {
             return executionResult == null ? "(null)" : executionResult.ToString();
+        }
+
+        private ExecutionResult CreateSuccessResult(object executionResult, LogCapture logCapture, string[] assembliesDisplay)
+        {
+            var hasLoggedErrors = logCapture.HasErrors;
+            var statusLabel = hasLoggedErrors ? "SUCCESS_WITH_ERRORS" : "SUCCESS";
+            var errorsText = hasLoggedErrors ? logCapture.ErrorLog : null;
+
+            return new ExecutionResult
+            {
+                IsSuccess = true,
+                Status = statusLabel,
+                ResultValue = executionResult,
+                ResultText = FormatResult(executionResult),
+                Logs = logCapture.GetLogs(),
+                Errors = errorsText,
+                LoadedAssemblies = assembliesDisplay
+            };
+        }
+
+        private ExecutionResult CreateErrorResult(string status, string errorDetails, LogCapture logCapture, string[] assembliesDisplay)
+        {
+            return new ExecutionResult
+            {
+                IsSuccess = false,
+                Status = status,
+                Errors = errorDetails,
+                Logs = logCapture.GetLogs(),
+                LoadedAssemblies = assembliesDisplay
+            };
         }
 
         /// <summary>
