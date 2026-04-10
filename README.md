@@ -62,6 +62,7 @@ Full chat transcript: [ChatTranscript.md](Assets/Plugins/UnityCodeMcpServer/Docu
 ## Features
 
 - **Unity Editor / Unity Engine API access**: Perform any tasks available through public APIs or reflection
+- **Play Mode automation**: Enter Play Mode, simulate player input while the game runs, capture screenshots/logs, and exit Play Mode cleanly
 - **STDIO transport (via bridge)**: No separate server process required for MCP clients. Domain-reload safe, retries if domain reload is in progress. `uv` (Python package manager) is required.
 - **Streamable HTTP transport**: Alternative to STDIO bridge for MCP clients that support HTTP. No separate server process required. No uv required. Responds with error if domain reload is in progress.
 - **Extensible**: Add new tools, async tools, resources, or prompts by implementing interfaces anywhere in the codebase
@@ -79,6 +80,18 @@ Read Unity Editor Console logs with configurable entry limits (1-1000, default 2
 #### run_unity_tests
 
 Run Unity tests via TestRunnerApi. Supports EditMode, PlayMode, or both. Can run all tests or filter by fully qualified test names.
+
+#### enter_play_mode
+
+Enter Unity Play Mode, pause time and return immediately after triggering the transition. Intended to be used before gameplay automation tools.
+
+#### play_unity_game
+
+Temporarily unpause time, simulate configured Input System actions, capture a Game View screenshot, collect logs, and pause again when finished.
+
+#### exit_play_mode
+
+Exit Unity Play Mode, unpause time, and return immediately after triggering the transition.
 
 ## Security considerations
 
@@ -266,6 +279,30 @@ Runs Unity tests using the TestRunnerApi. Can run all tests or specific tests by
 Returns the test results including status and logs.
 ```
 
+### enter_play_mode
+
+```
+Enters Unity Play Mode in the Editor.
+Use this before calling `play_unity_game`.
+Pauses time and returns immediately after triggering the play mode transition.
+```
+
+### play_unity_game
+
+```
+Advances the Unity game state and simulates player input for a specified duration.
+Temporarily unpauses time, triggers Input System actions, captures a Game View screenshot,
+collects logs produced during gameplay, and pauses again when finished.
+Requires Unity to already be in Play Mode.
+```
+
+### exit_play_mode
+
+```
+Exits Unity Play Mode in the Editor.
+Unpauses time and returns immediately after triggering the exit transition.
+```
+
 ### get_unity_info
 
 ```
@@ -291,9 +328,10 @@ Only `.md` files are copied. Files that are already up to date (matching content
 
 ### Included skills
 
-| Skill                                      | Description                                                                                                                                                                                                                                 |
-| ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `executing-csharp-scripts-in-unity-editor` | Teaches the agent when and how to use `execute_csharp_script_in_unity_editor`, `read_unity_console_logs`, and `run_unity_tests` together as a reliable pipeline. Covers forbidden patterns, debugging loops, and common scripting patterns. |
+| Skill                                      | Description                                                                                                                                                                                                                                                                          |
+| ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `executing-csharp-scripts-in-unity-editor` | Teaches the agent when and how to use `execute_csharp_script_in_unity_editor`, `read_unity_console_logs`, and `run_unity_tests` together as a reliable pipeline. Covers forbidden patterns, debugging loops, and common scripting patterns.                                          |
+| `unity-game-player`                        | Teaches the agent how to play and test Unity games in a closed loop using `enter_play_mode`, `play_unity_game`, `execute_csharp_script_in_unity_editor`, `read_unity_console_logs`, and `exit_play_mode`. Covers scene discovery, math-based action timing, and adaptive re-sensing. |
 
 ## Extending (adding tools)
 
