@@ -4,7 +4,8 @@
     "references": [
         "UniTask",
         "UnityEditor.TestRunner",
-        "UnityEngine.TestRunner"
+        "UnityEngine.TestRunner",
+        "Unity.InputSystem"
     ],
     "includePlatforms": [
         "Editor"

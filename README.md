@@ -62,6 +62,7 @@ Full chat transcript: [ChatTranscript.md](Assets/Plugins/UnityCodeMcpServer/Docu
 ## Features
 
 - **Unity Editor / Unity Engine API access**: Perform any tasks available through public APIs or reflection
+- **Play Mode automation**: Enter Play Mode, simulate player input while the game runs, capture screenshots/logs, and exit Play Mode cleanly
 - **STDIO transport (via bridge)**: No separate server process required for MCP clients. Domain-reload safe, retries if domain reload is in progress. `uv` (Python package manager) is required.
 - **Streamable HTTP transport**: Alternative to STDIO bridge for MCP clients that support HTTP. No separate server process required. No uv required. Responds with error if domain reload is in progress.
 - **Extensible**: Add new tools, async tools, resources, or prompts by implementing interfaces anywhere in the codebase
@@ -79,6 +80,18 @@ Read Unity Editor Console logs with configurable entry limits (1-1000, default 2
 #### run_unity_tests
 
 Run Unity tests via TestRunnerApi. Supports EditMode, PlayMode, or both. Can run all tests or filter by fully qualified test names.
+
+#### enter_play_mode
+
+Enter Unity Play Mode, pause time and return immediately after triggering the transition. Intended to be used before gameplay automation tools.
+
+#### play_unity_game
+
+Temporarily unpause time, simulate configured Input System actions, capture a Game View screenshot, collect logs, and pause again when finished.
+
+#### exit_play_mode
+
+Exit Unity Play Mode, unpause time, and return immediately after triggering the transition.
 
 ## Security considerations
 
@@ -142,10 +155,12 @@ https://github.com/Cysharp/UniTask.git?path=src/UniTask/Assets/Plugins/UniTask
 https://github.com/Signal-Loop/UnityCodeMCPServer.git?path=Assets/Plugins/UnityCodeMcpServer
 ```
 
-4. Install Skills (Markdown files that teach your agent how to use the server's tools effectively):
-   - In Unity Editor, open server settings: **Tools/UnityCodeMcpServer/Show Settings**
-   - Scroll to the **Skills** section
-   - Choose a target directory for skills (e.g. `.github/skills/`) and click **Install / Update Skills**
+4. Configure Skill install location (Markdown files that teach your agent how to use the server's tools effectively):
+  - In Unity Editor, open server settings: **Tools/UnityCodeMcpServer/Show or Create Settings**
+  - Scroll to the **Skills** section
+  - By default, first-time installs target `.agents/skills/`
+  - If needed, change the install directory to `.github/skills/`, `.claude/skills/`, `.agents/skills/`, or a custom folder
+  - Skills are installed and updated automatically when the package is installed or updated
 
 ### First Run
 
@@ -190,7 +205,7 @@ Example configuration (using `uv` to run the bridge):
 
 ### Server configuration (Unity)
 
-1. Access (and create if necessary) settings via **Tools/UnityCodeMcpServer/Show Settings**.
+1. Access (and create if necessary) settings via **Tools/UnityCodeMcpServer/Show or Create Settings**.
 2. Configure options:
    - **Server Selection**: Choose STDIO (TCP) or HTTP server for auto-start
    - **Verbose Logging**: Enable detailed logging for debugging
@@ -202,7 +217,7 @@ Example configuration (using `uv` to run the bridge):
 
 #### General
 
-- **Tools/UnityCodeMcpServer/Show Settings** — Open the server settings asset in the inspector
+- **Tools/UnityCodeMcpServer/Show or Create Settings** — Open the server settings asset in the inspector
 
 #### STDIO Server (TCP)
 
@@ -266,6 +281,30 @@ Runs Unity tests using the TestRunnerApi. Can run all tests or specific tests by
 Returns the test results including status and logs.
 ```
 
+### enter_play_mode
+
+```
+Enters Unity Play Mode in the Editor.
+Use this before calling `play_unity_game`.
+Pauses time and returns immediately after triggering the play mode transition.
+```
+
+### play_unity_game
+
+```
+Advances the Unity game state and simulates player input for a specified duration.
+Temporarily unpauses time, triggers Input System actions, captures a Game View screenshot,
+collects logs produced during gameplay, and pauses again when finished.
+Requires Unity to already be in Play Mode.
+```
+
+### exit_play_mode
+
+```
+Exits Unity Play Mode in the Editor.
+Unpauses time and returns immediately after triggering the exit transition.
+```
+
 ### get_unity_info
 
 ```
@@ -274,26 +313,28 @@ Returns Unity Editor project path, Unity version, and current server settings. U
 
 ## Agent skills
 
-Unity Code MCP Server ships a set of **AI agent skill files** (Markdown documents that teach your agent how to use the server's tools effectively). Skills can be installed directly from the Unity Editor into your agent's skills directory.
+Unity Code MCP Server ships a set of **AI agent skill files** (Markdown documents that teach your agent how to use the server's tools effectively). These skills are installed automatically into the configured target directory whenever the package is installed or updated.
 
 ### Installing skills
 
-1. Open the server settings: **Tools/UnityCodeMcpServer/Show Settings**.
+1. Open the server settings: **Tools/UnityCodeMcpServer/Show or Create Settings**.
 2. Scroll to the **Skills** section.
-3. Choose a target directory:
-   - Click **.github/skills/** to target `.github/skills/` (workspace-relative)
-   - Click **.claude/skills/** to target `.claude/skills/` (workspace-relative)
-   - Click **.agents/skills/** to target `.agents/skills/` (workspace-relative)
-   - Or type a custom path / click **Custom** to pick any folder.
-4. Click **Install / Update Skills**.
+3. Choose the install directory from the dropdown:
+  - `GitHub` targets `.github/skills/`
+  - `Claude` targets `.claude/skills/`
+  - `Agents` targets `.agents/skills/`
+  - `Custom` shows a folder picker so you can select any directory
+4. The inspector shows the currently selected target directory label so you can verify exactly where skills will be copied.
+5. Package install and update runs copy the skills automatically.
 
-Only `.md` files are copied. Files that are already up to date (matching content hash) are skipped.
+Only new or changed `.md` files are copied. Files that are already up to date (matching content hash) are skipped.
 
 ### Included skills
 
-| Skill                                      | Description                                                                                                                                                                                                                                 |
-| ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `executing-csharp-scripts-in-unity-editor` | Teaches the agent when and how to use `execute_csharp_script_in_unity_editor`, `read_unity_console_logs`, and `run_unity_tests` together as a reliable pipeline. Covers forbidden patterns, debugging loops, and common scripting patterns. |
+| Skill                                      | Description                                                                                                                                                                                                                                                                          |
+| ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `executing-csharp-scripts-in-unity-editor` | Teaches the agent when and how to use `execute_csharp_script_in_unity_editor`, `read_unity_console_logs`, and `run_unity_tests` together as a reliable pipeline. Covers forbidden patterns, debugging loops, and common scripting patterns.                                          |
+| `unity-game-player`                        | Teaches the agent how to play and test Unity games in a closed loop using `enter_play_mode`, `play_unity_game`, `execute_csharp_script_in_unity_editor`, `read_unity_console_logs`, and `exit_play_mode`. Covers scene discovery, math-based action timing, and adaptive re-sensing. |
 
 ## Extending (adding tools)
 

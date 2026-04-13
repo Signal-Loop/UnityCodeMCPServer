@@ -2,6 +2,7 @@ using UnityEditor;
 using System.IO;
 using UnityCodeMcpServer.Helpers;
 using UnityCodeMcpServer.Settings;
+using UnityCodeMcpServer.Settings.Editor;
 
 namespace UnityCodeMcpServer.Editor.Installer
 {
@@ -42,14 +43,10 @@ namespace UnityCodeMcpServer.Editor.Installer
             string sourcePath = Path.Combine(packageRoot, SOURCE_FOLDER);
             string targetPath = Path.GetFullPath(TARGET_FOLDER);
 
-            // If source and target are the same, skip copy to avoid errors and unnecessary work
-            if (string.Equals(Path.GetFullPath(sourcePath).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar),
-                              Path.GetFullPath(targetPath).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar),
-                              System.StringComparison.OrdinalIgnoreCase))
-            {
-                LoopLogger.Debug($"{Protocol.McpProtocol.LogPrefix} Source and target are the same, skipping installation.");
-                return;
-            }
+            bool skipPackageInstall = string.Equals(
+                Path.GetFullPath(sourcePath).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar),
+                Path.GetFullPath(targetPath).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar),
+                System.StringComparison.OrdinalIgnoreCase);
 
             // Dependency Injection
             IFileSystem fileSystem = new EditorFileSystem();
@@ -57,8 +54,10 @@ namespace UnityCodeMcpServer.Editor.Installer
 
             LoopLogger.Debug($"{Protocol.McpProtocol.LogPrefix} Installing from {sourcePath} to {targetPath}");
 
-            // Execute
-            bool installed = installer.Install(sourcePath, targetPath);
+            bool installed = RunInstallSteps(
+                skipPackageInstall,
+                () => installer.Install(sourcePath, targetPath),
+                () => InstallSkills(fileSystem));
 
             LoopLogger.Debug($"{Protocol.McpProtocol.LogPrefix} Package installation process completed.");
 
@@ -68,6 +67,44 @@ namespace UnityCodeMcpServer.Editor.Installer
 
                 AssetDatabase.Refresh();
             }
+        }
+
+        public static bool RunInstallSteps(bool skipPackageInstall, System.Func<bool> installPackageFiles, System.Func<bool> installSkills)
+        {
+            return PackageInstaller.InstallContent(
+                () =>
+                {
+                    if (skipPackageInstall)
+                    {
+                        LoopLogger.Debug($"{Protocol.McpProtocol.LogPrefix} Source and target are the same, skipping STDIO installation.");
+                        return false;
+                    }
+
+                    return installPackageFiles != null && installPackageFiles();
+                },
+                installSkills);
+        }
+
+        private static bool InstallSkills(IFileSystem fileSystem)
+        {
+            string sourcePath = UnityCodeMcpServerSettingsEditor.ResolveSkillsSourcePath();
+            if (string.IsNullOrEmpty(sourcePath))
+            {
+                LoopLogger.Warn($"{Protocol.McpProtocol.LogPrefix} Could not locate the Skills source directory within the package. Skipping skills install.");
+                return false;
+            }
+
+            var settings = UnityCodeMcpServerSettings.Instance;
+            string targetPath = settings.GetEffectiveSkillsTargetPath();
+            if (string.IsNullOrWhiteSpace(targetPath))
+            {
+                LoopLogger.Warn($"{Protocol.McpProtocol.LogPrefix} Skills target directory is empty. Skipping skills install.");
+                return false;
+            }
+
+            var installer = new SkillsInstaller(fileSystem);
+            SkillsInstallResult result = installer.Install(sourcePath, targetPath);
+            return result.Success && result.AnyChanges;
         }
     }
 }

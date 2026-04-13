@@ -1,4 +1,5 @@
 using UnityCodeMcpServer.Helpers;
+using System;
 using System.IO;
 using System.Collections.Generic;
 using System.Linq;
@@ -21,6 +22,13 @@ namespace UnityCodeMcpServer.Editor.Installer
         public PackageInstaller(IFileSystem fileSystem)
         {
             _fileSystem = fileSystem;
+        }
+
+        public static bool InstallContent(Func<bool> installPackageFiles, Func<bool> installSkills)
+        {
+            bool packageFilesChanged = installPackageFiles != null && installPackageFiles();
+            bool skillsChanged = installSkills != null && installSkills();
+            return packageFilesChanged || skillsChanged;
         }
 
         public bool Install(string sourcePath, string targetPath)

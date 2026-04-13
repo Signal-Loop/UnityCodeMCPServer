@@ -21,33 +21,6 @@ namespace UnityCodeMcpServer.Settings.Editor
         private bool _showDefaultAssemblies = true;
         private bool _showAdditionalAssemblies = true;
 
-        // ── Skills installer state ────────────────────────────────────────────
-        private string _lastSkillsInstallMessage = string.Empty;
-        private MessageType _lastSkillsInstallMessageType = MessageType.Info;
-
-        private static readonly (string Label, string RelativePath)[] SkillsPresets =
-        {
-            (".github/skills/", ".github/skills/"),
-            (".claude/skills/", ".claude/skills/"),
-            (".agents/skills/", ".agents/skills/"),
-        };
-
-        private string GetSelectedSkillsTargetPath(UnityCodeMcpServerSettings settings)
-        {
-            if (string.IsNullOrEmpty(settings.SkillsTargetPath))
-                return Path.GetFullPath(".");
-            return settings.SkillsTargetPath;
-        }
-
-        private void SetSelectedSkillsTargetPath(UnityCodeMcpServerSettings settings, string path)
-        {
-            if (settings.SkillsTargetPath != path)
-            {
-                settings.SkillsTargetPath = path;
-                EditorUtility.SetDirty(settings);
-            }
-        }
-
         private void OnEnable()
         {
             RefreshAvailableAssemblies();
@@ -62,7 +35,7 @@ namespace UnityCodeMcpServer.Settings.Editor
             EditorGUILayout.LabelField("Server Configuration", EditorStyles.boldLabel);
             EditorGUILayout.Space();
 
-            DrawPropertiesExcluding(serializedObject, "m_Script", "AdditionalAssemblyNames");
+            DrawPropertiesExcluding(serializedObject, "m_Script", "AdditionalAssemblyNames", "SkillsInstallTarget", "SkillsTargetPath");
 
             EditorGUILayout.Space();
             DrawSkillsInstallerSection();
@@ -159,7 +132,10 @@ namespace UnityCodeMcpServer.Settings.Editor
             }
 
             serializedObject.ApplyModifiedProperties();
-            AssetDatabase.SaveAssetIfDirty(settings);
+            if (EditorUtility.IsDirty(settings) && !EditorApplication.isUpdating && !EditorApplication.isCompiling)
+            {
+                AssetDatabase.SaveAssetIfDirty(settings);
+            }
         }
 
         // ── Skills installer section ──────────────────────────────────────────
@@ -167,84 +143,82 @@ namespace UnityCodeMcpServer.Settings.Editor
         private void DrawSkillsInstallerSection()
         {
             var settings = (UnityCodeMcpServerSettings)target;
-            string selectedPath = GetSelectedSkillsTargetPath(settings);
+            settings.InitializeSkillsTarget();
 
             EditorGUILayout.LabelField("Skills", EditorStyles.boldLabel);
             EditorGUILayout.HelpBox(
-                "Install built-in skill files into an AI agent's skills directory so that " +
-                "the agent can discover and use them automatically.",
+                "Bundled skill files are installed automatically when the package is installed or updated. " +
+                "Only new or changed skill files are copied.",
                 MessageType.Info);
 
             EditorGUILayout.Space(4);
 
-            // Quick-select presets
-            EditorGUILayout.LabelField("Quick Select:", EditorStyles.miniLabel);
-            EditorGUILayout.BeginHorizontal();
-            foreach (var (label, relativePath) in SkillsPresets)
+            var selectedTarget = (UnityCodeMcpServerSettings.SkillInstallTarget)EditorGUILayout.EnumPopup(
+                "Install Directory",
+                settings.SkillsInstallTarget);
+            if (selectedTarget != settings.SkillsInstallTarget)
             {
-                if (GUILayout.Button(label, EditorStyles.miniButton))
-                    SetSelectedSkillsTargetPath(settings, Path.GetFullPath(relativePath));
+                UpdateSkillsTarget(settings, () => settings.SetSkillsInstallTarget(selectedTarget));
             }
-            EditorGUILayout.EndHorizontal();
 
             EditorGUILayout.Space(4);
 
-            // Manual path selector
-            EditorGUILayout.BeginHorizontal();
-            EditorGUILayout.LabelField("Target Directory:", GUILayout.Width(110));
-            string newPath = EditorGUILayout.TextField(selectedPath);
-            if (newPath != selectedPath)
-                SetSelectedSkillsTargetPath(settings, newPath);
-            selectedPath = newPath;
-
-            if (GUILayout.Button("Custom", GUILayout.Width(60)))
+            if (settings.SkillsInstallTarget == UnityCodeMcpServerSettings.SkillInstallTarget.Custom)
             {
-                string chosen = EditorUtility.OpenFolderPanel(
-                    "Select skills target folder",
-                    selectedPath,
-                    string.Empty);
-                if (!string.IsNullOrEmpty(chosen))
-                    SetSelectedSkillsTargetPath(settings, chosen);
-                selectedPath = GetSelectedSkillsTargetPath(settings);
-            }
-            EditorGUILayout.EndHorizontal();
+                EditorGUILayout.BeginHorizontal();
+                EditorGUILayout.LabelField("Custom Folder", GUILayout.Width(110));
+                string customPath = EditorGUILayout.DelayedTextField(settings.SkillsTargetPath);
+                if (customPath != settings.SkillsTargetPath)
+                {
+                    UpdateSkillsTarget(settings, () => settings.SetCustomSkillsTargetPath(customPath));
+                }
 
-            // Resolved absolute path hint
-            EditorGUI.indentLevel++;
-            EditorGUILayout.LabelField(selectedPath, EditorStyles.miniLabel);
-            EditorGUI.indentLevel--;
+                if (GUILayout.Button("Browse", GUILayout.Width(70)))
+                {
+                    string chosen = EditorUtility.OpenFolderPanel(
+                        "Select skills target folder",
+                        string.IsNullOrWhiteSpace(settings.SkillsTargetPath)
+                            ? Path.GetFullPath(".")
+                            : settings.SkillsTargetPath,
+                        string.Empty);
+                    if (!string.IsNullOrEmpty(chosen))
+                    {
+                        UpdateSkillsTarget(settings, () => settings.SetCustomSkillsTargetPath(chosen));
+                    }
+                }
+                EditorGUILayout.EndHorizontal();
 
-            EditorGUILayout.Space(4);
-
-            if (GUILayout.Button("Install / Update Skills"))
-            {
-                RunSkillsInstall(selectedPath);
+                EditorGUILayout.Space(4);
             }
 
-            if (!string.IsNullOrEmpty(_lastSkillsInstallMessage))
-            {
-                EditorGUILayout.HelpBox(_lastSkillsInstallMessage, _lastSkillsInstallMessageType);
-            }
+            EditorGUILayout.LabelField("Current Target Directory", settings.GetEffectiveSkillsTargetPath(), EditorStyles.wordWrappedMiniLabel);
         }
 
-        private void RunSkillsInstall(string targetPath)
+        private void UpdateSkillsTarget(UnityCodeMcpServerSettings settings, Action updateTarget)
         {
-            string sourcePath = ResolveSkillsSourcePath();
+            string previousTargetPath = settings.GetEffectiveSkillsTargetPath();
+            updateTarget();
+            string newTargetPath = settings.GetEffectiveSkillsTargetPath();
 
+            if (string.Equals(previousTargetPath, newTargetPath, StringComparison.OrdinalIgnoreCase))
+            {
+                return;
+            }
+
+            string sourcePath = ResolveSkillsSourcePath();
             if (string.IsNullOrEmpty(sourcePath))
             {
-                _lastSkillsInstallMessage = "Could not locate the Skills source directory within the package.";
-                _lastSkillsInstallMessageType = MessageType.Error;
-                LoopLogger.Error($"{Protocol.McpProtocol.LogPrefix} {_lastSkillsInstallMessage}");
+                LoopLogger.Warn($"{Protocol.McpProtocol.LogPrefix} Could not locate the Skills source directory within the package. Skipping skill relocation.");
                 return;
             }
 
             IFileSystem fileSystem = new EditorFileSystem();
             var installer = new SkillsInstaller(fileSystem);
-            SkillsInstallResult result = installer.Install(sourcePath, targetPath);
-
-            _lastSkillsInstallMessage = result.ToString();
-            _lastSkillsInstallMessageType = result.Success ? MessageType.Info : MessageType.Error;
+            bool changed = installer.RelocateInstalledSkills(sourcePath, previousTargetPath, newTargetPath);
+            if (changed)
+            {
+                AssetDatabase.Refresh();
+            }
         }
 
         /// <summary>

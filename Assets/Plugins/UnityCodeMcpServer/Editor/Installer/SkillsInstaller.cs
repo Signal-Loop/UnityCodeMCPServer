@@ -88,7 +88,7 @@ namespace UnityCodeMcpServer.Editor.Installer
                     }
                 }
 
-                LoopLogger.Info($"{Protocol.McpProtocol.LogPrefix} Skills install complete — {result}");
+                LoopLogger.Debug($"{Protocol.McpProtocol.LogPrefix} Skills install complete — {result}");
                 return result;
             }
             catch (Exception ex)
@@ -98,7 +98,86 @@ namespace UnityCodeMcpServer.Editor.Installer
             }
         }
 
+        public bool RelocateInstalledSkills(string sourcePath, string currentTargetPath, string newTargetPath)
+        {
+            SkillsInstallResult installResult = Install(sourcePath, newTargetPath);
+            if (!installResult.Success)
+            {
+                return false;
+            }
+
+            string normalizedCurrentTargetPath = NormalizePath(currentTargetPath ?? string.Empty).TrimEnd('/');
+            string normalizedNewTargetPath = NormalizePath(newTargetPath ?? string.Empty).TrimEnd('/');
+            if (string.IsNullOrWhiteSpace(normalizedCurrentTargetPath) ||
+                string.Equals(normalizedCurrentTargetPath, normalizedNewTargetPath, StringComparison.OrdinalIgnoreCase))
+            {
+                return installResult.AnyChanges;
+            }
+
+            bool removedAnyExistingSkills = false;
+            foreach (string skillFolder in _fileSystem.GetDirectories(sourcePath))
+            {
+                string folderName = GetDirectoryName(skillFolder);
+                string oldTargetSkillFolder = NormalizePath(Path.Combine(normalizedCurrentTargetPath, folderName));
+                if (!_fileSystem.DirectoryExists(oldTargetSkillFolder))
+                {
+                    continue;
+                }
+
+                removedAnyExistingSkills |= DeleteInstalledFilesRecursive(skillFolder, oldTargetSkillFolder);
+            }
+
+            return installResult.AnyChanges || removedAnyExistingSkills;
+        }
+
         // ── private helpers ───────────────────────────────────────────────────
+
+        private bool DeleteInstalledFilesRecursive(string sourceDir, string oldTargetDir)
+        {
+            if (!_fileSystem.DirectoryExists(oldTargetDir))
+            {
+                return false;
+            }
+
+            bool removedAnyFiles = false;
+
+            foreach (string sourceFilePath in _fileSystem.GetFiles(sourceDir))
+            {
+                string fileName = _fileSystem.GetFileName(sourceFilePath);
+                if (!fileName.EndsWith(".md", StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
+
+                string oldTargetFilePath = NormalizePath(Path.Combine(oldTargetDir, fileName));
+                if (!_fileSystem.FileExists(oldTargetFilePath))
+                {
+                    continue;
+                }
+
+                _fileSystem.DeleteFile(oldTargetFilePath);
+                removedAnyFiles = true;
+                LoopLogger.Debug($"{Protocol.McpProtocol.LogPrefix} Removed old skill file: {oldTargetFilePath}");
+            }
+
+            foreach (string sourceSubDir in _fileSystem.GetDirectories(sourceDir))
+            {
+                string subDirName = GetDirectoryName(sourceSubDir);
+                string oldTargetSubDir = NormalizePath(Path.Combine(oldTargetDir, subDirName));
+                removedAnyFiles |= DeleteInstalledFilesRecursive(sourceSubDir, oldTargetSubDir);
+            }
+
+            if (_fileSystem.DirectoryExists(oldTargetDir) &&
+                _fileSystem.GetFiles(oldTargetDir).Length == 0 &&
+                _fileSystem.GetDirectories(oldTargetDir).Length == 0)
+            {
+                _fileSystem.DeleteDirectory(oldTargetDir, recursive: false);
+                LoopLogger.Debug($"{Protocol.McpProtocol.LogPrefix} Removed empty old skill directory: {oldTargetDir}");
+                return true;
+            }
+
+            return removedAnyFiles;
+        }
 
         private int CopyDirectoryRecursive(string sourceDir, string targetDir)
         {

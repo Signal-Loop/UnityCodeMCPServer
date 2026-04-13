@@ -60,14 +60,20 @@ Returns pass/fail status, total execution time, and detailed stack traces for an
         {
             var options = ParseArguments(arguments);
 
+            var compilationBlockResult = GetCompilationBlockedResult();
+            if (compilationBlockResult != null)
+            {
+                return compilationBlockResult;
+            }
+
             if (ShouldBlockEditMode(options.Mode, EditorApplication.isPlaying))
             {
                 return BuildEditModeBlockedResult();
             }
 
             // Save dirty scenes and capture current scene state before running tests
-            SaveDirtyScenes();
-            var sceneState = CaptureCurrentSceneState();
+            EditorSceneStateRestorer.SaveDirtyScenes();
+            var sceneState = EditorSceneStateRestorer.CaptureCurrentSceneState();
 
             var api = ScriptableObject.CreateInstance<TestRunnerApi>();
 
@@ -76,12 +82,31 @@ Returns pass/fail status, total execution time, and detailed stack traces for an
                 if (options.Mode == (TestMode.EditMode | TestMode.PlayMode))
                 {
                     // Run both modes sequentially
+                    compilationBlockResult = GetCompilationBlockedResult();
+                    if (compilationBlockResult != null)
+                    {
+                        return compilationBlockResult;
+                    }
+
                     var editResult = await RunModeAsync(api, TestMode.EditMode, options.TestNames);
+
+                    compilationBlockResult = GetCompilationBlockedResult();
+                    if (compilationBlockResult != null)
+                    {
+                        return compilationBlockResult;
+                    }
+
                     var playResult = await RunModeAsync(api, TestMode.PlayMode, options.TestNames);
                     return BuildCombinedResult(editResult, playResult);
                 }
                 else
                 {
+                    compilationBlockResult = GetCompilationBlockedResult();
+                    if (compilationBlockResult != null)
+                    {
+                        return compilationBlockResult;
+                    }
+
                     var result = await RunModeAsync(api, options.Mode, options.TestNames);
                     return BuildResult(result);
                 }
@@ -93,7 +118,7 @@ Returns pass/fail status, total execution time, and detailed stack traces for an
             finally
             {
                 UnityEngine.Object.DestroyImmediate(api);
-                RestoreSceneState(sceneState);
+                EditorSceneStateRestorer.RestoreSceneStateWhenSafe(sceneState);
             }
         }
 
@@ -138,97 +163,34 @@ Returns pass/fail status, total execution time, and detailed stack traces for an
             return ToolsCallResult.ErrorResult("Cannot run EditMode tests while the editor is in Play Mode.");
         }
 
-        /// <summary>
-        /// Checks if any currently open scenes are dirty (have unsaved changes) and saves them.
-        /// </summary>
-        public static void SaveDirtyScenes()
+        public static bool ShouldBlockForCompilationIssues(bool isCompiling, bool hasCompileErrors)
         {
-            var sceneCount = SceneManager.sceneCount;
-            var dirtyScenes = new List<Scene>();
-
-            for (int i = 0; i < sceneCount; i++)
-            {
-                var scene = SceneManager.GetSceneAt(i);
-                if (scene.isDirty)
-                {
-                    dirtyScenes.Add(scene);
-                }
-            }
-
-            if (dirtyScenes.Count > 0)
-            {
-                var scenesToSave = dirtyScenes.ToArray();
-                EditorSceneManager.SaveScenes(scenesToSave);
-            }
+            return EditorCompilationGate.ShouldBlock(isCompiling, hasCompileErrors);
         }
 
-        /// <summary>
-        /// Captures the paths of currently open scenes.
-        /// </summary>
-        /// <returns>A list of scene paths that are currently open.</returns>
-        private static List<string> CaptureCurrentSceneState()
+        public static ToolsCallResult BuildCompilationBlockedResult()
         {
-            var sceneState = new List<string>();
-            var sceneCount = SceneManager.sceneCount;
-            for (int i = 0; i < sceneCount; i++)
+            if (!EditorCompilationGate.TryGetBlockedMessage("run Unity tests", out var message))
             {
-                var scene = SceneManager.GetSceneAt(i);
-                if (!string.IsNullOrEmpty(scene.path))
-                {
-                    sceneState.Add(scene.path);
-                }
+                return null;
             }
-            return sceneState;
+
+            return ToolsCallResult.ErrorResult(message);
         }
 
-        /// <summary>
-        /// Restores the scenes that were open before test execution.
-        /// Closes any temporary scenes that were loaded during tests.
-        /// </summary>
-        private static void RestoreSceneState(List<string> originalScenePaths)
+        public static ToolsCallResult BuildCompilationBlockedResult(bool isCompiling, bool hasCompileErrors)
         {
-            try
+            return ToolsCallResult.ErrorResult(EditorCompilationGate.BuildBlockedMessage("run Unity tests", isCompiling, hasCompileErrors));
+        }
+
+        private static ToolsCallResult GetCompilationBlockedResult()
+        {
+            if (!EditorCompilationGate.TryGetBlockedMessage("run Unity tests", out var message))
             {
-                // Get currently open scenes
-                var currentScenes = new Dictionary<string, Scene>();
-                var sceneCount = SceneManager.sceneCount;
-                for (int i = 0; i < sceneCount; i++)
-                {
-                    var scene = SceneManager.GetSceneAt(i);
-                    if (!string.IsNullOrEmpty(scene.path))
-                    {
-                        currentScenes[scene.path] = scene;
-                    }
-                }
-
-                // Close scenes that weren't in the original state
-                var scenesToClose = new List<Scene>();
-                foreach (var kvp in currentScenes)
-                {
-                    if (!originalScenePaths.Contains(kvp.Key))
-                    {
-                        scenesToClose.Add(kvp.Value);
-                    }
-                }
-
-                foreach (var scene in scenesToClose)
-                {
-                    EditorSceneManager.CloseScene(scene, true);
-                }
-
-                // Reopen original scenes that are not currently open
-                foreach (var scenePath in originalScenePaths)
-                {
-                    if (!currentScenes.ContainsKey(scenePath))
-                    {
-                        EditorSceneManager.OpenScene(scenePath, OpenSceneMode.Additive);
-                    }
-                }
+                return null;
             }
-            catch (Exception ex)
-            {
-                LoopLogger.Warn($"Failed to restore scene state: {ex.Message}");
-            }
+
+            return ToolsCallResult.ErrorResult(message);
         }
 
         public static TestOptions ParseArguments(JsonElement arguments)

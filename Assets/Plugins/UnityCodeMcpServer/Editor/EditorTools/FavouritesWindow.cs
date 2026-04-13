@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Linq;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Text.Encodings.Web;
@@ -14,6 +13,8 @@ namespace UnityCodeMcpServer.Editor.EditorTools
 {
     public class FavouritesWindow : EditorWindow
     {
+        private const float MinimumScriptAreaHeight = 100f;
+
         private static readonly JsonSerializerOptions JsonOptions = new JsonSerializerOptions
         {
             WriteIndented = true,
@@ -117,10 +118,46 @@ namespace UnityCodeMcpServer.Editor.EditorTools
             EditorGUILayout.LabelField("Script", EditorStyles.boldLabel);
 
             _textAreaStyle ??= new GUIStyle(EditorStyles.textArea) { wordWrap = true };
+            var scrollViewRect = GUILayoutUtility.GetRect(GUIContent.none, GUIStyle.none, CreateScriptAreaLayoutOptions());
+            float contentWidth = CalculateScriptContentWidth(scrollViewRect.width);
+            float minimumContentHeight = CalculateScriptContentHeight(scrollViewRect.height);
+            float contentHeight = Mathf.Max(minimumContentHeight, CalculateMeasuredTextHeight(contentWidth));
+            var textAreaRect = new Rect(0f, 0f, contentWidth, contentHeight);
 
-            _scriptScrollPosition = EditorGUILayout.BeginScrollView(_scriptScrollPosition, GUILayout.ExpandHeight(true));
-            _scriptContent = EditorGUILayout.TextArea(_scriptContent, _textAreaStyle, GUILayout.ExpandHeight(true));
-            EditorGUILayout.EndScrollView();
+            _scriptScrollPosition = GUI.BeginScrollView(scrollViewRect, _scriptScrollPosition, textAreaRect);
+            _scriptContent = EditorGUI.TextArea(textAreaRect, _scriptContent, _textAreaStyle);
+            GUI.EndScrollView();
+        }
+
+        private static GUILayoutOption[] CreateScriptAreaLayoutOptions()
+        {
+            return new[]
+            {
+                GUILayout.MinHeight(MinimumScriptAreaHeight),
+                GUILayout.ExpandHeight(true)
+            };
+        }
+
+        private static float CalculateScriptContentHeight(float viewportHeight)
+        {
+            return Mathf.Max(MinimumScriptAreaHeight, viewportHeight);
+        }
+
+        private static float CalculateScriptContentWidth(float viewportWidth)
+        {
+            float scrollbarWidth = GUI.skin.verticalScrollbar.fixedWidth;
+            if (scrollbarWidth <= 0f)
+            {
+                scrollbarWidth = 16f;
+            }
+
+            return Mathf.Max(1f, viewportWidth - scrollbarWidth);
+        }
+
+        private float CalculateMeasuredTextHeight(float contentWidth)
+        {
+            var content = EditorGUIUtility.TrTextContent(_scriptContent ?? string.Empty);
+            return Mathf.Max(MinimumScriptAreaHeight, _textAreaStyle.CalcHeight(content, contentWidth));
         }
 
         private void DrawActionButtons()

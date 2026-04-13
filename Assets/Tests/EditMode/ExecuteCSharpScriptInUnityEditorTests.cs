@@ -54,6 +54,24 @@ namespace UnityCodeMcpServer.Tests.EditMode
             Assert.That(text, Does.Contain("error line"));
         }
 
+        [Test]
+        public void BuildCompilationBlockedResult_ReturnsCompilerErrorMessage()
+        {
+            var result = ExecuteCSharpScriptInUnityEditor.BuildCompilationBlockedResult(isCompiling: false, hasCompileErrors: true);
+
+            Assert.That(result.IsError, Is.True);
+            Assert.That(result.Content[0].Text, Does.Contain("Cannot execute C# scripts while the project has compiler errors"));
+        }
+
+        [Test]
+        public void BuildCompilationBlockedResult_ReturnsCompilingMessage()
+        {
+            var result = ExecuteCSharpScriptInUnityEditor.BuildCompilationBlockedResult(isCompiling: true, hasCompileErrors: false);
+
+            Assert.That(result.IsError, Is.True);
+            Assert.That(result.Content[0].Text, Does.Contain("Cannot execute C# scripts while the editor is compiling scripts"));
+        }
+
         [UnityTest]
         public IEnumerator ExecuteAsync_ReturnsSuccess_ForSimpleScript() => UniTask.ToCoroutine(async () =>
         {
@@ -107,6 +125,31 @@ namespace UnityCodeMcpServer.Tests.EditMode
         {
             var service = new ScriptExecutionService();
             Assert.DoesNotThrow(() => service.MarkActiveSceneDirtyIfNeeded());
+        }
+
+        [Test]
+        public void ExecuteScript_ReturnsSuccess_ForSimpleScript()
+        {
+            var service = new ScriptExecutionService();
+
+            var result = service.ExecuteScript("return 2 + 3;");
+
+            Assert.That(result.IsSuccess, Is.True);
+            Assert.That(result.Status, Is.EqualTo("SUCCESS"));
+            Assert.That(result.ResultText, Is.EqualTo("5"));
+        }
+
+        [Test]
+        public void ExecuteScript_ReturnsCompilationError_ForInvalidScript()
+        {
+            var service = new ScriptExecutionService();
+
+            LogAssert.Expect(LogType.Error, new Regex("Script execution compilation error", RegexOptions.Singleline));
+            var result = service.ExecuteScript("this is not valid csharp");
+
+            Assert.That(result.IsSuccess, Is.False);
+            Assert.That(result.Status, Is.EqualTo("COMPILATION_ERROR"));
+            Assert.That(result.Errors, Does.Contain("error"));
         }
 
         [UnityTest]

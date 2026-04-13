@@ -92,6 +92,12 @@ Debug.Log($""Player position: {go.transform.position}"");
                 return CreateToolCallResult(isError: true, status: "error", resultText: null, logs: null, errors: "Script is empty or missing.", script: script);
             }
 
+            var compilationBlockedResult = GetCompilationBlockedResult(script);
+            if (compilationBlockedResult != null)
+            {
+                return compilationBlockedResult;
+            }
+
             var executionService = new ScriptExecutionService();
             var result = await executionService.ExecuteScriptAsync(script);
 
@@ -106,6 +112,22 @@ Debug.Log($""Player position: {go.transform.position}"");
 
             LogToolCallResult(toolCallResult);
             return toolCallResult;
+        }
+
+        public static ToolsCallResult BuildCompilationBlockedResult(bool isCompiling, bool hasCompileErrors)
+        {
+            var message = EditorCompilationGate.BuildBlockedMessage("execute C# scripts", isCompiling, hasCompileErrors);
+            return CreateToolCallResult(isError: true, status: "error", resultText: null, logs: null, errors: message, script: null);
+        }
+
+        private static ToolsCallResult GetCompilationBlockedResult(string script)
+        {
+            if (!EditorCompilationGate.TryGetBlockedMessage("execute C# scripts", out var message))
+            {
+                return null;
+            }
+
+            return CreateToolCallResult(isError: true, status: "error", resultText: null, logs: null, errors: message, script: script);
         }
 
 

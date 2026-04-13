@@ -48,6 +48,29 @@ namespace UnityCodeMcpServer.Tests.EditMode
                     Files[dst] = content;
             }
 
+            public void DeleteFile(string path)
+            {
+                Files.Remove(path);
+            }
+
+            public void DeleteDirectory(string path, bool recursive)
+            {
+                Directories.Remove(path);
+
+                if (!recursive)
+                    return;
+
+                foreach (var file in Files.Keys.Where(k => k.StartsWith(path + "/")).ToList())
+                {
+                    Files.Remove(file);
+                }
+
+                foreach (var dir in Directories.Where(d => d.StartsWith(path + "/")).ToList())
+                {
+                    Directories.Remove(dir);
+                }
+            }
+
             public string[] GetFiles(string path)
             {
                 // Return only direct children (no sub-path separator after the prefix)
@@ -290,6 +313,52 @@ namespace UnityCodeMcpServer.Tests.EditMode
             Assert.AreEqual(2, result.FilesUpdated);
             Assert.IsTrue(fs.CopiedFiles.Any(f => f.Contains("SKILL.md")));
             Assert.IsTrue(fs.CopiedFiles.Any(f => f.Contains("example.md")));
+        }
+
+        [Test]
+        public void RelocateInstalledSkills_InstallsIntoNewTarget_AndRemovesOldSkillFolders()
+        {
+            var fs = new MockFileSystem();
+            fs.Directories.Add(SourceRoot);
+            AddSkillFolder(fs, SourceRoot, "my-skill", "# packaged");
+
+            string previousTarget = "/home/user/.github/skills";
+            string previousSkillDir = $"{previousTarget}/my-skill";
+            fs.Directories.Add(previousSkillDir);
+            fs.Files[$"{previousSkillDir}/SKILL.md"] = "# old target";
+
+            var installer = new SkillsInstaller(fs);
+
+            bool result = installer.RelocateInstalledSkills(SourceRoot, previousTarget, TargetRoot);
+
+            Assert.IsTrue(result);
+            Assert.IsTrue(fs.Files.ContainsKey($"{TargetRoot}/my-skill/SKILL.md"));
+            Assert.IsFalse(fs.Directories.Contains(previousSkillDir));
+            Assert.IsFalse(fs.Files.ContainsKey($"{previousSkillDir}/SKILL.md"));
+        }
+
+        [Test]
+        public void RelocateInstalledSkills_PreservesUnrelatedFiles_InOldTargetSkillFolder()
+        {
+            var fs = new MockFileSystem();
+            fs.Directories.Add(SourceRoot);
+            AddSkillFolder(fs, SourceRoot, "my-skill", "# packaged");
+
+            string previousTarget = "/home/user/.github/skills";
+            string previousSkillDir = $"{previousTarget}/my-skill";
+            fs.Directories.Add(previousSkillDir);
+            fs.Files[$"{previousSkillDir}/SKILL.md"] = "# old target";
+            fs.Files[$"{previousSkillDir}/notes.md"] = "# keep me";
+
+            var installer = new SkillsInstaller(fs);
+
+            bool result = installer.RelocateInstalledSkills(SourceRoot, previousTarget, TargetRoot);
+
+            Assert.IsTrue(result);
+            Assert.IsTrue(fs.Files.ContainsKey($"{TargetRoot}/my-skill/SKILL.md"));
+            Assert.IsTrue(fs.Directories.Contains(previousSkillDir));
+            Assert.IsFalse(fs.Files.ContainsKey($"{previousSkillDir}/SKILL.md"));
+            Assert.IsTrue(fs.Files.ContainsKey($"{previousSkillDir}/notes.md"));
         }
 
         // ── SkillsInstallResult.ToString ──────────────────────────────────────

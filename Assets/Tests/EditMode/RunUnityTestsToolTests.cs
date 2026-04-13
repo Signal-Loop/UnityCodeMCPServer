@@ -6,8 +6,6 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEditor;
-using UnityEditor.SceneManagement;
-using System.IO;
 
 namespace UnityCodeMcpServer.Tests.EditMode
 {
@@ -196,115 +194,37 @@ namespace UnityCodeMcpServer.Tests.EditMode
         }
 
         [Test]
-        public void SaveDirtyScenes_WhenSceneIsDirty_SavesTheScene()
+        public void ShouldBlockForCompilationIssues_WhenEditorIsCompiling()
         {
-            // Create a temporary scene to test with (single mode to avoid issues with untitled scenes)
-            var tempScenePath = "Assets/Tests/EditMode/TempTestScene.unity";
-            var tempScene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
-            EditorSceneManager.SaveScene(tempScene, tempScenePath);
+            var shouldBlock = RunUnityTestsTool.ShouldBlockForCompilationIssues(isCompiling: true, hasCompileErrors: false);
 
-            try
-            {
-                // Mark the scene as dirty
-                EditorSceneManager.MarkSceneDirty(tempScene);
-
-                // Verify scene is dirty
-                Assert.IsTrue(tempScene.isDirty, "Scene should be dirty after marking it");
-
-                // Call SaveDirtyScenes
-                RunUnityTestsTool.SaveDirtyScenes();
-
-                // Verify scene is no longer dirty
-                Assert.IsFalse(tempScene.isDirty, "Scene should not be dirty after SaveDirtyScenes");
-            }
-            finally
-            {
-                // Cleanup: delete the temp scene
-                if (File.Exists(tempScenePath))
-                {
-                    AssetDatabase.DeleteAsset(tempScenePath);
-                }
-            }
+            Assert.IsTrue(shouldBlock);
         }
 
         [Test]
-        public void SaveDirtyScenes_WhenNoScenesDirty_DoesNotThrow()
+        public void ShouldBlockForCompilationIssues_WhenCompilerErrorsExist()
         {
-            // Create a clean scene
-            var tempScenePath = "Assets/Tests/EditMode/TempCleanScene.unity";
-            var tempScene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
-            EditorSceneManager.SaveScene(tempScene, tempScenePath);
+            var shouldBlock = RunUnityTestsTool.ShouldBlockForCompilationIssues(isCompiling: false, hasCompileErrors: true);
 
-            try
-            {
-                // Verify scene is not dirty
-                Assert.IsFalse(tempScene.isDirty, "Scene should not be dirty");
-
-                // This should not throw any exceptions
-                Assert.DoesNotThrow(() => RunUnityTestsTool.SaveDirtyScenes());
-            }
-            finally
-            {
-                // Cleanup
-                if (File.Exists(tempScenePath))
-                {
-                    AssetDatabase.DeleteAsset(tempScenePath);
-                }
-            }
+            Assert.IsTrue(shouldBlock);
         }
 
         [Test]
-        public void SaveDirtyScenes_WithMultipleDirtyScenes_SavesAllScenes()
+        public void ShouldNotBlockForCompilationIssues_WhenEditorIsReady()
         {
-            // Create a base scene first
-            var baseScenePath = "Assets/Tests/EditMode/TempBaseScene.unity";
-            var baseScene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
-            EditorSceneManager.SaveScene(baseScene, baseScenePath);
+            var shouldBlock = RunUnityTestsTool.ShouldBlockForCompilationIssues(isCompiling: false, hasCompileErrors: false);
 
-            // Create two additional scenes additively
-            var tempScenePath1 = "Assets/Tests/EditMode/TempTestScene1.unity";
-            var tempScene1 = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Additive);
-            EditorSceneManager.SaveScene(tempScene1, tempScenePath1);
-
-            var tempScenePath2 = "Assets/Tests/EditMode/TempTestScene2.unity";
-            var tempScene2 = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Additive);
-            EditorSceneManager.SaveScene(tempScene2, tempScenePath2);
-
-            try
-            {
-                // Mark both scenes as dirty
-                EditorSceneManager.MarkSceneDirty(tempScene1);
-                EditorSceneManager.MarkSceneDirty(tempScene2);
-
-                // Verify both scenes are dirty
-                Assert.IsTrue(tempScene1.isDirty, "Scene 1 should be dirty");
-                Assert.IsTrue(tempScene2.isDirty, "Scene 2 should be dirty");
-
-                // Call SaveDirtyScenes
-                RunUnityTestsTool.SaveDirtyScenes();
-
-                // Verify both scenes are no longer dirty
-                Assert.IsFalse(tempScene1.isDirty, "Scene 1 should not be dirty after SaveDirtyScenes");
-                Assert.IsFalse(tempScene2.isDirty, "Scene 2 should not be dirty after SaveDirtyScenes");
-            }
-            finally
-            {
-                // Cleanup: close and delete the temp scenes
-                EditorSceneManager.CloseScene(tempScene1, true);
-                EditorSceneManager.CloseScene(tempScene2, true);
-                if (File.Exists(tempScenePath1))
-                {
-                    AssetDatabase.DeleteAsset(tempScenePath1);
-                }
-                if (File.Exists(tempScenePath2))
-                {
-                    AssetDatabase.DeleteAsset(tempScenePath2);
-                }
-                if (File.Exists(baseScenePath))
-                {
-                    AssetDatabase.DeleteAsset(baseScenePath);
-                }
-            }
+            Assert.IsFalse(shouldBlock);
         }
+
+        [Test]
+        public void BuildCompilationBlockedResult_ReturnsCompilerErrorMessage()
+        {
+            var result = RunUnityTestsTool.BuildCompilationBlockedResult(isCompiling: false, hasCompileErrors: true);
+
+            Assert.IsTrue(result.IsError);
+            Assert.That(result.Content[0].Text, Does.Contain("Cannot run Unity tests while the project has compiler errors"));
+        }
+
     }
 }

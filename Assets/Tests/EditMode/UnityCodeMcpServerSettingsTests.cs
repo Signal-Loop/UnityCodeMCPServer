@@ -559,9 +559,21 @@ namespace UnityCodeMcpServer.Tests.EditMode
 
                 // Verify it has default values
                 Assert.That(asset.StdioPort, Is.EqualTo(21088), "Should have default port value");
+                Assert.That(asset.SkillsInstallTarget, Is.EqualTo(UnityCodeMcpServerSettings.SkillInstallTarget.Agents));
+                Assert.That(asset.SkillsTargetPath, Is.EqualTo(".agents/skills/"));
+
+                var diskContent = File.ReadAllText(TestSettingsAssetPath);
+                Assert.That(diskContent, Does.Contain("SkillsInstallTarget: 2"));
+                Assert.That(diskContent, Does.Contain("SkillsTargetPath: .agents/skills/"));
+
+                ResetInstanceCache();
+                var reloadedAsset = UnityCodeMcpServerSettings.Instance;
+                Assert.That(reloadedAsset.SkillsInstallTarget, Is.EqualTo(UnityCodeMcpServerSettings.SkillInstallTarget.Agents));
+                Assert.That(reloadedAsset.SkillsTargetPath, Is.EqualTo(".agents/skills/"));
             }
             finally
             {
+                ResetInstanceCache();
                 DeleteTestAsset();
             }
         }
@@ -636,6 +648,141 @@ namespace UnityCodeMcpServer.Tests.EditMode
             {
                 Assert.That(settings.MinLogLevel, Is.EqualTo(UnityCodeMcpServer.Helpers.LoopLogger.LogLevel.Info),
                     "Default MinLogLevel should be Info");
+            }
+            finally
+            {
+                ScriptableObject.DestroyImmediate(settings);
+            }
+        }
+
+        [Test]
+        public void InitializeSkillsTarget_UsesAgentsPreset_WhenUnset()
+        {
+            var settings = ScriptableObject.CreateInstance<UnityCodeMcpServerSettings>();
+
+            try
+            {
+                settings.SkillsTargetPath = string.Empty;
+
+                settings.InitializeSkillsTarget();
+
+                Assert.That(settings.SkillsInstallTarget, Is.EqualTo(UnityCodeMcpServerSettings.SkillInstallTarget.Agents));
+                StringAssert.Contains(".agents/skills", settings.SkillsTargetPath.Replace('\\', '/'));
+            }
+            finally
+            {
+                ScriptableObject.DestroyImmediate(settings);
+            }
+        }
+
+        [Test]
+        public void InitializeSkillsTarget_MigratesLegacyAbsolutePath_ToCustom()
+        {
+            var settings = ScriptableObject.CreateInstance<UnityCodeMcpServerSettings>();
+
+            try
+            {
+                settings.SkillsTargetPath = "C:/tools/custom-skills";
+
+                settings.InitializeSkillsTarget();
+
+                Assert.That(settings.SkillsInstallTarget, Is.EqualTo(UnityCodeMcpServerSettings.SkillInstallTarget.Custom));
+                Assert.That(settings.SkillsTargetPath, Is.EqualTo("C:/tools/custom-skills"));
+            }
+            finally
+            {
+                ScriptableObject.DestroyImmediate(settings);
+            }
+        }
+
+        [Test]
+        public void GetEffectiveSkillsTargetPath_ReturnsPresetPath()
+        {
+            var settings = ScriptableObject.CreateInstance<UnityCodeMcpServerSettings>();
+
+            try
+            {
+                settings.SkillsInstallTarget = UnityCodeMcpServerSettings.SkillInstallTarget.GitHub;
+
+                string path = settings.GetEffectiveSkillsTargetPath();
+
+                StringAssert.EndsWith(".github/skills/", path.Replace('\\', '/'));
+            }
+            finally
+            {
+                ScriptableObject.DestroyImmediate(settings);
+            }
+        }
+
+        [Test]
+        public void GetEffectiveSkillsTargetPath_ReturnsCustomPath()
+        {
+            var settings = ScriptableObject.CreateInstance<UnityCodeMcpServerSettings>();
+
+            try
+            {
+                settings.SkillsInstallTarget = UnityCodeMcpServerSettings.SkillInstallTarget.Custom;
+                settings.SkillsTargetPath = "C:/skills/custom";
+
+                Assert.That(settings.GetEffectiveSkillsTargetPath(), Is.EqualTo("C:/skills/custom"));
+            }
+            finally
+            {
+                ScriptableObject.DestroyImmediate(settings);
+            }
+        }
+
+        [Test]
+        public void SetSkillsInstallTarget_UpdatesStoredPath_ForPresetTarget()
+        {
+            var settings = ScriptableObject.CreateInstance<UnityCodeMcpServerSettings>();
+
+            try
+            {
+                settings.SetSkillsInstallTarget(UnityCodeMcpServerSettings.SkillInstallTarget.Claude);
+
+                Assert.That(settings.SkillsInstallTarget, Is.EqualTo(UnityCodeMcpServerSettings.SkillInstallTarget.Claude));
+                StringAssert.EndsWith(".claude/skills/", settings.SkillsTargetPath.Replace('\\', '/'));
+            }
+            finally
+            {
+                ScriptableObject.DestroyImmediate(settings);
+            }
+        }
+
+        [Test]
+        public void SetSkillsInstallTarget_PreservesCustomPath_WhenSelectingCustom()
+        {
+            var settings = ScriptableObject.CreateInstance<UnityCodeMcpServerSettings>();
+
+            try
+            {
+                settings.SkillsTargetPath = "C:/skills/custom";
+                settings.SetSkillsInstallTarget(UnityCodeMcpServerSettings.SkillInstallTarget.Custom);
+
+                Assert.That(settings.SkillsInstallTarget, Is.EqualTo(UnityCodeMcpServerSettings.SkillInstallTarget.Custom));
+                Assert.That(settings.SkillsTargetPath, Is.EqualTo("C:/skills/custom"));
+            }
+            finally
+            {
+                ScriptableObject.DestroyImmediate(settings);
+            }
+        }
+
+        [Test]
+        public void SetSkillsInstallTarget_SeedsCustomPath_FromCurrentResolvedPresetPath()
+        {
+            var settings = ScriptableObject.CreateInstance<UnityCodeMcpServerSettings>();
+
+            try
+            {
+                settings.SetSkillsInstallTarget(UnityCodeMcpServerSettings.SkillInstallTarget.GitHub);
+                string expectedCustomPath = settings.GetEffectiveSkillsTargetPath();
+
+                settings.SetSkillsInstallTarget(UnityCodeMcpServerSettings.SkillInstallTarget.Custom);
+
+                Assert.That(settings.SkillsInstallTarget, Is.EqualTo(UnityCodeMcpServerSettings.SkillInstallTarget.Custom));
+                Assert.That(settings.SkillsTargetPath, Is.EqualTo(expectedCustomPath));
             }
             finally
             {

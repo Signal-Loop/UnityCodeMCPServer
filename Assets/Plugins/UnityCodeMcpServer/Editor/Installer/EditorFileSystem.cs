@@ -11,6 +11,8 @@ namespace UnityCodeMcpServer.Editor.Installer
         bool FileExists(string path);
         void CreateDirectory(string path);
         void CopyFile(string source, string dest, bool overwrite);
+        void DeleteFile(string path);
+        void DeleteDirectory(string path, bool recursive);
         string[] GetFiles(string path);
         string[] GetDirectories(string path);
         string GetFileName(string path);
@@ -24,6 +26,8 @@ namespace UnityCodeMcpServer.Editor.Installer
         public bool FileExists(string path) => File.Exists(path);
         public void CreateDirectory(string path) => Directory.CreateDirectory(path);
         public void CopyFile(string source, string dest, bool overwrite) => File.Copy(source, dest, overwrite);
+        public void DeleteFile(string path) => File.Delete(path);
+        public void DeleteDirectory(string path, bool recursive) => Directory.Delete(path, recursive);
         public string[] GetFiles(string path) => Directory.GetFiles(path);
         public string[] GetDirectories(string path) => Directory.GetDirectories(path);
         public string GetFileName(string path) => Path.GetFileName(path);
