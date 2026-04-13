@@ -21,6 +21,8 @@ namespace UnityCodeMcpServer.Tests.EditMode
             public bool FileExists(string path) => Files.ContainsKey(path);
             public void CreateDirectory(string path) => Directories.Add(path);
             public void CopyFile(string s, string d, bool o) => CopiedFiles.Add($"{s}->{d}");
+            public void DeleteFile(string path) => Files.Remove(path);
+            public void DeleteDirectory(string path, bool recursive) => Directories.Remove(path);
             public string GetFileName(string path) => System.IO.Path.GetFileName(path);
             public string ReadAllText(string filePath) => Files.ContainsKey(filePath) ? Files[filePath] : "";
 
@@ -164,6 +166,63 @@ namespace UnityCodeMcpServer.Tests.EditMode
             // Assert
             Assert.IsFalse(result);
             Assert.AreEqual(0, mockFS.CopiedFiles.Count);
+        }
+
+        [Test]
+        public void InstallContent_ReturnsTrue_WhenSkillsInstallerCopiesFiles()
+        {
+            bool packageInstallerCalled = false;
+            bool skillsInstallerCalled = false;
+
+            bool result = PackageInstaller.InstallContent(
+                installPackageFiles: () =>
+                {
+                    packageInstallerCalled = true;
+                    return false;
+                },
+                installSkills: () =>
+                {
+                    skillsInstallerCalled = true;
+                    return true;
+                });
+
+            Assert.IsTrue(result);
+            Assert.IsTrue(packageInstallerCalled);
+            Assert.IsTrue(skillsInstallerCalled);
+        }
+
+        [Test]
+        public void InstallContent_ReturnsFalse_WhenNothingChanges()
+        {
+            bool result = PackageInstaller.InstallContent(
+                installPackageFiles: () => false,
+                installSkills: () => false);
+
+            Assert.IsFalse(result);
+        }
+
+        [Test]
+        public void RunInstallSteps_RunsSkills_WhenPackageInstallIsSkipped()
+        {
+            bool packageInstallerCalled = false;
+            bool skillsInstallerCalled = false;
+
+            bool result = PackageInit.RunInstallSteps(
+                skipPackageInstall: true,
+                installPackageFiles: () =>
+                {
+                    packageInstallerCalled = true;
+                    return true;
+                },
+                installSkills: () =>
+                {
+                    skillsInstallerCalled = true;
+                    return true;
+                });
+
+            Assert.IsTrue(result);
+            Assert.IsFalse(packageInstallerCalled);
+            Assert.IsTrue(skillsInstallerCalled);
         }
     }
 }

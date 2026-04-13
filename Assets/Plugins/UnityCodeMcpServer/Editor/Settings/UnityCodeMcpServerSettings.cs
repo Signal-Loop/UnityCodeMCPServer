@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using UnityCodeMcpServer.Helpers;
 using UnityEngine;
@@ -33,6 +34,14 @@ namespace UnityCodeMcpServer.Settings
         {
             Stdio,
             Http
+        }
+
+        public enum SkillInstallTarget
+        {
+            GitHub,
+            Claude,
+            Agents,
+            Custom
         }
 
         /// <summary>
@@ -96,8 +105,14 @@ namespace UnityCodeMcpServer.Settings
         public List<string> AdditionalAssemblyNames = new List<string>();
 
         [Header("Skills Installer")]
+        [HideInInspector]
+        public SkillInstallTarget SkillsInstallTarget = SkillInstallTarget.Agents;
+
         [Tooltip("Target directory for skill file installation (persists across sessions)")]
-        public string SkillsTargetPath = "";
+        public string SkillsTargetPath = ".agents/skills/";
+
+        [SerializeField, HideInInspector]
+        private bool _hasInitializedSkillsInstallTarget;
 
         private static UnityCodeMcpServerSettings _instance;
 
@@ -121,6 +136,104 @@ namespace UnityCodeMcpServer.Settings
             }
 
             return allAssemblies.ToArray();
+        }
+
+        public void InitializeSkillsTarget()
+        {
+            if (_hasInitializedSkillsInstallTarget)
+            {
+                return;
+            }
+
+            if (!string.IsNullOrWhiteSpace(SkillsTargetPath))
+            {
+                SkillsTargetPath = NormalizePath(SkillsTargetPath);
+
+                if (IsAbsolutePath(SkillsTargetPath))
+                {
+                    SkillsInstallTarget = SkillInstallTarget.Custom;
+                }
+                else if (SkillsInstallTarget != SkillInstallTarget.Custom)
+                {
+                    SkillsTargetPath = GetStoredSkillsTargetPath(SkillsInstallTarget);
+                }
+            }
+            else if (SkillsInstallTarget == SkillInstallTarget.Custom)
+            {
+                SkillsTargetPath = GetDefaultCustomSkillsTargetPath();
+            }
+            else
+            {
+                SkillsTargetPath = GetStoredSkillsTargetPath(SkillsInstallTarget);
+            }
+
+            _hasInitializedSkillsInstallTarget = true;
+            EditorUtility.SetDirty(this);
+        }
+
+        public void SetSkillsInstallTarget(SkillInstallTarget target)
+        {
+            InitializeSkillsTarget();
+
+            string currentCustomPath = SkillsInstallTarget == SkillInstallTarget.Custom
+                ? NormalizePath(SkillsTargetPath)
+                : string.Empty;
+            string currentResolvedPath = GetEffectiveSkillsTargetPath();
+
+            SkillsInstallTarget = target;
+            if (target == SkillInstallTarget.Custom)
+            {
+                if (!string.IsNullOrWhiteSpace(currentCustomPath))
+                {
+                    SkillsTargetPath = currentCustomPath;
+                }
+                else
+                {
+                    SkillsTargetPath = NormalizePath(currentResolvedPath);
+                }
+            }
+            else
+            {
+                SkillsTargetPath = GetStoredSkillsTargetPath(target);
+            }
+
+            _hasInitializedSkillsInstallTarget = true;
+            EditorUtility.SetDirty(this);
+        }
+
+        public void SetCustomSkillsTargetPath(string path)
+        {
+            SkillsInstallTarget = SkillInstallTarget.Custom;
+            SkillsTargetPath = string.IsNullOrWhiteSpace(path)
+                ? GetDefaultCustomSkillsTargetPath()
+                : NormalizePath(path);
+            _hasInitializedSkillsInstallTarget = true;
+            EditorUtility.SetDirty(this);
+        }
+
+        public string GetEffectiveSkillsTargetPath()
+        {
+            InitializeSkillsTarget();
+
+            return SkillsInstallTarget == SkillInstallTarget.Custom
+                ? NormalizePath(SkillsTargetPath)
+                : ResolveSkillsTargetPath(SkillsInstallTarget);
+        }
+
+        public static string ResolveSkillsTargetPath(SkillInstallTarget target)
+        {
+            switch (target)
+            {
+                case SkillInstallTarget.GitHub:
+                    return NormalizeDirectoryPath(Path.GetFullPath(".github/skills/"));
+                case SkillInstallTarget.Claude:
+                    return NormalizeDirectoryPath(Path.GetFullPath(".claude/skills/"));
+                case SkillInstallTarget.Agents:
+                    return NormalizeDirectoryPath(Path.GetFullPath(".agents/skills/"));
+                case SkillInstallTarget.Custom:
+                default:
+                    return GetDefaultCustomSkillsTargetPath();
+            }
         }
 
         /// <summary>
@@ -186,9 +299,11 @@ namespace UnityCodeMcpServer.Settings
                 _instance = LoadSettingsAsset(_settingsAssetPath);
                 if (_instance != null)
                 {
+                    _instance.InitializeSkillsTarget();
                     return _instance;
                 }
                 _instance = CreateInstance<UnityCodeMcpServerSettings>();
+                _instance.InitializeSkillsTarget();
 
                 SaveInstance(_instance);
 
@@ -204,6 +319,7 @@ namespace UnityCodeMcpServer.Settings
                 Debug.LogWarning($"{Protocol.McpProtocol.LogPrefix} Cannot save null settings instance.");
                 return;
             }
+            instance.InitializeSkillsTarget();
             if (string.IsNullOrEmpty(_settingsAssetPath))
             {
                 Debug.LogWarning($"{Protocol.McpProtocol.LogPrefix} Settings asset path is null or empty. Cannot save settings instance.");
@@ -310,10 +426,12 @@ namespace UnityCodeMcpServer.Settings
             var settingsAsset = LoadSettingsAsset(_settingsAssetPath);
             if (settingsAsset != null)
             {
+                settingsAsset.InitializeSkillsTarget();
                 return settingsAsset;
             }
 
             settingsAsset = CreateInstance<UnityCodeMcpServerSettings>();
+            settingsAsset.InitializeSkillsTarget();
             SaveInstance(settingsAsset);
             return settingsAsset;
         }
@@ -329,9 +447,46 @@ namespace UnityCodeMcpServer.Settings
             var settings = AssetDatabase.LoadAssetAtPath<UnityCodeMcpServerSettings>(settingsAssetPath);
             if (settings != null)
             {
+                settings.InitializeSkillsTarget();
                 return settings;
             }
             return null;
+        }
+
+        private static string GetStoredSkillsTargetPath(SkillInstallTarget target)
+        {
+            switch (target)
+            {
+                case SkillInstallTarget.GitHub:
+                    return ".github/skills/";
+                case SkillInstallTarget.Claude:
+                    return ".claude/skills/";
+                case SkillInstallTarget.Agents:
+                case SkillInstallTarget.Custom:
+                default:
+                    return ".agents/skills/";
+            }
+        }
+
+        private static string GetDefaultCustomSkillsTargetPath()
+        {
+            return NormalizePath(Path.GetFullPath("."));
+        }
+
+        private static bool IsAbsolutePath(string path)
+        {
+            return Path.IsPathRooted(path);
+        }
+
+        private static string NormalizeDirectoryPath(string path)
+        {
+            string normalized = NormalizePath(path);
+            return normalized.EndsWith("/") ? normalized : normalized + "/";
+        }
+
+        private static string NormalizePath(string path)
+        {
+            return path.Replace("\\", "/");
         }
     }
 }

@@ -184,7 +184,7 @@ Example configuration (using `uv` to run the bridge):
 
 ### Server configuration (Unity)
 
-1. Access (and create if necessary) settings via **Tools/UnityCodeMcpServer/Show Settings**.
+1. Access (and create if necessary) settings via **Tools/UnityCodeMcpServer/Show or Create Settings**.
 2. Configure options:
    - **Server Selection**: Choose STDIO (TCP) or HTTP server for auto-start
    - **Verbose Logging**: Enable detailed logging for debugging
@@ -196,7 +196,7 @@ Example configuration (using `uv` to run the bridge):
 
 #### General
 
-- **Tools/UnityCodeMcpServer/Show Settings** — Open the server settings asset in the inspector
+- **Tools/UnityCodeMcpServer/Show or Create Settings** — Open the server settings asset in the inspector
 
 #### STDIO Server (TCP)
 

@@ -155,10 +155,12 @@ https://github.com/Cysharp/UniTask.git?path=src/UniTask/Assets/Plugins/UniTask
 https://github.com/Signal-Loop/UnityCodeMCPServer.git?path=Assets/Plugins/UnityCodeMcpServer
 ```
 
-4. Install Skills (Markdown files that teach your agent how to use the server's tools effectively):
-   - In Unity Editor, open server settings: **Tools/UnityCodeMcpServer/Show Settings**
-   - Scroll to the **Skills** section
-   - Choose a target directory for skills (e.g. `.github/skills/`) and click **Install / Update Skills**
+4. Configure Skill install location (Markdown files that teach your agent how to use the server's tools effectively):
+  - In Unity Editor, open server settings: **Tools/UnityCodeMcpServer/Show or Create Settings**
+  - Scroll to the **Skills** section
+  - By default, first-time installs target `.agents/skills/`
+  - If needed, change the install directory to `.github/skills/`, `.claude/skills/`, `.agents/skills/`, or a custom folder
+  - Skills are installed and updated automatically when the package is installed or updated
 
 ### First Run
 
@@ -203,7 +205,7 @@ Example configuration (using `uv` to run the bridge):
 
 ### Server configuration (Unity)
 
-1. Access (and create if necessary) settings via **Tools/UnityCodeMcpServer/Show Settings**.
+1. Access (and create if necessary) settings via **Tools/UnityCodeMcpServer/Show or Create Settings**.
 2. Configure options:
    - **Server Selection**: Choose STDIO (TCP) or HTTP server for auto-start
    - **Verbose Logging**: Enable detailed logging for debugging
@@ -215,7 +217,7 @@ Example configuration (using `uv` to run the bridge):
 
 #### General
 
-- **Tools/UnityCodeMcpServer/Show Settings** — Open the server settings asset in the inspector
+- **Tools/UnityCodeMcpServer/Show or Create Settings** — Open the server settings asset in the inspector
 
 #### STDIO Server (TCP)
 
@@ -311,20 +313,21 @@ Returns Unity Editor project path, Unity version, and current server settings. U
 
 ## Agent skills
 
-Unity Code MCP Server ships a set of **AI agent skill files** (Markdown documents that teach your agent how to use the server's tools effectively). Skills can be installed directly from the Unity Editor into your agent's skills directory.
+Unity Code MCP Server ships a set of **AI agent skill files** (Markdown documents that teach your agent how to use the server's tools effectively). These skills are installed automatically into the configured target directory whenever the package is installed or updated.
 
 ### Installing skills
 
-1. Open the server settings: **Tools/UnityCodeMcpServer/Show Settings**.
+1. Open the server settings: **Tools/UnityCodeMcpServer/Show or Create Settings**.
 2. Scroll to the **Skills** section.
-3. Choose a target directory:
-   - Click **.github/skills/** to target `.github/skills/` (workspace-relative)
-   - Click **.claude/skills/** to target `.claude/skills/` (workspace-relative)
-   - Click **.agents/skills/** to target `.agents/skills/` (workspace-relative)
-   - Or type a custom path / click **Custom** to pick any folder.
-4. Click **Install / Update Skills**.
+3. Choose the install directory from the dropdown:
+  - `GitHub` targets `.github/skills/`
+  - `Claude` targets `.claude/skills/`
+  - `Agents` targets `.agents/skills/`
+  - `Custom` shows a folder picker so you can select any directory
+4. The inspector shows the currently selected target directory label so you can verify exactly where skills will be copied.
+5. Package install and update runs copy the skills automatically.
 
-Only `.md` files are copied. Files that are already up to date (matching content hash) are skipped.
+Only new or changed `.md` files are copied. Files that are already up to date (matching content hash) are skipped.
 
 ### Included skills
 
