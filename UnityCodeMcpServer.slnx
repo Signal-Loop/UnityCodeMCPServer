@@ -1,6 +1,6 @@
 ﻿<Solution>
-  <Project Path="UnityCodeMcpServer.csproj" />
   <Project Path="UnityCodeMcpServerTestsEditMode.csproj" />
+  <Project Path="UnityCodeMcpServer.csproj" />
   <Project Path="Assembly-CSharp.csproj" />
   <Project Path="UnityCodeMcpServer.Tests.PlayMode.csproj" />
 </Solution>
