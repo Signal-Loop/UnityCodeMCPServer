@@ -88,7 +88,7 @@ namespace UnityCodeMcpServer.Editor.Installer
                     }
                 }
 
-                LoopLogger.Info($"{Protocol.McpProtocol.LogPrefix} Skills install complete — {result}");
+                LoopLogger.Debug($"{Protocol.McpProtocol.LogPrefix} Skills install complete — {result}");
                 return result;
             }
             catch (Exception ex)
