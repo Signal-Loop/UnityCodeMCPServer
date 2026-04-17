@@ -26,6 +26,7 @@ from mcp import types
 # Import the module under test
 from unity_code_mcp_stdio import UnityTcpClient
 from unity_code_mcp_stdio.unity_code_mcp_bridge_stdio import (
+    DEFAULT_REQUEST_TIMEOUT,
     DEFAULT_PORT,
     LOG_BACKUP_COUNT,
     LOG_MAX_BYTES,
@@ -603,6 +604,10 @@ class TestJsonRpcMessages:
 
 class TestSettingsDiscovery:
     """Tests for Unity settings file discovery and port reading."""
+
+    def test_default_request_timeout_is_120_seconds(self):
+        """Bridge requests default to a 120 second per-phase timeout."""
+        assert DEFAULT_REQUEST_TIMEOUT == 120.0
 
     # -- fixed settings path ------------------------------------------------
 

@@ -41,7 +41,7 @@ logger.propagate = False
 LOG_MAX_BYTES = 5 * 1024 * 1024
 LOG_BACKUP_COUNT = 3
 LOG_VALUE_PREVIEW_LIMIT = 160
-DEFAULT_REQUEST_TIMEOUT = 30.0
+DEFAULT_REQUEST_TIMEOUT = 120.0
 
 formatter = logging.Formatter(
     "%(asctime)s - pid=%(process)d - %(levelname)s - %(message)s"
@@ -571,8 +571,7 @@ class UnityTcpClient:
                 return self._build_error(
                     request,
                     -32000,
-                    f"Unity connection dropped during request. "
-                    f"Last error: {e}",
+                    f"Unity connection dropped during request. Last error: {e}",
                 )
             except Exception as e:
                 duration_ms = round((time.perf_counter() - started_at) * 1000)
@@ -584,9 +583,7 @@ class UnityTcpClient:
                     exc_info=True,
                 )
                 await self.disconnect(reason="unexpected-error")
-                return self._build_error(
-                    request, -32603, f"Internal error: {e}"
-                )
+                return self._build_error(request, -32603, f"Internal error: {e}")
 
 
 class SafeServer(Server):
