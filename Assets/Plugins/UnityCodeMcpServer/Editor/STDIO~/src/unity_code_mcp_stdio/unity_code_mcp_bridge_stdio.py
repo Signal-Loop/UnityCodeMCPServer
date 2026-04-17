@@ -41,6 +41,7 @@ logger.propagate = False
 LOG_MAX_BYTES = 5 * 1024 * 1024
 LOG_BACKUP_COUNT = 3
 LOG_VALUE_PREVIEW_LIMIT = 160
+DEFAULT_REQUEST_TIMEOUT = 30.0
 
 formatter = logging.Formatter(
     "%(asctime)s - pid=%(process)d - %(levelname)s - %(message)s"
@@ -238,6 +239,14 @@ UNITY_HOST: str = "localhost"
 """Default Unity TCP Server host. Unity never listens on remote interfaces."""
 
 
+class UnityRequestTimeoutError(asyncio.TimeoutError):
+    """Raised when a Unity request phase exceeds the configured timeout."""
+
+    def __init__(self, phase: str):
+        super().__init__(phase)
+        self.phase = phase
+
+
 class UnityTcpClient:
     """TCP client that connects to the Unity MCP Server."""
 
@@ -248,15 +257,41 @@ class UnityTcpClient:
         retry_time: float,
         retry_count: int,
         port_resolver: Any = None,
+        request_timeout: float = DEFAULT_REQUEST_TIMEOUT,
     ):
         self.host = host
         self.port = port
         self.retry_time = retry_time
         self.retry_count = retry_count
         self._port_resolver = port_resolver
+        self.request_timeout = request_timeout
         self.reader: asyncio.StreamReader | None = None
         self.writer: asyncio.StreamWriter | None = None
         self._lock = asyncio.Lock()
+
+    async def _await_request_phase(
+        self,
+        awaitable,
+        *,
+        trace_id: str,
+        request_summary: str,
+        phase: str,
+        started_at: float,
+    ):
+        """Await one request phase with a terminal timeout."""
+        try:
+            return await asyncio.wait_for(awaitable, timeout=self.request_timeout)
+        except asyncio.TimeoutError as exc:
+            duration_ms = round((time.perf_counter() - started_at) * 1000)
+            logger.warning(
+                "trace=%s Unity request timeout %s phase=%s duration_ms=%s timeout_s=%s",
+                trace_id,
+                request_summary,
+                phase,
+                duration_ms,
+                self.request_timeout,
+            )
+            raise UnityRequestTimeoutError(phase) from exc
 
     async def connect(self) -> bool:
         """Connect to Unity TCP Server with retry logic."""
@@ -316,6 +351,23 @@ class UnityTcpClient:
             },
         }
 
+    def _build_timeout_response(
+        self, request: dict[str, Any], phase: str
+    ) -> dict[str, Any]:
+        """Build a deterministic JSON-RPC error for a hung Unity request."""
+        return {
+            "jsonrpc": "2.0",
+            "id": request.get("id"),
+            "error": {
+                "code": -32000,
+                "message": (
+                    "Unity request timed out during "
+                    f"{phase} after {self.request_timeout} seconds. "
+                    "Retry the MCP request."
+                ),
+            },
+        }
+
     async def send_request(self, request: dict[str, Any]) -> dict[str, Any]:
         """Send a JSON-RPC request to Unity and return the response.
 
@@ -353,15 +405,19 @@ class UnityTcpClient:
                 if not self.writer or not self.reader:
                     if not await self.connect():
                         last_error = "Failed to connect"
-                        # connect() already retries internally, so if it fails,
-                        # we might as well count this as a failed attempt.
 
                 if self.writer and self.reader:
                     try:
                         message = json.dumps(request).encode("utf-8")
                         length_prefix = struct.pack(">I", len(message))
                         self.writer.write(length_prefix + message)
-                        await self.writer.drain()
+                        await self._await_request_phase(
+                            self.writer.drain(),
+                            trace_id=trace_id,
+                            request_summary=request_summary,
+                            phase="write",
+                            started_at=started_at,
+                        )
 
                         logger.debug(
                             "trace=%s Sent Unity request bytes=%s %s",
@@ -370,9 +426,21 @@ class UnityTcpClient:
                             request_summary,
                         )
 
-                        length_data = await self.reader.readexactly(4)
+                        length_data = await self._await_request_phase(
+                            self.reader.readexactly(4),
+                            trace_id=trace_id,
+                            request_summary=request_summary,
+                            phase="response-length",
+                            started_at=started_at,
+                        )
                         response_length = struct.unpack(">I", length_data)[0]
-                        response_data = await self.reader.readexactly(response_length)
+                        response_data = await self._await_request_phase(
+                            self.reader.readexactly(response_length),
+                            trace_id=trace_id,
+                            request_summary=request_summary,
+                            phase="response-body",
+                            started_at=started_at,
+                        )
                         response = json.loads(response_data.decode("utf-8"))
 
                         duration_ms = round((time.perf_counter() - started_at) * 1000)
@@ -392,6 +460,10 @@ class UnityTcpClient:
                         )
                         return response
 
+                    except UnityRequestTimeoutError as e:
+                        await self.disconnect(reason=f"request-timeout:{e.phase}")
+                        last_error = f"timeout:{e.phase}"
+                        return self._build_timeout_response(request, e.phase)
                     except (
                         asyncio.IncompleteReadError,
                         ConnectionResetError,
@@ -434,7 +506,6 @@ class UnityTcpClient:
                             },
                         }
 
-            # Wait before retrying if we haven't exhausted attempts
             if attempt < self.retry_count - 1:
                 logger.info(f"Retrying request in {self.retry_time} seconds...")
                 await asyncio.sleep(self.retry_time)
@@ -716,14 +787,21 @@ def create_server(unity_client: UnityTcpClient) -> Server:
     return server
 
 
-async def run_server(host: str, port: int, retry_time: float, retry_count: int):
+async def run_server(
+    host: str,
+    port: int,
+    retry_time: float,
+    retry_count: int,
+    request_timeout: float,
+):
     """Run the MCP server with Windows-compatible stdio transport."""
     logger.info(
-        "Starting Unity Code MCP STDIO Bridge host=%s port=%s retry_time=%s retry_count=%s log_path=%s max_bytes=%s backups=%s",
+        "Starting Unity Code MCP STDIO Bridge host=%s port=%s retry_time=%s retry_count=%s request_timeout=%s log_path=%s max_bytes=%s backups=%s",
         host,
         port,
         retry_time,
         retry_count,
+        request_timeout,
         log_file_path,
         LOG_MAX_BYTES,
         LOG_BACKUP_COUNT,
@@ -732,7 +810,12 @@ async def run_server(host: str, port: int, retry_time: float, retry_count: int):
     unity_client: UnityTcpClient | None = None
     try:
         unity_client = UnityTcpClient(
-            host, port, retry_time, retry_count, port_resolver=get_stdio_port
+            host,
+            port,
+            retry_time,
+            retry_count,
+            port_resolver=get_stdio_port,
+            request_timeout=request_timeout,
         )
         server = create_server(unity_client)
 
@@ -852,6 +935,12 @@ def main():
         default=15,
         help="Maximum number of connection retries",
     )
+    parser.add_argument(
+        "--request-timeout",
+        type=float,
+        default=DEFAULT_REQUEST_TIMEOUT,
+        help="Seconds to wait for each Unity request phase before failing the request",
+    )
     parser.add_argument("--verbose", action="store_true", help="Enable verbose logging")
     parser.add_argument("--quiet", action="store_true", help="Suppress logging")
 
@@ -864,8 +953,21 @@ def main():
 
     host = UNITY_HOST
     port = get_stdio_port()
-    logger.info(f"Unity Code MCP STDIO Bridge starting (Unity at {host}:{port})")
-    asyncio.run(run_server(host, port, args.retry_time, args.retry_count))
+    logger.info(
+        "Unity Code MCP STDIO Bridge starting (Unity at %s:%s, request_timeout=%s)",
+        host,
+        port,
+        args.request_timeout,
+    )
+    asyncio.run(
+        run_server(
+            host,
+            port,
+            args.retry_time,
+            args.retry_count,
+            args.request_timeout,
+        )
+    )
 
 
 if __name__ == "__main__":

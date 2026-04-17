@@ -51,10 +51,11 @@ unity-code-mcp-stdio
 
 ### Command Line Arguments
 
-| Argument        | Default | Description                          |
-| --------------- | ------- | ------------------------------------ |
-| `--retry-time`  | `2`     | Seconds between connection retries   |
-| `--retry-count` | `5`     | Maximum number of connection retries |
+| Argument            | Default | Description                                                             |
+| ------------------- | ------- | ----------------------------------------------------------------------- |
+| `--retry-time`      | `2`     | Seconds between connection retries                                      |
+| `--retry-count`     | `5`     | Maximum number of connection retries                                    |
+| `--request-timeout` | `30`    | Seconds to wait for each Unity request phase before failing the request |
 
 > **Note:** The host is hardcoded to `localhost` and the port is read automatically from `UnityCodeMcpServerSettings.asset` inside the Unity project.
 
@@ -69,6 +70,9 @@ uv run --directory "C:/path/to/STDIO~" unity-code-mcp-stdio
 
 # With retry configuration
 uv run --directory "C:/path/to/STDIO~" unity-code-mcp-stdio --retry-time 3 --retry-count 10
+
+# Allow slower Unity operations before the bridge times out a stalled request
+uv run --directory "C:/path/to/STDIO~" unity-code-mcp-stdio --request-timeout 60
 ```
 
 ## MCP Configuration
@@ -121,6 +125,7 @@ Each request now records enough context to trace failures across the transport b
 - Tool name, URI, and argument key summary when present
 - Connect, reconnect, send, receive, shutdown, and closed-stream events
 - Request duration, response summary, and error type/message on failure
+- Timeout phase information when a request stalls after connect, during write, or while waiting for the response
 - The last stdin line preview or last stdout message preview when framing breaks
 
 Log retention is bounded with size-based rotation:

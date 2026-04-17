@@ -316,6 +316,73 @@ class TestUnityTcpClient:
         assert mock_open.call_count == 1
 
     @pytest.mark.asyncio
+    async def test_send_request_times_out_when_response_never_arrives(self):
+        """A request must fail explicitly instead of hanging forever on a silent socket."""
+        client = UnityTcpClient(
+            host="localhost",
+            port=21088,
+            retry_time=0.0,
+            retry_count=1,
+            request_timeout=0.01,
+        )
+
+        async def never_returns(_n: int) -> bytes:
+            await asyncio.sleep(1)
+            return b""
+
+        client.reader = AsyncMock(spec=MockStreamReader)
+        client.reader.readexactly.side_effect = never_returns
+        client.writer = AsyncMock(spec=MockStreamWriter)
+
+        response = await client.send_request(
+            {"jsonrpc": "2.0", "id": "timeout", "method": "tools/list"}
+        )
+
+        assert response["error"]["code"] == -32000
+        assert "timed out during response-length" in response["error"]["message"]
+        assert client.writer is None
+        assert client.reader is None
+
+    @pytest.mark.asyncio
+    async def test_send_request_reconnects_on_next_request_after_timeout(self):
+        """The request after a timeout must use a fresh reconnect path."""
+        client = UnityTcpClient(
+            host="localhost",
+            port=21088,
+            retry_time=0.0,
+            retry_count=1,
+            request_timeout=0.01,
+        )
+
+        async def never_returns(_n: int) -> bytes:
+            await asyncio.sleep(1)
+            return b""
+
+        client.reader = AsyncMock(spec=MockStreamReader)
+        client.reader.readexactly.side_effect = never_returns
+        client.writer = AsyncMock(spec=MockStreamWriter)
+
+        first_response = await client.send_request(
+            {"jsonrpc": "2.0", "id": "timeout", "method": "tools/list"}
+        )
+
+        mock_reader = MockStreamReader()
+        mock_writer = MockStreamWriter()
+        expected_response = {"jsonrpc": "2.0", "id": "second", "result": {}}
+        mock_reader.set_response(expected_response)
+
+        with patch("asyncio.open_connection", new_callable=AsyncMock) as mock_open:
+            mock_open.return_value = (mock_reader, mock_writer)
+            second_response = await client.send_request(
+                {"jsonrpc": "2.0", "id": "second", "method": "test"}
+            )
+
+        assert first_response["error"]["code"] == -32000
+        assert "timed out during response-length" in first_response["error"]["message"]
+        assert second_response == expected_response
+        assert mock_open.call_count == 1
+
+    @pytest.mark.asyncio
     async def test_port_resolver_no_change_does_not_disconnect(self):
         """If port_resolver returns the same port, no disconnect/reconnect happens."""
         resolver = lambda: 21088  # noqa: E731
