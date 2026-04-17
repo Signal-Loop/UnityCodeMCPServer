@@ -183,7 +183,7 @@ class TestUnityTcpClient:
 
     @pytest.mark.asyncio
     async def test_send_request_connection_error_retries_success(self, unity_client):
-        """Test request retry success after initial connection error."""
+        """Test request retry success when the initial connect path fails."""
         mock_reader_success = MockStreamReader()
         expected_response = {
             "jsonrpc": "2.0",
@@ -194,17 +194,11 @@ class TestUnityTcpClient:
 
         mock_writer_success = MockStreamWriter()
 
-        # Mock connect to first fail (or connect but writer fails), then succeed
-        # In this test we simulate a writer failure during send
-        unity_client.writer = AsyncMock(spec=MockStreamWriter)
-        unity_client.reader = AsyncMock(spec=MockStreamReader)
-
-        # Setup the writer to raise an error on the first write/drain
-        unity_client.writer.drain.side_effect = [ConnectionResetError("Reset"), None]
-
-        # For the reconnection
         with patch("asyncio.open_connection", new_callable=AsyncMock) as mock_open:
-            mock_open.return_value = (mock_reader_success, mock_writer_success)
+            mock_open.side_effect = [
+                ConnectionRefusedError("Connection refused"),
+                (mock_reader_success, mock_writer_success),
+            ]
 
             request = {
                 "jsonrpc": "2.0",
@@ -215,28 +209,16 @@ class TestUnityTcpClient:
             response = await unity_client.send_request(request)
 
             assert response == expected_response
-            # Should have attempted to reconnect
-            assert mock_open.called
+            assert mock_open.call_count == 2
 
     @pytest.mark.asyncio
     async def test_send_request_retry_exhausted(self, unity_client):
-        """Test request retry exhaustion."""
+        """Test request retry exhaustion when Unity never accepts a connection."""
         unity_client.retry_count = 2
         unity_client.retry_time = 0.01
 
-        # Mock writer that always fails
-        unity_client.writer = AsyncMock(spec=MockStreamWriter)
-        unity_client.reader = AsyncMock(spec=MockStreamReader)
-        unity_client.writer.drain.side_effect = ConnectionResetError("Always fails")
-
-        # Mock connect to also fail (or succeed but then write fails again)
-        # Let's say connect succeeds but write fails immediately
-        mock_reader = MockStreamReader()
-        mock_writer = AsyncMock(spec=MockStreamWriter)
-        mock_writer.drain.side_effect = ConnectionResetError("Always fails")
-
         with patch("asyncio.open_connection", new_callable=AsyncMock) as mock_open:
-            mock_open.return_value = (mock_reader, mock_writer)
+            mock_open.side_effect = ConnectionRefusedError("Always fails")
 
             request = {"jsonrpc": "2.0", "id": "test", "method": "test"}
             response = await unity_client.send_request(request)
@@ -244,6 +226,74 @@ class TestUnityTcpClient:
             assert "error" in response
             assert response["error"]["code"] == -32000
             assert "Failed to communicate" in response["error"]["message"]
+
+    @pytest.mark.asyncio
+    async def test_send_request_fails_fast_after_established_connection_breaks(self):
+        """An established Unity connection drop fails the current request immediately."""
+        client = UnityTcpClient(
+            host="localhost",
+            port=21088,
+            retry_time=0.0,
+            retry_count=4,
+        )
+
+        client.reader = AsyncMock(spec=MockStreamReader)
+        client.writer = AsyncMock(spec=MockStreamWriter)
+        client.writer.drain.side_effect = ConnectionResetError("Reset")
+
+        request = {"jsonrpc": "2.0", "id": "test", "method": "test"}
+
+        with patch("asyncio.open_connection", new_callable=AsyncMock) as mock_open:
+            mock_open.side_effect = AssertionError(
+                "send_request retried a broken established connection"
+            )
+            response = await client.send_request(request)
+
+        assert response["error"]["code"] == -32000
+        assert "Unity connection dropped during request" in response["error"]["message"]
+        assert client.writer is None
+        assert client.reader is None
+        assert mock_open.call_count == 0
+
+    @pytest.mark.asyncio
+    async def test_send_request_reconnects_on_next_request_after_drop(self):
+        """The request after a dropped connection uses a fresh reconnect path."""
+        client = UnityTcpClient(
+            host="localhost",
+            port=21088,
+            retry_time=0.0,
+            retry_count=2,
+        )
+
+        client.reader = AsyncMock(spec=MockStreamReader)
+        client.writer = AsyncMock(spec=MockStreamWriter)
+        client.writer.drain.side_effect = ConnectionResetError("Reset")
+
+        first_request = {"jsonrpc": "2.0", "id": "first", "method": "test"}
+        with patch("asyncio.open_connection", new_callable=AsyncMock) as mock_open:
+            mock_open.side_effect = AssertionError(
+                "send_request retried a broken established connection"
+            )
+            first_response = await client.send_request(first_request)
+
+        mock_reader = MockStreamReader()
+        mock_writer = MockStreamWriter()
+        expected_response = {"jsonrpc": "2.0", "id": "second", "result": {}}
+        mock_reader.set_response(expected_response)
+
+        with patch("asyncio.open_connection", new_callable=AsyncMock) as mock_open:
+            mock_open.return_value = (mock_reader, mock_writer)
+            second_response = await client.send_request(
+                {"jsonrpc": "2.0", "id": "second", "method": "test"}
+            )
+
+        assert first_response["error"]["code"] == -32000
+        assert (
+            "Unity connection dropped during request"
+            in first_response["error"]["message"]
+        )
+        assert second_response == expected_response
+        assert mock_open.call_count == 1
 
     @pytest.mark.asyncio
     async def test_port_resolver_no_change_does_not_disconnect(self):

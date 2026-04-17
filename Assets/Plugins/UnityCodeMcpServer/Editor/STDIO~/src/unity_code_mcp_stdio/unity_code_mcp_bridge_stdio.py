@@ -204,6 +204,22 @@ class UnityTcpClient:
             self.reader = None
             logger.info("Disconnected from Unity")
 
+    def _build_connection_dropped_response(
+        self, request: dict[str, Any], error: BaseException
+    ) -> dict[str, Any]:
+        """Build a deterministic JSON-RPC error for an upstream disconnect."""
+        return {
+            "jsonrpc": "2.0",
+            "id": request.get("id"),
+            "error": {
+                "code": -32000,
+                "message": (
+                    "Unity connection dropped during request. "
+                    f"Retry the MCP request. Last error: {error}"
+                ),
+            },
+        }
+
     async def send_request(self, request: dict[str, Any]) -> dict[str, Any]:
         """Send a JSON-RPC request to Unity and return the response.
 
@@ -259,6 +275,7 @@ class UnityTcpClient:
                         )
                         await self.disconnect()
                         last_error = str(e)
+                        return self._build_connection_dropped_response(request, e)
                     except Exception as e:
                         logger.error(f"Error sending request: {e}")
                         return {
@@ -566,6 +583,9 @@ async def run_server(host: str, port: int, retry_time: float, retry_count: int):
                     message = JSONRPCMessage.model_validate_json(line_text)
                     await client_to_server_send.send(SessionMessage(message=message))
 
+            except anyio.ClosedResourceError:
+                logger.info("stdin reader stopped after client stream closed")
+
             except Exception as e:
                 logger.error(f"stdin_reader error: {e}")
             finally:
@@ -587,17 +607,24 @@ async def run_server(host: str, port: int, retry_time: float, retry_count: int):
                     await anyio.to_thread.run_sync(
                         lambda: write_data((json_str + "\n").encode("utf-8"))
                     )  # type: ignore[attr-defined]
+            except anyio.ClosedResourceError:
+                logger.info("stdout writer stopped after server stream closed")
             except Exception as e:
                 logger.error(f"stdout_writer error: {e}")
 
-        async with create_task_group() as tg:
-            tg.start_soon(stdin_reader)
-            tg.start_soon(stdout_writer)
+        try:
+            async with create_task_group() as tg:
+                tg.start_soon(stdin_reader)
+                tg.start_soon(stdout_writer)
 
-            init_options = server.create_initialization_options()
-            await server.run(client_to_server_recv, server_to_client_send, init_options)
+                init_options = server.create_initialization_options()
+                await server.run(
+                    client_to_server_recv, server_to_client_send, init_options
+                )
 
-            tg.cancel_scope.cancel()
+                tg.cancel_scope.cancel()
+        except* anyio.ClosedResourceError:
+            logger.info("Bridge stream closed during shutdown")
 
     except Exception as e:
         logger.error(f"Server error: {e}", exc_info=True)

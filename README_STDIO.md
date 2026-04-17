@@ -108,6 +108,8 @@ uv run --directory "C:/path/to/STDIO~" unity-code-mcp-stdio --retry-time 3 --ret
 3. **Unity → Bridge (TCP):** Unity Tcp Server responds back to Bridge
 4. **Bridge → MCP Client (STDIO):** Bridge writes response to stdout
 
+If Unity drops the TCP connection during a request, the bridge now fails that request fast and leaves the next MCP request to establish a fresh Unity TCP connection.
+
 ## Development
 
 ### Running Tests

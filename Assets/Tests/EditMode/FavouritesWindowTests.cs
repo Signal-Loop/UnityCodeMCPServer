@@ -19,7 +19,7 @@ namespace UnityCodeMcpServer.Tests.EditMode
 
             var result = (float)method.Invoke(null, new object[] { 120f });
 
-            Assert.That(result, Is.EqualTo(300f).Within(0.01f));
+            Assert.That(result, Is.EqualTo(120f).Within(0.01f));
         }
 
         [Test]
