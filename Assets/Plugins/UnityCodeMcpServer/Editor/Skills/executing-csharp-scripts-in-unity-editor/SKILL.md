@@ -173,6 +173,7 @@ After editing `UnityCodeMcpServerSettings.asset` directly via file tools, the ne
 var settings = AssetDatabase.LoadAssetAtPath<ScriptableObject>("Assets/Plugins/UnityCodeMcpServer/Editor/UnityCodeMcpServerSettings.asset");
 EditorUtility.SetDirty(settings);
 AssetDatabase.SaveAssets();
+AssetDatabase.ImportAsset("Assets/Plugins/UnityCodeMcpServer/Editor/UnityCodeMcpServerSettings.asset", ImportAssetOptions.ForceUpdate);
 Debug.Log("Settings reloaded — new assemblies now available");
 ```
 
