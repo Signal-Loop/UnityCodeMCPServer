@@ -14,10 +14,12 @@ Windows (if uv raises "Failed to canonicalize script path"):
 
 import asyncio
 import json
+import logging
 import struct
 from pathlib import Path
 from unittest.mock import AsyncMock, patch
 
+import anyio
 import pytest
 from mcp import types
 
@@ -25,9 +27,15 @@ from mcp import types
 from unity_code_mcp_stdio import UnityTcpClient
 from unity_code_mcp_stdio.unity_code_mcp_bridge_stdio import (
     DEFAULT_PORT,
+    LOG_BACKUP_COUNT,
+    LOG_MAX_BYTES,
     _SETTINGS_FILE,
+    _build_rotating_handler,
     _convert_content_item,
     _convert_resource_contents,
+    _describe_request,
+    _describe_response,
+    create_server,
     get_stdio_port,
     read_port_from_settings,
 )
@@ -78,6 +86,18 @@ class MockStreamWriter:
     async def wait_closed(self):
         """Wait for close to complete."""
         pass
+
+
+class ClosedStreamRequestResponder:
+    """Minimal request responder that simulates a closed client write stream."""
+
+    def __init__(self, request_id="test-request"):
+        self.request_id = request_id
+        self.request_meta = None
+        self.message_metadata = None
+
+    async def respond(self, response):
+        raise anyio.ClosedResourceError()
 
 
 @pytest.fixture
@@ -379,6 +399,78 @@ class TestUnityTcpClient:
         await client.send_request({"jsonrpc": "2.0", "id": "test", "method": "ping"})
 
         assert client.port == 21088
+
+
+class TestBridgeServerLifecycle:
+    """Tests for MCP server lifecycle error handling."""
+
+    @pytest.mark.asyncio
+    async def test_handle_request_suppresses_closed_stream_response_error(self):
+        """A closed client write stream must not crash the server task group."""
+        server = create_server(AsyncMock(spec=UnityTcpClient))
+        message = ClosedStreamRequestResponder()
+        session = AsyncMock()
+
+        await server._handle_request(
+            message=message,
+            req=types.PingRequest(),
+            session=session,
+            lifespan_context=None,
+            raise_exceptions=False,
+        )
+
+
+class TestBridgeLogging:
+    """Tests for bridge logging helpers and retention policy."""
+
+    def test_build_rotating_handler_uses_bounded_retention_defaults(self, tmp_path):
+        """Bridge log rotation keeps a bounded number of log files."""
+        log_path = tmp_path / "bridge.log"
+
+        handler = _build_rotating_handler(log_path)
+
+        assert handler.baseFilename == str(log_path)
+        assert handler.maxBytes == LOG_MAX_BYTES
+        assert handler.backupCount == LOG_BACKUP_COUNT
+        assert handler.encoding == "utf-8"
+        assert isinstance(handler.formatter, logging.Formatter)
+        assert "pid=%(process)d" in handler.formatter._fmt
+
+    def test_describe_request_includes_request_context(self):
+        """Request log summaries should identify the failing MCP call."""
+        request = {
+            "jsonrpc": "2.0",
+            "id": "call_tool_read_unity_console_logs",
+            "method": "tools/call",
+            "params": {
+                "name": "read_unity_console_logs",
+                "arguments": {"max_entries": 3},
+            },
+        }
+
+        summary = _describe_request(request)
+
+        assert "id=call_tool_read_unity_console_logs" in summary
+        assert "method=tools/call" in summary
+        assert "tool=read_unity_console_logs" in summary
+        assert "argument_keys=max_entries" in summary
+
+    def test_describe_response_includes_error_context(self):
+        """Response summaries should expose the error code and message."""
+        response = {
+            "jsonrpc": "2.0",
+            "id": "call_tool_read_unity_console_logs",
+            "error": {
+                "code": -32000,
+                "message": "Unity connection dropped during request",
+            },
+        }
+
+        summary = _describe_response(response)
+
+        assert "id=call_tool_read_unity_console_logs" in summary
+        assert "error_code=-32000" in summary
+        assert "error_message=Unity connection dropped during request" in summary
 
 
 class TestMessageFraming:

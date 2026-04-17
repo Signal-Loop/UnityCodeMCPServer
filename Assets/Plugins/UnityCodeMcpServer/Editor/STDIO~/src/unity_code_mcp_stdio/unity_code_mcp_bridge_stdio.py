@@ -9,12 +9,14 @@ reading doesn't work properly with Windows pipes.
 import argparse
 import asyncio
 import json
+import itertools
 import logging
 from logging.handlers import RotatingFileHandler
 import os
 from pathlib import Path
 import struct
 import sys
+import time
 from typing import Any
 
 import anyio
@@ -34,8 +36,17 @@ log_file_path = os.path.join(script_dir, "unity_code_mcp_bridge.log")
 
 logger = logging.getLogger("unity-code-mcp-stdio")
 logger.setLevel(logging.INFO)
+logger.propagate = False
 
-formatter = logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
+LOG_MAX_BYTES = 5 * 1024 * 1024
+LOG_BACKUP_COUNT = 3
+LOG_VALUE_PREVIEW_LIMIT = 160
+
+formatter = logging.Formatter(
+    "%(asctime)s - pid=%(process)d - %(levelname)s - %(message)s"
+)
+
+_REQUEST_TRACE_SEQUENCE = itertools.count(1)
 
 
 class FlushingHandler(RotatingFileHandler):
@@ -46,12 +57,89 @@ class FlushingHandler(RotatingFileHandler):
         self.flush()
 
 
-file_handler = FlushingHandler(
-    log_file_path, maxBytes=5 * 1024 * 1024, backupCount=3, encoding="utf-8"
-)
-file_handler.setLevel(logging.DEBUG)
-file_handler.setFormatter(formatter)
-logger.addHandler(file_handler)
+def _truncate_for_log(value: Any, limit: int = LOG_VALUE_PREVIEW_LIMIT) -> str:
+    """Render a compact log-safe preview for structured values."""
+    text = str(value).replace("\n", "\\n")
+    if len(text) <= limit:
+        return text
+    return f"{text[:limit]}..."
+
+
+def _build_rotating_handler(log_path: str | Path) -> FlushingHandler:
+    """Create the bridge log handler with explicit retention settings."""
+    handler = FlushingHandler(
+        str(log_path),
+        maxBytes=LOG_MAX_BYTES,
+        backupCount=LOG_BACKUP_COUNT,
+        encoding="utf-8",
+    )
+    handler.setLevel(logging.DEBUG)
+    handler.setFormatter(formatter)
+    return handler
+
+
+def _configure_logger() -> None:
+    """Attach a single rotating file handler to the bridge logger."""
+    if logger.handlers:
+        return
+    logger.addHandler(_build_rotating_handler(log_file_path))
+
+
+def _describe_request(request: dict[str, Any]) -> str:
+    """Summarize a JSON-RPC request for diagnostic logging."""
+    params = request.get("params")
+    fragments = [
+        f"id={request.get('id', 'unknown')}",
+        f"method={request.get('method', 'unknown')}",
+    ]
+
+    if isinstance(params, dict):
+        if "name" in params:
+            fragments.append(f"tool={params['name']}")
+        if "uri" in params:
+            fragments.append(f"uri={_truncate_for_log(params['uri'])}")
+        arguments = params.get("arguments")
+        if isinstance(arguments, dict):
+            argument_keys = ",".join(sorted(arguments.keys())) or "<none>"
+            fragments.append(f"argument_keys={argument_keys}")
+        else:
+            param_keys = ",".join(sorted(params.keys()))
+            if param_keys:
+                fragments.append(f"param_keys={param_keys}")
+
+    return " ".join(fragments)
+
+
+def _describe_response(response: dict[str, Any]) -> str:
+    """Summarize a JSON-RPC response for diagnostic logging."""
+    fragments = [f"id={response.get('id', 'unknown')}"]
+
+    error = response.get("error")
+    if isinstance(error, dict):
+        fragments.append(f"error_code={error.get('code', 'unknown')}")
+        fragments.append(
+            f"error_message={_truncate_for_log(error.get('message', 'Unknown error'))}"
+        )
+        return " ".join(fragments)
+
+    result = response.get("result")
+    if isinstance(result, dict):
+        result_keys = ",".join(sorted(result.keys())) or "<none>"
+        fragments.append(f"result_keys={result_keys}")
+        for key in ("tools", "prompts", "resources", "content", "messages", "contents"):
+            value = result.get(key)
+            if isinstance(value, list):
+                fragments.append(f"{key}_count={len(value)}")
+
+    return " ".join(fragments)
+
+
+def _next_request_trace_id() -> str:
+    """Return a monotonic bridge-local trace id for correlating log lines."""
+    return f"bridge-{next(_REQUEST_TRACE_SEQUENCE):06d}"
+
+
+_configure_logger()
 
 
 # ---------------------------------------------------------------------------
@@ -184,7 +272,15 @@ class UnityTcpClient:
                 logger.info(f"Connected to Unity at {self.host}:{self.port}")
                 return True
             except (ConnectionRefusedError, OSError) as e:
-                logger.warning(f"Connection failed: {e}")
+                logger.warning(
+                    "Connection failed host=%s port=%s attempt=%s/%s error_type=%s error=%s",
+                    self.host,
+                    self.port,
+                    attempt + 1,
+                    self.retry_count,
+                    type(e).__name__,
+                    e,
+                )
                 if attempt < self.retry_count - 1:
                     logger.info(f"Retrying in {self.retry_time} seconds...")
                     await asyncio.sleep(self.retry_time)
@@ -192,7 +288,7 @@ class UnityTcpClient:
         logger.error(f"Failed to connect after {self.retry_count} attempts")
         return False
 
-    async def disconnect(self):
+    async def disconnect(self, reason: str = "requested"):
         """Disconnect from Unity TCP Server."""
         if self.writer:
             self.writer.close()
@@ -202,7 +298,7 @@ class UnityTcpClient:
                 pass
             self.writer = None
             self.reader = None
-            logger.info("Disconnected from Unity")
+            logger.info("Disconnected from Unity reason=%s", reason)
 
     def _build_connection_dropped_response(
         self, request: dict[str, Any], error: BaseException
@@ -226,15 +322,29 @@ class UnityTcpClient:
         The port is resolved fresh before every request so that runtime changes
         made inside the Unity Editor are picked up automatically.
         """
+        trace_id = _next_request_trace_id()
+        request_summary = _describe_request(request)
+        started_at = time.perf_counter()
+
         if self._port_resolver is not None:
             current_port = self._port_resolver()
             if current_port != self.port:
                 logger.info(
-                    f"Port changed from {self.port} to {current_port}. "
-                    "Disconnecting to reconnect on new port."
+                    "trace=%s %s port changed from %s to %s; reconnecting",
+                    trace_id,
+                    request_summary,
+                    self.port,
+                    current_port,
                 )
-                await self.disconnect()
+                await self.disconnect(reason="port-change")
                 self.port = current_port
+
+        logger.info(
+            "trace=%s Unity request started %s connection_state=%s",
+            trace_id,
+            request_summary,
+            "connected" if self.writer and self.reader else "disconnected",
+        )
 
         last_error = None
 
@@ -253,14 +363,33 @@ class UnityTcpClient:
                         self.writer.write(length_prefix + message)
                         await self.writer.drain()
 
-                        logger.debug(f"Sent: {request}")
+                        logger.debug(
+                            "trace=%s Sent Unity request bytes=%s %s",
+                            trace_id,
+                            len(message),
+                            request_summary,
+                        )
 
                         length_data = await self.reader.readexactly(4)
                         response_length = struct.unpack(">I", length_data)[0]
                         response_data = await self.reader.readexactly(response_length)
                         response = json.loads(response_data.decode("utf-8"))
 
-                        logger.debug(f"Received: {response}")
+                        duration_ms = round((time.perf_counter() - started_at) * 1000)
+                        response_summary = _describe_response(response)
+                        logger.info(
+                            "trace=%s Unity request completed %s duration_ms=%s response=%s",
+                            trace_id,
+                            request_summary,
+                            duration_ms,
+                            response_summary,
+                        )
+                        logger.debug(
+                            "trace=%s Received Unity response bytes=%s %s",
+                            trace_id,
+                            response_length,
+                            response_summary,
+                        )
                         return response
 
                     except (
@@ -270,14 +399,32 @@ class UnityTcpClient:
                         ConnectionRefusedError,
                         OSError,
                     ) as e:
+                        duration_ms = round((time.perf_counter() - started_at) * 1000)
                         logger.warning(
-                            f"Connection error during request (attempt {attempt + 1}/{self.retry_count}): {e}"
+                            "trace=%s Unity request transport error %s attempt=%s/%s duration_ms=%s error_type=%s error=%s",
+                            trace_id,
+                            request_summary,
+                            attempt + 1,
+                            self.retry_count,
+                            duration_ms,
+                            type(e).__name__,
+                            e,
+                            exc_info=True,
                         )
-                        await self.disconnect()
+                        await self.disconnect(
+                            reason=f"request-error:{type(e).__name__}"
+                        )
                         last_error = str(e)
                         return self._build_connection_dropped_response(request, e)
                     except Exception as e:
-                        logger.error(f"Error sending request: {e}")
+                        duration_ms = round((time.perf_counter() - started_at) * 1000)
+                        logger.error(
+                            "trace=%s Unity request failed unexpectedly %s duration_ms=%s",
+                            trace_id,
+                            request_summary,
+                            duration_ms,
+                            exc_info=True,
+                        )
                         return {
                             "jsonrpc": "2.0",
                             "id": request.get("id"),
@@ -300,6 +447,32 @@ class UnityTcpClient:
                 "message": f"Failed to communicate with Unity after {self.retry_count} attempts. Last error: {last_error}",
             },
         }
+
+
+class SafeServer(Server):
+    """Server variant that treats closed client streams as expected teardown."""
+
+    async def _handle_request(
+        self,
+        message,
+        req,
+        session,
+        lifespan_context,
+        raise_exceptions,
+    ):
+        try:
+            await super()._handle_request(
+                message,
+                req,
+                session,
+                lifespan_context,
+                raise_exceptions,
+            )
+        except anyio.ClosedResourceError:
+            logger.info(
+                "Client stream closed before response could be sent for request %s",
+                getattr(message, "request_id", "unknown"),
+            )
 
 
 def _convert_resource_contents(
@@ -344,7 +517,7 @@ def _convert_content_item(
 
 def create_server(unity_client: UnityTcpClient) -> Server:
     """Create MCP server that proxies requests to Unity."""
-    server = Server("unity-code-mcp-stdio")
+    server = SafeServer("unity-code-mcp-stdio")
 
     @server.list_tools()
     async def list_tools() -> list[types.Tool]:
@@ -545,7 +718,16 @@ def create_server(unity_client: UnityTcpClient) -> Server:
 
 async def run_server(host: str, port: int, retry_time: float, retry_count: int):
     """Run the MCP server with Windows-compatible stdio transport."""
-    logger.info(f"Starting Unity Code MCP STDIO Bridge (Unity at {host}:{port})")
+    logger.info(
+        "Starting Unity Code MCP STDIO Bridge host=%s port=%s retry_time=%s retry_count=%s log_path=%s max_bytes=%s backups=%s",
+        host,
+        port,
+        retry_time,
+        retry_count,
+        log_file_path,
+        LOG_MAX_BYTES,
+        LOG_BACKUP_COUNT,
+    )
 
     unity_client: UnityTcpClient | None = None
     try:
@@ -565,6 +747,7 @@ async def run_server(host: str, port: int, retry_time: float, retry_count: int):
         async def stdin_reader():
             """Read JSON-RPC messages from stdin using thread pool."""
             raw_stdin = sys.stdin.buffer
+            last_line_text = ""
 
             def read_line():
                 return raw_stdin.readline()
@@ -579,6 +762,13 @@ async def run_server(host: str, port: int, retry_time: float, retry_count: int):
                     line_text = line.decode("utf-8").strip()
                     if not line_text:
                         continue
+                    last_line_text = line_text
+
+                    logger.debug(
+                        "stdin line received bytes=%s preview=%s",
+                        len(line),
+                        _truncate_for_log(line_text),
+                    )
 
                     message = JSONRPCMessage.model_validate_json(line_text)
                     await client_to_server_send.send(SessionMessage(message=message))
@@ -586,14 +776,19 @@ async def run_server(host: str, port: int, retry_time: float, retry_count: int):
             except anyio.ClosedResourceError:
                 logger.info("stdin reader stopped after client stream closed")
 
-            except Exception as e:
-                logger.error(f"stdin_reader error: {e}")
+            except Exception:
+                logger.error(
+                    "stdin_reader error line_preview=%s",
+                    _truncate_for_log(last_line_text) if last_line_text else "<none>",
+                    exc_info=True,
+                )
             finally:
                 await client_to_server_send.aclose()
 
         async def stdout_writer():
             """Write JSON-RPC messages to stdout using thread pool."""
             raw_stdout = sys.stdout.buffer
+            last_message_summary = "<none>"
 
             def write_data(data: bytes):
                 raw_stdout.write(data)
@@ -604,13 +799,18 @@ async def run_server(host: str, port: int, retry_time: float, retry_count: int):
                     json_str = session_msg.message.model_dump_json(
                         by_alias=True, exclude_none=True
                     )
-                    await anyio.to_thread.run_sync(
+                    last_message_summary = _truncate_for_log(json_str)
+                    await anyio.to_thread.run_sync(  # type: ignore[attr-defined]
                         lambda: write_data((json_str + "\n").encode("utf-8"))
-                    )  # type: ignore[attr-defined]
+                    )
             except anyio.ClosedResourceError:
                 logger.info("stdout writer stopped after server stream closed")
-            except Exception as e:
-                logger.error(f"stdout_writer error: {e}")
+            except Exception:
+                logger.error(
+                    "stdout_writer error last_message=%s",
+                    last_message_summary,
+                    exc_info=True,
+                )
 
         try:
             async with create_task_group() as tg:
@@ -631,7 +831,7 @@ async def run_server(host: str, port: int, retry_time: float, retry_count: int):
         raise
     finally:
         if unity_client:
-            await unity_client.disconnect()
+            await unity_client.disconnect(reason="server-shutdown")
 
 
 def main():

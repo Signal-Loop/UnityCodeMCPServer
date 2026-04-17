@@ -110,6 +110,28 @@ uv run --directory "C:/path/to/STDIO~" unity-code-mcp-stdio --retry-time 3 --ret
 
 If Unity drops the TCP connection during a request, the bridge now fails that request fast and leaves the next MCP request to establish a fresh Unity TCP connection.
 
+## Logging
+
+The bridge writes diagnostics to `src/unity_code_mcp_stdio/unity_code_mcp_bridge.log` next to the Python entrypoint. Logging stays file-only so stdout remains clean for JSON-RPC traffic.
+
+Each request now records enough context to trace failures across the transport boundary:
+
+- A bridge-local trace id for every forwarded Unity request
+- The JSON-RPC request id and method
+- Tool name, URI, and argument key summary when present
+- Connect, reconnect, send, receive, shutdown, and closed-stream events
+- Request duration, response summary, and error type/message on failure
+- The last stdin line preview or last stdout message preview when framing breaks
+
+Log retention is bounded with size-based rotation:
+
+- Active log file: `unity_code_mcp_bridge.log`
+- Maximum size per file: 5 MB
+- Retained rotated files: 3 backups
+- Maximum on-disk footprint: about 20 MB including the active file
+
+That retention policy avoids unbounded growth while still keeping enough recent history to inspect repeated disconnects or framing issues.
+
 ## Development
 
 ### Running Tests
