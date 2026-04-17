@@ -250,6 +250,12 @@ class UnityRequestTimeoutError(asyncio.TimeoutError):
 class UnityTcpClient:
     """TCP client that connects to the Unity MCP Server."""
 
+    HEALTH_PROBE_TIMEOUT = 5.0
+    """Seconds to wait for a ping response when verifying a new connection."""
+
+    CONNECT_TIMEOUT = 5.0
+    """Seconds to wait for a single TCP connect attempt on the hot path."""
+
     def __init__(
         self,
         host: str,
@@ -268,6 +274,8 @@ class UnityTcpClient:
         self.reader: asyncio.StreamReader | None = None
         self.writer: asyncio.StreamWriter | None = None
         self._lock = asyncio.Lock()
+        self._has_connected_once = False
+        self._connection_verified = False
 
     async def _await_request_phase(
         self,
@@ -305,6 +313,7 @@ class UnityTcpClient:
                     self.host, self.port
                 )
                 logger.info(f"Connected to Unity at {self.host}:{self.port}")
+                self._connection_verified = False
                 return True
             except (ConnectionRefusedError, OSError) as e:
                 logger.warning(
@@ -333,39 +342,90 @@ class UnityTcpClient:
                 pass
             self.writer = None
             self.reader = None
+            self._connection_verified = False
             logger.info("Disconnected from Unity reason=%s", reason)
 
-    def _build_connection_dropped_response(
-        self, request: dict[str, Any], error: BaseException
-    ) -> dict[str, Any]:
-        """Build a deterministic JSON-RPC error for an upstream disconnect."""
-        return {
-            "jsonrpc": "2.0",
-            "id": request.get("id"),
-            "error": {
-                "code": -32000,
-                "message": (
-                    "Unity connection dropped during request. "
-                    f"Retry the MCP request. Last error: {error}"
-                ),
-            },
-        }
+    async def _connect_once(self) -> bool:
+        """Single-attempt TCP connect with short timeout.
 
-    def _build_timeout_response(
-        self, request: dict[str, Any], phase: str
+        Used for reconnection on the hot path (after a previously working
+        connection dropped).  Unlike :meth:`connect`, this does not retry,
+        so VS Code gets a fast error if Unity is not listening.
+        """
+        try:
+            logger.info(
+                "Connecting to Unity at %s:%s (single attempt)",
+                self.host,
+                self.port,
+            )
+            self.reader, self.writer = await asyncio.wait_for(
+                asyncio.open_connection(self.host, self.port),
+                timeout=self.CONNECT_TIMEOUT,
+            )
+            logger.info("Connected to Unity at %s:%s", self.host, self.port)
+            self._connection_verified = False
+            return True
+        except (ConnectionRefusedError, OSError, asyncio.TimeoutError) as e:
+            logger.warning(
+                "Single-attempt connect failed host=%s port=%s error_type=%s error=%s",
+                self.host,
+                self.port,
+                type(e).__name__,
+                e,
+            )
+            return False
+
+    async def _health_probe(self, trace_id: str) -> bool:
+        """Send a ``ping`` to verify Unity is actually responsive.
+
+        The Unity TCP server handles ``ping`` without switching to the main
+        thread, so this succeeds even during editor initialization.  A short
+        timeout (5 s) means we detect a dead-but-listening server quickly
+        instead of waiting the full 30 s request timeout.
+        """
+        probe = {
+            "jsonrpc": "2.0",
+            "id": f"health_{trace_id}",
+            "method": "ping",
+            "params": {},
+        }
+        try:
+            message = json.dumps(probe).encode("utf-8")
+            length_prefix = struct.pack(">I", len(message))
+            self.writer.write(length_prefix + message)
+            await asyncio.wait_for(
+                self.writer.drain(), timeout=self.HEALTH_PROBE_TIMEOUT
+            )
+
+            length_data = await asyncio.wait_for(
+                self.reader.readexactly(4), timeout=self.HEALTH_PROBE_TIMEOUT
+            )
+            response_length = struct.unpack(">I", length_data)[0]
+            await asyncio.wait_for(
+                self.reader.readexactly(response_length),
+                timeout=self.HEALTH_PROBE_TIMEOUT,
+            )
+
+            logger.info("trace=%s Health probe passed", trace_id)
+            return True
+        except Exception as e:
+            logger.warning(
+                "trace=%s Health probe failed error_type=%s error=%s",
+                trace_id,
+                type(e).__name__,
+                e,
+            )
+            return False
+
+    @staticmethod
+    def _build_error(
+        request: dict[str, Any], code: int, message: str
     ) -> dict[str, Any]:
-        """Build a deterministic JSON-RPC error for a hung Unity request."""
+        """Build a JSON-RPC error response."""
         return {
             "jsonrpc": "2.0",
             "id": request.get("id"),
-            "error": {
-                "code": -32000,
-                "message": (
-                    "Unity request timed out during "
-                    f"{phase} after {self.request_timeout} seconds. "
-                    "Retry the MCP request."
-                ),
-            },
+            "error": {"code": code, "message": message},
         }
 
     async def send_request(self, request: dict[str, Any]) -> dict[str, Any]:
@@ -373,6 +433,11 @@ class UnityTcpClient:
 
         The port is resolved fresh before every request so that runtime changes
         made inside the Unity Editor are picked up automatically.
+
+        On the hot path (after the initial connection) this method uses a
+        single-attempt connect and a ``ping`` health probe so that VS Code
+        gets a fast error (~5 s) instead of hanging for 30 s when Unity is
+        not responsive.
         """
         trace_id = _next_request_trace_id()
         request_summary = _describe_request(request)
@@ -398,126 +463,130 @@ class UnityTcpClient:
             "connected" if self.writer and self.reader else "disconnected",
         )
 
-        last_error = None
+        async with self._lock:
+            # ---- ensure connection ----
+            if not self.writer or not self.reader:
+                if self._has_connected_once:
+                    connected = await self._connect_once()
+                else:
+                    connected = await self.connect()
 
-        for attempt in range(self.retry_count):
-            async with self._lock:
-                if not self.writer or not self.reader:
-                    if not await self.connect():
-                        last_error = "Failed to connect"
+                if not connected:
+                    return self._build_error(
+                        request,
+                        -32000,
+                        "Unity is not reachable. The server may be starting "
+                        "or reloading scripts. Retry shortly.",
+                    )
+                self._has_connected_once = True
 
-                if self.writer and self.reader:
-                    try:
-                        message = json.dumps(request).encode("utf-8")
-                        length_prefix = struct.pack(">I", len(message))
-                        self.writer.write(length_prefix + message)
-                        await self._await_request_phase(
-                            self.writer.drain(),
-                            trace_id=trace_id,
-                            request_summary=request_summary,
-                            phase="write",
-                            started_at=started_at,
-                        )
+            # ---- health probe on unverified connections ----
+            if not self._connection_verified:
+                if not await self._health_probe(trace_id):
+                    await self.disconnect(reason="health-probe-failed")
+                    return self._build_error(
+                        request,
+                        -32000,
+                        "Unity TCP server accepted the connection but is not "
+                        "responding to ping. It may be initializing after a "
+                        "script reload. Retry shortly.",
+                    )
+                self._connection_verified = True
 
-                        logger.debug(
-                            "trace=%s Sent Unity request bytes=%s %s",
-                            trace_id,
-                            len(message),
-                            request_summary,
-                        )
+            # ---- send the actual request ----
+            try:
+                message = json.dumps(request).encode("utf-8")
+                length_prefix = struct.pack(">I", len(message))
+                self.writer.write(length_prefix + message)
+                await self._await_request_phase(
+                    self.writer.drain(),
+                    trace_id=trace_id,
+                    request_summary=request_summary,
+                    phase="write",
+                    started_at=started_at,
+                )
 
-                        length_data = await self._await_request_phase(
-                            self.reader.readexactly(4),
-                            trace_id=trace_id,
-                            request_summary=request_summary,
-                            phase="response-length",
-                            started_at=started_at,
-                        )
-                        response_length = struct.unpack(">I", length_data)[0]
-                        response_data = await self._await_request_phase(
-                            self.reader.readexactly(response_length),
-                            trace_id=trace_id,
-                            request_summary=request_summary,
-                            phase="response-body",
-                            started_at=started_at,
-                        )
-                        response = json.loads(response_data.decode("utf-8"))
+                logger.debug(
+                    "trace=%s Sent Unity request bytes=%s %s",
+                    trace_id,
+                    len(message),
+                    request_summary,
+                )
 
-                        duration_ms = round((time.perf_counter() - started_at) * 1000)
-                        response_summary = _describe_response(response)
-                        logger.info(
-                            "trace=%s Unity request completed %s duration_ms=%s response=%s",
-                            trace_id,
-                            request_summary,
-                            duration_ms,
-                            response_summary,
-                        )
-                        logger.debug(
-                            "trace=%s Received Unity response bytes=%s %s",
-                            trace_id,
-                            response_length,
-                            response_summary,
-                        )
-                        return response
+                length_data = await self._await_request_phase(
+                    self.reader.readexactly(4),
+                    trace_id=trace_id,
+                    request_summary=request_summary,
+                    phase="response-length",
+                    started_at=started_at,
+                )
+                response_length = struct.unpack(">I", length_data)[0]
+                response_data = await self._await_request_phase(
+                    self.reader.readexactly(response_length),
+                    trace_id=trace_id,
+                    request_summary=request_summary,
+                    phase="response-body",
+                    started_at=started_at,
+                )
+                response = json.loads(response_data.decode("utf-8"))
 
-                    except UnityRequestTimeoutError as e:
-                        await self.disconnect(reason=f"request-timeout:{e.phase}")
-                        last_error = f"timeout:{e.phase}"
-                        return self._build_timeout_response(request, e.phase)
-                    except (
-                        asyncio.IncompleteReadError,
-                        ConnectionResetError,
-                        BrokenPipeError,
-                        ConnectionRefusedError,
-                        OSError,
-                    ) as e:
-                        duration_ms = round((time.perf_counter() - started_at) * 1000)
-                        logger.warning(
-                            "trace=%s Unity request transport error %s attempt=%s/%s duration_ms=%s error_type=%s error=%s",
-                            trace_id,
-                            request_summary,
-                            attempt + 1,
-                            self.retry_count,
-                            duration_ms,
-                            type(e).__name__,
-                            e,
-                            exc_info=True,
-                        )
-                        await self.disconnect(
-                            reason=f"request-error:{type(e).__name__}"
-                        )
-                        last_error = str(e)
-                        return self._build_connection_dropped_response(request, e)
-                    except Exception as e:
-                        duration_ms = round((time.perf_counter() - started_at) * 1000)
-                        logger.error(
-                            "trace=%s Unity request failed unexpectedly %s duration_ms=%s",
-                            trace_id,
-                            request_summary,
-                            duration_ms,
-                            exc_info=True,
-                        )
-                        return {
-                            "jsonrpc": "2.0",
-                            "id": request.get("id"),
-                            "error": {
-                                "code": -32603,
-                                "message": f"Internal error: {e}",
-                            },
-                        }
+                duration_ms = round((time.perf_counter() - started_at) * 1000)
+                response_summary = _describe_response(response)
+                logger.info(
+                    "trace=%s Unity request completed %s duration_ms=%s response=%s",
+                    trace_id,
+                    request_summary,
+                    duration_ms,
+                    response_summary,
+                )
+                return response
 
-            if attempt < self.retry_count - 1:
-                logger.info(f"Retrying request in {self.retry_time} seconds...")
-                await asyncio.sleep(self.retry_time)
-
-        return {
-            "jsonrpc": "2.0",
-            "id": request.get("id"),
-            "error": {
-                "code": -32000,
-                "message": f"Failed to communicate with Unity after {self.retry_count} attempts. Last error: {last_error}",
-            },
-        }
+            except UnityRequestTimeoutError as e:
+                await self.disconnect(reason=f"request-timeout:{e.phase}")
+                return self._build_error(
+                    request,
+                    -32000,
+                    f"Unity request timed out during {e.phase} "
+                    f"after {self.request_timeout}s. Retry the MCP request.",
+                )
+            except (
+                asyncio.IncompleteReadError,
+                ConnectionResetError,
+                BrokenPipeError,
+                ConnectionRefusedError,
+                OSError,
+            ) as e:
+                duration_ms = round((time.perf_counter() - started_at) * 1000)
+                logger.warning(
+                    "trace=%s Unity request transport error %s duration_ms=%s "
+                    "error_type=%s error=%s",
+                    trace_id,
+                    request_summary,
+                    duration_ms,
+                    type(e).__name__,
+                    e,
+                    exc_info=True,
+                )
+                await self.disconnect(reason=f"request-error:{type(e).__name__}")
+                return self._build_error(
+                    request,
+                    -32000,
+                    f"Unity connection dropped during request. "
+                    f"Last error: {e}",
+                )
+            except Exception as e:
+                duration_ms = round((time.perf_counter() - started_at) * 1000)
+                logger.error(
+                    "trace=%s Unity request failed unexpectedly %s duration_ms=%s",
+                    trace_id,
+                    request_summary,
+                    duration_ms,
+                    exc_info=True,
+                )
+                await self.disconnect(reason="unexpected-error")
+                return self._build_error(
+                    request, -32603, f"Internal error: {e}"
+                )
 
 
 class SafeServer(Server):

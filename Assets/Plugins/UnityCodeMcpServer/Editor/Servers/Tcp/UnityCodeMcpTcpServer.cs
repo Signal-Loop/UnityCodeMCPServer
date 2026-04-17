@@ -3,6 +3,7 @@ using System.Linq;
 using System.Net;
 using System.Net.Sockets;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Threading;
 using Cysharp.Threading.Tasks;
 using UnityCodeMcpServer.Handlers;
@@ -28,6 +29,12 @@ namespace UnityCodeMcpServer.Servers.Tcp
         private static McpMessageHandler _messageHandler;
         private static bool _isRunning;
 
+        // Pre-compiled regex for fast ping detection without JSON parsing or main-thread switch.
+        private static readonly Regex PingMethodRegex = new Regex(
+            @"""method""\s*:\s*""ping""", RegexOptions.Compiled);
+        private static readonly Regex IdRegex = new Regex(
+            @"""id""\s*:\s*(""[^""]*""|\d+|null)", RegexOptions.Compiled);
+
         static UnityCodeMcpTcpServer()
         {
             // Don't start server in batch mode (AssetImportWorkers, build processes, etc.)
@@ -40,8 +47,10 @@ namespace UnityCodeMcpServer.Servers.Tcp
             EditorApplication.quitting += OnEditorQuitting;
             AssemblyReloadEvents.beforeAssemblyReload += OnBeforeAssemblyReload;
 
-            // Start the server
-            StartServer();
+            // Delay server start until editor is fully ready.
+            // Starting immediately in [InitializeOnLoad] causes UniTask.SwitchToMainThread()
+            // to hang because the PlayerLoop isn't pumping yet after domain reload.
+            EditorApplication.delayCall += StartServer;
         }
 
         public static void StartServer()
@@ -211,9 +220,22 @@ namespace UnityCodeMcpServer.Servers.Tcp
 
                         LoopLogger.Trace($"{McpProtocol.LogPrefix} [STDIO] Received: {message}");
 
-                        // Process message on main thread to access Unity APIs
-                        await UniTask.SwitchToMainThread();
-                        var response = await _messageHandler.ProcessMessageAsync(message);
+                        // Fast-path: respond to "ping" without switching to main thread.
+                        // This allows the bridge to health-probe the connection even when
+                        // the main thread is busy (e.g. during editor initialization after
+                        // domain reload). Without this, SwitchToMainThread() can hang
+                        // indefinitely if the PlayerLoop isn't pumping yet.
+                        string response;
+                        if (TryBuildPingResponse(message, out var pingResponse))
+                        {
+                            response = pingResponse;
+                        }
+                        else
+                        {
+                            // Process message on main thread to access Unity APIs
+                            await UniTask.SwitchToMainThread();
+                            response = await _messageHandler.ProcessMessageAsync(message);
+                        }
 
                         if (response != null)
                         {
@@ -265,6 +287,25 @@ namespace UnityCodeMcpServer.Servers.Tcp
                 totalRead += bytesRead;
             }
             return totalRead;
+        }
+
+        /// <summary>
+        /// Build a JSON-RPC ping response without JSON parsing or main-thread access.
+        /// Uses regex to detect method=="ping" and extract the request id.
+        /// Returns false for any non-ping message, letting normal processing handle it.
+        /// </summary>
+        private static bool TryBuildPingResponse(string message, out string response)
+        {
+            response = null;
+
+            if (!PingMethodRegex.IsMatch(message))
+                return false;
+
+            var idMatch = IdRegex.Match(message);
+            var idValue = idMatch.Success ? idMatch.Groups[1].Value : "null";
+
+            response = $"{{\"jsonrpc\":\"2.0\",\"id\":{idValue},\"result\":{{}}}}";
+            return true;
         }
 
         /// <summary>
