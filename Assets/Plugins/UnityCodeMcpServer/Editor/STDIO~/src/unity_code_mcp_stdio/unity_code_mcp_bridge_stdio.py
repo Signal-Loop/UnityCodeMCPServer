@@ -478,20 +478,43 @@ class UnityTcpClient:
                         "Unity is not reachable. The server may be starting "
                         "or reloading scripts. Retry shortly.",
                     )
-                self._has_connected_once = True
 
             # ---- health probe on unverified connections ----
             if not self._connection_verified:
-                if not await self._health_probe(trace_id):
+                startup_probe_attempts = 1 if self._has_connected_once else 2
+                for probe_attempt in range(startup_probe_attempts):
+                    if await self._health_probe(trace_id):
+                        self._connection_verified = True
+                        self._has_connected_once = True
+                        break
+
                     await self.disconnect(reason="health-probe-failed")
-                    return self._build_error(
-                        request,
-                        -32000,
-                        "Unity TCP server accepted the connection but is not "
-                        "responding to ping. It may be initializing after a "
-                        "script reload. Retry shortly.",
+
+                    if probe_attempt == startup_probe_attempts - 1:
+                        return self._build_error(
+                            request,
+                            -32000,
+                            "Unity TCP server accepted the connection but is not "
+                            "responding to ping. It may be initializing after a "
+                            "script reload. Retry shortly.",
+                        )
+
+                    logger.info(
+                        "trace=%s %s retrying startup connection after failed health probe",
+                        trace_id,
+                        request_summary,
                     )
-                self._connection_verified = True
+                    if self.retry_time > 0:
+                        await asyncio.sleep(self.retry_time)
+
+                    connected = await self.connect()
+                    if not connected:
+                        return self._build_error(
+                            request,
+                            -32000,
+                            "Unity is not reachable. The server may be starting "
+                            "or reloading scripts. Retry shortly.",
+                        )
 
             # ---- send the actual request ----
             try:
