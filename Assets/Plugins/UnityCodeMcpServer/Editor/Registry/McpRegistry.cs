@@ -103,7 +103,7 @@ namespace UnityCodeMcpServer.Registry
                 return;
             }
             _syncTools[instance.Name] = instance;
-            LoopLogger.Debug($"{McpProtocol.LogPrefix} Registered sync tool: {instance.Name}");
+            LoopLogger.Trace($"{McpProtocol.LogPrefix} Registered sync tool: {instance.Name}");
         }
 
         private void RegisterAsyncTool(Type type)
@@ -115,7 +115,7 @@ namespace UnityCodeMcpServer.Registry
                 return;
             }
             _asyncTools[instance.Name] = instance;
-            LoopLogger.Debug($"{McpProtocol.LogPrefix} Registered async tool: {instance.Name}");
+            LoopLogger.Trace($"{McpProtocol.LogPrefix} Registered async tool: {instance.Name}");
         }
 
         private void RegisterPrompt(Type type)
@@ -127,7 +127,7 @@ namespace UnityCodeMcpServer.Registry
                 return;
             }
             _prompts[instance.Name] = instance;
-            LoopLogger.Debug($"{McpProtocol.LogPrefix} Registered prompt: {instance.Name}");
+            LoopLogger.Trace($"{McpProtocol.LogPrefix} Registered prompt: {instance.Name}");
         }
 
         private void RegisterResource(Type type)
@@ -139,7 +139,7 @@ namespace UnityCodeMcpServer.Registry
                 return;
             }
             _resources[instance.Uri] = instance;
-            LoopLogger.Debug($"{McpProtocol.LogPrefix} Registered resource: {instance.Uri}");
+            LoopLogger.Trace($"{McpProtocol.LogPrefix} Registered resource: {instance.Uri}");
         }
 
         /// <summary>

@@ -83,12 +83,15 @@ namespace UnityCodeMcpServer.Editor.Installer
                     }
                     else
                     {
-                        LoopLogger.Debug(
+                        LoopLogger.Trace(
                             $"{Protocol.McpProtocol.LogPrefix} Skill '{folderName}' is already up to date.");
                     }
                 }
 
-                LoopLogger.Debug($"{Protocol.McpProtocol.LogPrefix} Skills install complete — {result}");
+                if (result.AnyChanges)
+                    LoopLogger.Debug($"{Protocol.McpProtocol.LogPrefix} Skills install complete — {result}");
+                else
+                    LoopLogger.Trace($"{Protocol.McpProtocol.LogPrefix} Skills install complete — {result}");
                 return result;
             }
             catch (Exception ex)
@@ -157,7 +160,7 @@ namespace UnityCodeMcpServer.Editor.Installer
 
                 _fileSystem.DeleteFile(oldTargetFilePath);
                 removedAnyFiles = true;
-                LoopLogger.Debug($"{Protocol.McpProtocol.LogPrefix} Removed old skill file: {oldTargetFilePath}");
+                LoopLogger.Trace($"{Protocol.McpProtocol.LogPrefix} Removed old skill file: {oldTargetFilePath}");
             }
 
             foreach (string sourceSubDir in _fileSystem.GetDirectories(sourceDir))
@@ -172,7 +175,7 @@ namespace UnityCodeMcpServer.Editor.Installer
                 _fileSystem.GetDirectories(oldTargetDir).Length == 0)
             {
                 _fileSystem.DeleteDirectory(oldTargetDir, recursive: false);
-                LoopLogger.Debug($"{Protocol.McpProtocol.LogPrefix} Removed empty old skill directory: {oldTargetDir}");
+                LoopLogger.Trace($"{Protocol.McpProtocol.LogPrefix} Removed empty old skill directory: {oldTargetDir}");
                 return true;
             }
 
@@ -186,7 +189,7 @@ namespace UnityCodeMcpServer.Editor.Installer
             if (!_fileSystem.DirectoryExists(targetDir))
             {
                 _fileSystem.CreateDirectory(targetDir);
-                LoopLogger.Debug($"{Protocol.McpProtocol.LogPrefix} Created directory: {targetDir}");
+                LoopLogger.Trace($"{Protocol.McpProtocol.LogPrefix} Created directory: {targetDir}");
             }
 
             foreach (string filePath in _fileSystem.GetFiles(sourceDir))
@@ -200,7 +203,7 @@ namespace UnityCodeMcpServer.Editor.Installer
                 if (ShouldCopyFile(filePath, destPath))
                 {
                     _fileSystem.CopyFile(filePath, destPath, overwrite: true);
-                    LoopLogger.Debug($"{Protocol.McpProtocol.LogPrefix} Copied: {destPath}");
+                    LoopLogger.Trace($"{Protocol.McpProtocol.LogPrefix} Copied: {destPath}");
                     filesCopied++;
                 }
             }
