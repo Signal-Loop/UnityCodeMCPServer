@@ -163,17 +163,28 @@ namespace UnityCodeMcpServer.Servers.Tcp
 
         private static async UniTaskVoid AcceptClientsAsync(CancellationToken ct)
         {
-            while (!ct.IsCancellationRequested && _listener != null)
+            // Capture settings on main thread before switching to thread pool.
+            var settings = UnityCodeMcpServerSettings.Instance;
+
+            // Run accept loop on the thread pool so that connection handling
+            // (especially health-probe pings) is not blocked when the Unity
+            // main thread is busy after domain reload.
+            await UniTask.SwitchToThreadPool();
+
+            while (!ct.IsCancellationRequested)
             {
+                var listener = _listener;
+                if (listener == null) break;
+
                 try
                 {
-                    var client = await _listener.AcceptTcpClientAsync();
+                    var client = await listener.AcceptTcpClientAsync();
                     var endpoint = client.Client.RemoteEndPoint;
                     var clientCount = Interlocked.Increment(ref _activeClientCount);
 
                     LoopLogger.Info($"{McpProtocol.LogPrefix} [STDIO] Client connected from {endpoint} active_clients={clientCount}");
 
-                    HandleClientAsync(client, ct).Forget();
+                    HandleClientAsync(client, settings, ct).Forget();
                 }
                 catch (ObjectDisposedException)
                 {
@@ -195,9 +206,11 @@ namespace UnityCodeMcpServer.Servers.Tcp
             }
         }
 
-        private static async UniTaskVoid HandleClientAsync(TcpClient client, CancellationToken ct)
+        private static async UniTaskVoid HandleClientAsync(
+            TcpClient client, UnityCodeMcpServerSettings settings, CancellationToken ct)
         {
-            var settings = UnityCodeMcpServerSettings.Instance;
+            // This method runs entirely on the thread pool (from AcceptClientsAsync).
+            // Only non-ping message processing switches to the main thread.
             var connectionTimer = System.Diagnostics.Stopwatch.StartNew();
 
             try
@@ -241,11 +254,9 @@ namespace UnityCodeMcpServer.Servers.Tcp
 
                         LoopLogger.Trace($"{McpProtocol.LogPrefix} [STDIO] Received: {message}");
 
-                        // Fast-path: respond to "ping" without switching to main thread.
-                        // This allows the bridge to health-probe the connection even when
-                        // the main thread is busy (e.g. during editor initialization after
-                        // domain reload). Without this, SwitchToMainThread() can hang
-                        // indefinitely if the PlayerLoop isn't pumping yet.
+                        // Ping is handled entirely on thread pool (no main-thread
+                        // dependency). All other messages require the main thread for
+                        // Unity API access.
                         string response;
                         if (TryBuildPingResponse(message, out var pingResponse))
                         {
@@ -254,8 +265,10 @@ namespace UnityCodeMcpServer.Servers.Tcp
                         else
                         {
                             // Process message on main thread to access Unity APIs
-                            await UniTask.SwitchToMainThread();
+                            await UniTask.SwitchToMainThread(ct);
                             response = await _messageHandler.ProcessMessageAsync(message);
+                            // Return to thread pool for I/O
+                            await UniTask.SwitchToThreadPool();
                         }
 
                         if (response != null)

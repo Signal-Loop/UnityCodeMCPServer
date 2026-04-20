@@ -440,6 +440,47 @@ class TestUnityTcpClient:
         assert mock_open.call_count == 1
 
     @pytest.mark.asyncio
+    async def test_health_probe_failures_do_not_consume_retry_budget(self):
+        """Health probe failures are bounded by deadline only, not retry_count.
+
+        This simulates the production scenario where Unity restarts after
+        domain reload but its main thread is temporarily busy: the bridge
+        keeps probing until the server responds rather than exhausting its
+        limited retry budget.
+        """
+        client = UnityTcpClient(
+            host="localhost",
+            port=21088,
+            retry_time=0.0,
+            retry_count=2,  # very small budget
+            request_timeout=5.0,
+        )
+
+        expected_response = {"jsonrpc": "2.0", "id": "test", "result": {"tools": []}}
+
+        async def fake_connect(**_kwargs) -> bool:
+            reader = MockStreamReader()
+            reader.set_response(expected_response)
+            client.reader = reader
+            client.writer = MockStreamWriter()
+            return True
+
+        # Probe fails 10 times (far exceeds retry_count=2), then succeeds
+        probe_results = [False] * 10 + [True]
+
+        client._open_connection_for_request = AsyncMock(side_effect=fake_connect)
+        client._health_probe = AsyncMock(side_effect=probe_results)
+
+        response = await client.send_request(
+            {"jsonrpc": "2.0", "id": "test", "method": "tools/list", "params": {}}
+        )
+
+        assert response == expected_response
+        # Despite 10 probe failures, succeeds because probes don't consume budget
+        assert client._health_probe.await_count == 11
+        assert client._open_connection_for_request.await_count == 11
+
+    @pytest.mark.asyncio
     async def test_port_resolver_no_change_does_not_disconnect(self):
         """If port_resolver returns the same port, no disconnect/reconnect happens."""
         resolver = lambda: 21088  # noqa: E731

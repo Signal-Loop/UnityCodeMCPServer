@@ -516,6 +516,14 @@ class UnityTcpClient:
         The request is bounded by a single wall-clock deadline so the bridge
         either returns a successful result or an actionable error without
         leaving the caller stuck waiting forever.
+
+        Retry budget:
+            - Connect failures and send failures consume the retry counter.
+            - Health probe failures do NOT consume the retry counter; they are
+              bounded only by the overall deadline.  This prevents the common
+              scenario where Unity restarts after domain reload but its main
+              thread is temporarily busy: the bridge keeps probing until the
+              server responds rather than exhausting its retry budget.
         """
         trace_id = _next_request_trace_id()
         request_summary = _describe_request(request)
@@ -531,28 +539,38 @@ class UnityTcpClient:
         async with self._lock:
             deadline = started_at + self.request_timeout
             last_failure = "Unity did not become ready before the retry window expired"
+            attempt = 0
 
-            for attempt in range(1, self.retry_count + 1):
+            while self._remaining_time(deadline) > 0:
                 await self._refresh_port(trace_id, request_summary)
 
-                logger.info(
-                    "trace=%s Unity request attempt=%s/%s remaining_ms=%s %s",
-                    trace_id,
-                    attempt,
-                    self.retry_count,
-                    round(self._remaining_time(deadline) * 1000),
-                    request_summary,
-                )
-
+                # --- Phase 1: Ensure TCP connection (consumes attempt) ---
                 if not self.writer or not self.reader:
+                    attempt += 1
+                    if attempt > self.retry_count:
+                        break
+
+                    logger.info(
+                        "trace=%s Unity request attempt=%s/%s remaining_ms=%s %s",
+                        trace_id,
+                        attempt,
+                        self.retry_count,
+                        round(self._remaining_time(deadline) * 1000),
+                        request_summary,
+                    )
+
                     connected = await self._open_connection_for_request(
                         trace_id=trace_id,
                         request_summary=request_summary,
                         deadline=deadline,
                     )
                     if not connected:
-                        last_failure = "Unity TCP server was not accepting connections"
-                        if not self._should_retry(attempt, self.retry_count, deadline):
+                        last_failure = (
+                            "Unity TCP server was not accepting connections"
+                        )
+                        if not self._should_retry(
+                            attempt, self.retry_count, deadline
+                        ):
                             break
                         await self._sleep_before_retry(
                             trace_id=trace_id,
@@ -563,26 +581,42 @@ class UnityTcpClient:
                         )
                         continue
 
+                # --- Phase 2: Health probe (does NOT consume attempt) ---
                 if not self._connection_verified:
                     if not await self._health_probe(trace_id, deadline):
-                        last_failure = "Unity TCP server accepted the connection but did not respond to ping"
-                        await self.disconnect(reason="health-probe-failed")
-                        if not self._should_retry(attempt, self.retry_count, deadline):
-                            break
-                        await self._sleep_before_retry(
-                            trace_id=trace_id,
-                            request_summary=request_summary,
-                            attempt=attempt,
-                            deadline=deadline,
-                            reason="health-probe-failed",
+                        last_failure = (
+                            "Unity TCP server accepted the connection but "
+                            "did not respond to ping"
                         )
+                        await self.disconnect(reason="health-probe-failed")
+                        # Undo the attempt increment from Phase 1 so that
+                        # transient main-thread-busy windows (domain reload)
+                        # don't exhaust the retry budget.
+                        attempt -= 1
+                        if self._remaining_time(deadline) <= 0:
+                            break
+                        delay = min(
+                            self.retry_time, self._remaining_time(deadline)
+                        )
+                        if delay > 0:
+                            logger.info(
+                                "trace=%s waiting for Unity server "
+                                "reason=health-probe-failed sleep_s=%.3f %s",
+                                trace_id,
+                                delay,
+                                request_summary,
+                            )
+                            await asyncio.sleep(delay)
                         continue
 
                     self._connection_verified = True
 
+                # --- Phase 3: Send the request ---
                 try:
                     if self.writer is None or self.reader is None:
-                        raise ConnectionResetError("Unity socket is not available")
+                        raise ConnectionResetError(
+                            "Unity socket is not available"
+                        )
 
                     writer = self.writer
                     reader = self.reader
@@ -625,10 +659,13 @@ class UnityTcpClient:
                     response = json.loads(response_data.decode("utf-8"))
 
                     self._last_request_completed_at = time.perf_counter()
-                    duration_ms = round((time.perf_counter() - started_at) * 1000)
+                    duration_ms = round(
+                        (time.perf_counter() - started_at) * 1000
+                    )
                     response_summary = _describe_response(response)
                     logger.info(
-                        "trace=%s Unity request completed %s duration_ms=%s response=%s",
+                        "trace=%s Unity request completed %s duration_ms=%s "
+                        "response=%s",
                         trace_id,
                         request_summary,
                         duration_ms,
@@ -637,8 +674,13 @@ class UnityTcpClient:
                     return response
 
                 except UnityRequestTimeoutError as e:
-                    last_failure = f"Unity request timed out during {e.phase} after {self.request_timeout}s"
-                    await self.disconnect(reason=f"request-timeout:{e.phase}")
+                    last_failure = (
+                        f"Unity request timed out during {e.phase} "
+                        f"after {self.request_timeout}s"
+                    )
+                    await self.disconnect(
+                        reason=f"request-timeout:{e.phase}"
+                    )
                 except (
                     asyncio.IncompleteReadError,
                     ConnectionResetError,
@@ -646,7 +688,9 @@ class UnityTcpClient:
                     ConnectionRefusedError,
                     OSError,
                 ) as e:
-                    duration_ms = round((time.perf_counter() - started_at) * 1000)
+                    duration_ms = round(
+                        (time.perf_counter() - started_at) * 1000
+                    )
                     now = time.perf_counter()
                     connection_age_ms = (
                         round((now - self._connected_at) * 1000)
@@ -659,8 +703,9 @@ class UnityTcpClient:
                         else None
                     )
                     logger.warning(
-                        "trace=%s Unity request transport error %s duration_ms=%s "
-                        "error_type=%s error=%s connection_age_ms=%s idle_ms=%s",
+                        "trace=%s Unity request transport error %s "
+                        "duration_ms=%s error_type=%s error=%s "
+                        "connection_age_ms=%s idle_ms=%s",
                         trace_id,
                         request_summary,
                         duration_ms,
@@ -671,22 +716,33 @@ class UnityTcpClient:
                         exc_info=True,
                     )
                     last_failure = (
-                        f"Unity connection dropped during request. Last error: {e}"
+                        "Unity connection dropped during request. "
+                        f"Last error: {e}"
                     )
-                    await self.disconnect(reason=f"request-error:{type(e).__name__}")
+                    await self.disconnect(
+                        reason=f"request-error:{type(e).__name__}"
+                    )
                 except Exception as e:
-                    duration_ms = round((time.perf_counter() - started_at) * 1000)
+                    duration_ms = round(
+                        (time.perf_counter() - started_at) * 1000
+                    )
                     logger.error(
-                        "trace=%s Unity request failed unexpectedly %s duration_ms=%s",
+                        "trace=%s Unity request failed unexpectedly %s "
+                        "duration_ms=%s",
                         trace_id,
                         request_summary,
                         duration_ms,
                         exc_info=True,
                     )
                     await self.disconnect(reason="unexpected-error")
-                    return self._build_error(request, -32603, f"Internal error: {e}")
+                    return self._build_error(
+                        request, -32603, f"Internal error: {e}"
+                    )
 
-                if not self._should_retry(attempt, self.retry_count, deadline):
+                # Send failed — check if we can retry
+                if not self._should_retry(
+                    attempt, self.retry_count, deadline
+                ):
                     break
 
                 await self._sleep_before_retry(
@@ -699,7 +755,8 @@ class UnityTcpClient:
 
             duration_ms = round((time.perf_counter() - started_at) * 1000)
             logger.warning(
-                "trace=%s Unity request exhausted retries %s duration_ms=%s last_failure=%s",
+                "trace=%s Unity request exhausted retries %s duration_ms=%s "
+                "last_failure=%s",
                 trace_id,
                 request_summary,
                 duration_ms,
