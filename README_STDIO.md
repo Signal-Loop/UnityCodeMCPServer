@@ -51,11 +51,11 @@ unity-code-mcp-stdio
 
 ### Command Line Arguments
 
-| Argument            | Default | Description                                                             |
-| ------------------- | ------- | ----------------------------------------------------------------------- |
-| `--retry-time`      | `2`     | Seconds between connection retries                                      |
-| `--retry-count`     | `5`     | Maximum number of connection retries                                    |
-| `--request-timeout` | `30`    | Seconds to wait for each Unity request phase before failing the request |
+| Argument            | Default | Description                                                          |
+| ------------------- | ------- | -------------------------------------------------------------------- |
+| `--retry-time`      | `2`     | Seconds between connection retries                                   |
+| `--retry-count`     | `15`    | Maximum number of connection retries within one bounded MCP request  |
+| `--request-timeout` | `120`   | Maximum total seconds the bridge spends recovering one Unity request |
 
 > **Note:** The host is hardcoded to `localhost` and the port is read automatically from `UnityCodeMcpServerSettings.asset` inside the Unity project.
 

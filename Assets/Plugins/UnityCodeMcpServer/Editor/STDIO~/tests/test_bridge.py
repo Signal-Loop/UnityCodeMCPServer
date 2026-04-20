@@ -116,23 +116,27 @@ class TestUnityTcpClient:
     """Tests for UnityTcpClient."""
 
     @pytest.mark.asyncio
-    async def test_connect_success(self, unity_client):
-        """Test successful connection."""
+    async def test_open_connection_for_request_success(self, unity_client):
+        """A request-scoped connection attempt should populate the active socket."""
         mock_reader = MockStreamReader()
         mock_writer = MockStreamWriter()
 
         with patch("asyncio.open_connection", new_callable=AsyncMock) as mock_open:
             mock_open.return_value = (mock_reader, mock_writer)
 
-            result = await unity_client.connect()
+            result = await unity_client._open_connection_for_request(
+                trace_id="test-trace",
+                request_summary="id=test method=tools/list",
+                deadline=asyncio.get_running_loop().time() + 1,
+            )
 
             assert result is True
             assert unity_client.reader is mock_reader
             assert unity_client.writer is mock_writer
 
     @pytest.mark.asyncio
-    async def test_connect_uses_configured_host_and_port(self):
-        """Test that connect uses the host and port stored at construction time."""
+    async def test_open_connection_for_request_uses_configured_host_and_port(self):
+        """The request-scoped connect path should use the configured endpoint."""
         client = UnityTcpClient(
             host="127.0.0.1",
             port=12345,
@@ -145,22 +149,34 @@ class TestUnityTcpClient:
 
         with patch("asyncio.open_connection", new_callable=AsyncMock) as mock_open:
             mock_open.return_value = (mock_reader, mock_writer)
-            await client.connect()
+            await client._open_connection_for_request(
+                trace_id="test-trace",
+                request_summary="id=test method=tools/list",
+                deadline=asyncio.get_running_loop().time() + 1,
+            )
 
         args = mock_open.call_args[0]
         assert args[0] == "127.0.0.1"
         assert args[1] == 12345
 
     @pytest.mark.asyncio
-    async def test_connect_failure_retries(self, unity_client):
-        """Test connection retries on failure."""
+    async def test_open_connection_for_request_returns_false_on_failure(
+        self, unity_client
+    ):
+        """A failed request-scoped connect should return False and clear the socket."""
         with patch("asyncio.open_connection", new_callable=AsyncMock) as mock_open:
             mock_open.side_effect = ConnectionRefusedError("Connection refused")
 
-            result = await unity_client.connect()
+            result = await unity_client._open_connection_for_request(
+                trace_id="test-trace",
+                request_summary="id=test method=tools/list",
+                deadline=asyncio.get_running_loop().time() + 1,
+            )
 
             assert result is False
-            assert mock_open.call_count == unity_client.retry_count
+            assert mock_open.call_count == 1
+            assert unity_client.reader is None
+            assert unity_client.writer is None
 
     @pytest.mark.asyncio
     async def test_disconnect(self, unity_client):
@@ -190,7 +206,6 @@ class TestUnityTcpClient:
 
         unity_client.reader = mock_reader
         unity_client.writer = mock_writer
-        unity_client._has_connected_once = True
         unity_client._connection_verified = True
 
         request = {
@@ -249,11 +264,14 @@ class TestUnityTcpClient:
 
             assert "error" in response
             assert response["error"]["code"] == -32000
-            assert "Unity is not reachable" in response["error"]["message"]
+            assert "Unity was unavailable" in response["error"]["message"]
+            assert "Safe next step:" in response["error"]["message"]
 
     @pytest.mark.asyncio
-    async def test_send_request_fails_fast_after_established_connection_breaks(self):
-        """An established Unity connection drop fails the current request immediately."""
+    async def test_send_request_retries_same_request_after_established_connection_breaks(
+        self,
+    ):
+        """An established Unity connection drop should retry the same request on a fresh socket."""
         client = UnityTcpClient(
             host="localhost",
             port=21088,
@@ -261,68 +279,57 @@ class TestUnityTcpClient:
             retry_count=4,
         )
 
-        client.reader = AsyncMock(spec=MockStreamReader)
-        client.writer = AsyncMock(spec=MockStreamWriter)
+        first_reader = AsyncMock(spec=MockStreamReader)
+        first_writer = AsyncMock(spec=MockStreamWriter)
+        client.reader = first_reader
+        client.writer = first_writer
         client.writer.drain.side_effect = ConnectionResetError("Reset")
-        client._has_connected_once = True
-        client._connection_verified = True
-
-        request = {"jsonrpc": "2.0", "id": "test", "method": "test"}
-
-        with patch("asyncio.open_connection", new_callable=AsyncMock) as mock_open:
-            mock_open.side_effect = AssertionError(
-                "send_request retried a broken established connection"
-            )
-            response = await client.send_request(request)
-
-        assert response["error"]["code"] == -32000
-        assert "Unity connection dropped during request" in response["error"]["message"]
-        assert client.writer is None
-        assert client.reader is None
-        assert mock_open.call_count == 0
-
-    @pytest.mark.asyncio
-    async def test_send_request_reconnects_on_next_request_after_drop(self):
-        """The request after a dropped connection uses a fresh reconnect path."""
-        client = UnityTcpClient(
-            host="localhost",
-            port=21088,
-            retry_time=0.0,
-            retry_count=2,
-        )
-
-        client.reader = AsyncMock(spec=MockStreamReader)
-        client.writer = AsyncMock(spec=MockStreamWriter)
-        client.writer.drain.side_effect = ConnectionResetError("Reset")
-        client._has_connected_once = True
         client._connection_verified = True
         client._health_probe = AsyncMock(return_value=True)
 
+        request = {"jsonrpc": "2.0", "id": "test", "method": "test"}
+
+        retry_reader = MockStreamReader()
+        retry_writer = MockStreamWriter()
+        expected_response = {"jsonrpc": "2.0", "id": "test", "result": {}}
+        retry_reader.set_response(expected_response)
+
+        with patch("asyncio.open_connection", new_callable=AsyncMock) as mock_open:
+            mock_open.return_value = (retry_reader, retry_writer)
+            response = await client.send_request(request)
+
+        assert response == expected_response
+        assert first_writer.close.called is True
+        assert client.writer is retry_writer
+        assert client.reader is retry_reader
+        assert mock_open.call_count == 1
+
+    @pytest.mark.asyncio
+    async def test_send_request_returns_actionable_error_after_retry_window_expires(
+        self,
+    ):
+        """A bounded retry window must end with an actionable error instead of a hung request."""
+        client = UnityTcpClient(
+            host="localhost",
+            port=21088,
+            retry_time=0.01,
+            retry_count=2,
+            request_timeout=0.02,
+        )
+
+        client.reader = AsyncMock(spec=MockStreamReader)
+        client.writer = AsyncMock(spec=MockStreamWriter)
+        client.writer.drain.side_effect = ConnectionResetError("Reset")
+        client._connection_verified = True
+
         first_request = {"jsonrpc": "2.0", "id": "first", "method": "test"}
         with patch("asyncio.open_connection", new_callable=AsyncMock) as mock_open:
-            mock_open.side_effect = AssertionError(
-                "send_request retried a broken established connection"
-            )
+            mock_open.side_effect = ConnectionRefusedError("still reloading")
             first_response = await client.send_request(first_request)
 
-        mock_reader = MockStreamReader()
-        mock_writer = MockStreamWriter()
-        expected_response = {"jsonrpc": "2.0", "id": "second", "result": {}}
-        mock_reader.set_response(expected_response)
-
-        with patch("asyncio.open_connection", new_callable=AsyncMock) as mock_open:
-            mock_open.return_value = (mock_reader, mock_writer)
-            second_response = await client.send_request(
-                {"jsonrpc": "2.0", "id": "second", "method": "test"}
-            )
-
         assert first_response["error"]["code"] == -32000
-        assert (
-            "Unity connection dropped during request"
-            in first_response["error"]["message"]
-        )
-        assert second_response == expected_response
-        assert mock_open.call_count == 1
+        assert "Unity was unavailable" in first_response["error"]["message"]
+        assert "Safe next step:" in first_response["error"]["message"]
 
     @pytest.mark.asyncio
     async def test_send_request_times_out_when_response_never_arrives(self):
@@ -342,7 +349,6 @@ class TestUnityTcpClient:
         client.reader = AsyncMock(spec=MockStreamReader)
         client.reader.readexactly.side_effect = never_returns
         client.writer = AsyncMock(spec=MockStreamWriter)
-        client._has_connected_once = True
         client._connection_verified = True
 
         response = await client.send_request(
@@ -370,18 +376,15 @@ class TestUnityTcpClient:
             "result": {"tools": []},
         }
 
-        async def fake_connect() -> bool:
+        async def fake_open_connection_for_request(**_kwargs) -> bool:
             reader = MockStreamReader()
             reader.set_response(expected_response)
             client.reader = reader
             client.writer = MockStreamWriter()
             return True
 
-        client.connect = AsyncMock(side_effect=fake_connect)
-        client._connect_once = AsyncMock(
-            side_effect=AssertionError(
-                "send_request used the hot path before a connection was verified"
-            )
+        client._open_connection_for_request = AsyncMock(
+            side_effect=fake_open_connection_for_request
         )
         client._health_probe = AsyncMock(side_effect=[False, True])
 
@@ -390,9 +393,8 @@ class TestUnityTcpClient:
         )
 
         assert response == expected_response
-        assert client.connect.await_count == 2
+        assert client._open_connection_for_request.await_count == 2
         assert client._health_probe.await_count == 2
-        assert client._has_connected_once is True
         assert client._connection_verified is True
 
     @pytest.mark.asyncio
@@ -413,7 +415,6 @@ class TestUnityTcpClient:
         client.reader = AsyncMock(spec=MockStreamReader)
         client.reader.readexactly.side_effect = never_returns
         client.writer = AsyncMock(spec=MockStreamWriter)
-        client._has_connected_once = True
         client._connection_verified = True
         client._health_probe = AsyncMock(return_value=True)
 
@@ -456,7 +457,6 @@ class TestUnityTcpClient:
 
         client.reader = mock_reader
         client.writer = mock_writer
-        client._has_connected_once = True
         client._connection_verified = True
 
         await client.send_request({"jsonrpc": "2.0", "id": "test", "method": "ping"})
@@ -520,7 +520,6 @@ class TestUnityTcpClient:
         mock_reader.set_response(expected_response)
         client.reader = mock_reader
         client.writer = mock_writer
-        client._has_connected_once = True
         client._connection_verified = True
 
         await client.send_request({"jsonrpc": "2.0", "id": "test", "method": "ping"})

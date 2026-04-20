@@ -1,4 +1,5 @@
 using System;
+using System.IO;
 using System.Linq;
 using System.Net;
 using System.Net.Sockets;
@@ -264,13 +265,51 @@ namespace UnityCodeMcpServer.Servers.Tcp
             {
                 if (!ct.IsCancellationRequested)
                 {
-                    LoopLogger.Error($"{McpProtocol.LogPrefix} [STDIO] Client handler error: {ex.Message}");
+                    if (IsExpectedClientDisconnect(ex))
+                    {
+                        LoopLogger.Trace($"{McpProtocol.LogPrefix} [STDIO] Client handler disconnected: {ex.Message}");
+                    }
+                    else
+                    {
+                        LoopLogger.Error($"{McpProtocol.LogPrefix} [STDIO] Client handler error: {ex.Message}");
+                    }
                 }
             }
             finally
             {
-                LoopLogger.Debug($"{McpProtocol.LogPrefix} [STDIO] Client disconnected");
+                LoopLogger.Trace($"{McpProtocol.LogPrefix} [STDIO] Client disconnected");
             }
+        }
+
+        private static bool IsExpectedClientDisconnect(Exception exception)
+        {
+            for (var current = exception; current != null; current = current.InnerException)
+            {
+                if (current is ObjectDisposedException)
+                {
+                    return true;
+                }
+
+                if (current is IOException && current.InnerException is null)
+                {
+                    continue;
+                }
+
+                if (current is SocketException socketException)
+                {
+                    switch (socketException.SocketErrorCode)
+                    {
+                        case SocketError.ConnectionAborted:
+                        case SocketError.ConnectionReset:
+                        case SocketError.Shutdown:
+                        case SocketError.OperationAborted:
+                        case SocketError.Interrupted:
+                            return true;
+                    }
+                }
+            }
+
+            return false;
         }
 
         private static async UniTask<int> ReadExactAsync(NetworkStream stream, byte[] buffer, int offset, int count, CancellationToken ct)
