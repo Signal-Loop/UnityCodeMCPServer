@@ -16,6 +16,7 @@ import asyncio
 import json
 import logging
 import struct
+import time
 from pathlib import Path
 from unittest.mock import AsyncMock, patch
 
@@ -127,7 +128,7 @@ class TestUnityTcpClient:
             result = await unity_client._open_connection_for_request(
                 trace_id="test-trace",
                 request_summary="id=test method=tools/list",
-                deadline=asyncio.get_running_loop().time() + 1,
+                deadline=time.perf_counter() + 5,
             )
 
             assert result is True
@@ -152,7 +153,7 @@ class TestUnityTcpClient:
             await client._open_connection_for_request(
                 trace_id="test-trace",
                 request_summary="id=test method=tools/list",
-                deadline=asyncio.get_running_loop().time() + 1,
+                deadline=time.perf_counter() + 5,
             )
 
         args = mock_open.call_args[0]
@@ -170,7 +171,7 @@ class TestUnityTcpClient:
             result = await unity_client._open_connection_for_request(
                 trace_id="test-trace",
                 request_summary="id=test method=tools/list",
-                deadline=asyncio.get_running_loop().time() + 1,
+                deadline=time.perf_counter() + 5,
             )
 
             assert result is False
@@ -822,3 +823,156 @@ class TestResourceContentMapping:
         )
         assert converted.resource.mimeType == "video/mp4"
         assert converted.resource.text == ""
+
+
+class TestStaleConnectionDiagnostics:
+    """Tests for stale connection detection and diagnostic logging."""
+
+    @pytest.mark.asyncio
+    async def test_connected_at_is_set_on_successful_connection(self):
+        """_connected_at should be set when a connection is established."""
+        client = UnityTcpClient(
+            host="localhost",
+            port=21088,
+            retry_time=0.0,
+            retry_count=1,
+        )
+
+        mock_reader = MockStreamReader()
+        mock_writer = MockStreamWriter()
+
+        with patch("asyncio.open_connection", new_callable=AsyncMock) as mock_open:
+            mock_open.return_value = (mock_reader, mock_writer)
+            result = await client._open_connection_for_request(
+                trace_id="test",
+                request_summary="id=test method=ping",
+                deadline=time.perf_counter() + 5,
+            )
+
+        assert result is True
+        assert client._connected_at is not None
+        assert isinstance(client._connected_at, float)
+
+    @pytest.mark.asyncio
+    async def test_connected_at_is_cleared_on_disconnect(self):
+        """_connected_at should be None after disconnect."""
+        client = UnityTcpClient(
+            host="localhost",
+            port=21088,
+            retry_time=0.0,
+            retry_count=1,
+        )
+        client._connected_at = 12345.0
+        client._last_request_completed_at = 12346.0
+        client.writer = MockStreamWriter()
+        client.reader = MockStreamReader()
+
+        await client.disconnect(reason="test")
+
+        assert client._connected_at is None
+        assert client._last_request_completed_at is None
+
+    @pytest.mark.asyncio
+    async def test_last_request_completed_at_is_set_after_successful_request(self):
+        """_last_request_completed_at should be updated on each successful response."""
+        client = UnityTcpClient(
+            host="localhost",
+            port=21088,
+            retry_time=0.0,
+            retry_count=1,
+        )
+
+        mock_reader = MockStreamReader()
+        mock_writer = MockStreamWriter()
+        expected_response = {"jsonrpc": "2.0", "id": "test", "result": {}}
+        mock_reader.set_response(expected_response)
+
+        client.reader = mock_reader
+        client.writer = mock_writer
+        client._connection_verified = True
+
+        await client.send_request({"jsonrpc": "2.0", "id": "test", "method": "ping"})
+
+        assert client._last_request_completed_at is not None
+        assert isinstance(client._last_request_completed_at, float)
+
+    @pytest.mark.asyncio
+    async def test_transport_error_log_includes_connection_age_and_idle_time(self):
+        """Stale connection errors should log connection_age_ms and idle_ms for diagnostics."""
+        client = UnityTcpClient(
+            host="localhost",
+            port=21088,
+            retry_time=0.0,
+            retry_count=1,
+            request_timeout=0.5,
+        )
+
+        client.reader = AsyncMock(spec=MockStreamReader)
+        client.writer = AsyncMock(spec=MockStreamWriter)
+        client.writer.drain.side_effect = ConnectionResetError("Reset")
+        client._connection_verified = True
+        client._connected_at = time.perf_counter() - 30.0  # Connected 30s ago
+        client._last_request_completed_at = (
+            time.perf_counter() - 10.0
+        )  # Last request 10s ago
+
+        with patch(
+            "unity_code_mcp_stdio.unity_code_mcp_bridge_stdio.logger"
+        ) as mock_logger:
+            await client.send_request(
+                {"jsonrpc": "2.0", "id": "test", "method": "ping"}
+            )
+
+        warning_calls = [
+            call
+            for call in mock_logger.warning.call_args_list
+            if "transport error" in str(call)
+        ]
+        assert len(warning_calls) >= 1
+        log_format_str = warning_calls[0].args[0]
+        assert "connection_age_ms=%s" in log_format_str
+        assert "idle_ms=%s" in log_format_str
+        # connection_age_ms and idle_ms should be numeric (not None)
+        log_args = warning_calls[0].args
+        connection_age_ms = log_args[6]  # 7th positional arg
+        idle_ms = log_args[7]  # 8th positional arg
+        assert isinstance(connection_age_ms, int)
+        assert isinstance(idle_ms, int)
+        assert connection_age_ms >= 29000  # ~30s
+        assert idle_ms >= 9000  # ~10s
+
+    @pytest.mark.asyncio
+    async def test_transport_error_log_handles_missing_timestamps(self):
+        """Transport error logging should handle None timestamps gracefully."""
+        client = UnityTcpClient(
+            host="localhost",
+            port=21088,
+            retry_time=0.0,
+            retry_count=1,
+            request_timeout=0.5,
+        )
+
+        client.reader = AsyncMock(spec=MockStreamReader)
+        client.writer = AsyncMock(spec=MockStreamWriter)
+        client.writer.drain.side_effect = ConnectionResetError("Reset")
+        client._connection_verified = True
+        # Timestamps not set (as if connection tracking wasn't initialized)
+
+        with patch(
+            "unity_code_mcp_stdio.unity_code_mcp_bridge_stdio.logger"
+        ) as mock_logger:
+            await client.send_request(
+                {"jsonrpc": "2.0", "id": "test", "method": "ping"}
+            )
+
+        warning_calls = [
+            call
+            for call in mock_logger.warning.call_args_list
+            if "transport error" in str(call)
+        ]
+        assert len(warning_calls) >= 1
+        log_args = warning_calls[0].args
+        connection_age_ms = log_args[6]  # 7th positional arg
+        idle_ms = log_args[7]  # 8th positional arg
+        assert connection_age_ms is None
+        assert idle_ms is None

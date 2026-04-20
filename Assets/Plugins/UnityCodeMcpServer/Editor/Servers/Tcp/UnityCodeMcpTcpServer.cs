@@ -29,6 +29,12 @@ namespace UnityCodeMcpServer.Servers.Tcp
         private static McpRegistry _registry;
         private static McpMessageHandler _messageHandler;
         private static bool _isRunning;
+        private static int _activeClientCount;
+
+        /// <summary>
+        /// Number of TCP clients currently connected to the server.
+        /// </summary>
+        public static int ActiveClientCount => _activeClientCount;
 
         // Pre-compiled regex for fast ping detection without JSON parsing or main-thread switch.
         private static readonly Regex PingMethodRegex = new Regex(
@@ -101,10 +107,21 @@ namespace UnityCodeMcpServer.Servers.Tcp
 
         public static void StopServer()
         {
+            StopServerInternal("requested");
+        }
+
+        public static void StopServer(string reason)
+        {
+            StopServerInternal(reason);
+        }
+
+        private static void StopServerInternal(string reason)
+        {
             if (!_isRunning)
                 return;
 
-            LoopLogger.Debug($"{McpProtocol.LogPrefix} [STDIO] Stopping server...");
+            var clientCount = _activeClientCount;
+            LoopLogger.Info($"{McpProtocol.LogPrefix} [STDIO] Stopping server reason={reason} active_clients={clientCount}");
 
             _serverCts?.Cancel();
             _serverCts?.Dispose();
@@ -131,17 +148,17 @@ namespace UnityCodeMcpServer.Servers.Tcp
 
             _isRunning = false;
 
-            LoopLogger.Debug($"{McpProtocol.LogPrefix} [STDIO] Server stopped");
+            LoopLogger.Info($"{McpProtocol.LogPrefix} [STDIO] Server stopped reason={reason}");
         }
 
         private static void OnEditorQuitting()
         {
-            StopServer();
+            StopServer("editor-quitting");
         }
 
         private static void OnBeforeAssemblyReload()
         {
-            StopServer();
+            StopServer("assembly-reload");
         }
 
         private static async UniTaskVoid AcceptClientsAsync(CancellationToken ct)
@@ -151,8 +168,10 @@ namespace UnityCodeMcpServer.Servers.Tcp
                 try
                 {
                     var client = await _listener.AcceptTcpClientAsync();
+                    var endpoint = client.Client.RemoteEndPoint;
+                    var clientCount = Interlocked.Increment(ref _activeClientCount);
 
-                    LoopLogger.Debug($"{McpProtocol.LogPrefix} [STDIO] Client connected from {client.Client.RemoteEndPoint}");
+                    LoopLogger.Info($"{McpProtocol.LogPrefix} [STDIO] Client connected from {endpoint} active_clients={clientCount}");
 
                     HandleClientAsync(client, ct).Forget();
                 }
@@ -179,6 +198,7 @@ namespace UnityCodeMcpServer.Servers.Tcp
         private static async UniTaskVoid HandleClientAsync(TcpClient client, CancellationToken ct)
         {
             var settings = UnityCodeMcpServerSettings.Instance;
+            var connectionTimer = System.Diagnostics.Stopwatch.StartNew();
 
             try
             {
@@ -277,7 +297,9 @@ namespace UnityCodeMcpServer.Servers.Tcp
             }
             finally
             {
-                LoopLogger.Trace($"{McpProtocol.LogPrefix} [STDIO] Client disconnected");
+                connectionTimer.Stop();
+                var remainingClients = Interlocked.Decrement(ref _activeClientCount);
+                LoopLogger.Info($"{McpProtocol.LogPrefix} [STDIO] Client disconnected duration_ms={connectionTimer.ElapsedMilliseconds} active_clients={remainingClients}");
             }
         }
 

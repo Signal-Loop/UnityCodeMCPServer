@@ -280,6 +280,8 @@ class UnityTcpClient:
         self.writer: asyncio.StreamWriter | None = None
         self._lock = asyncio.Lock()
         self._connection_verified = False
+        self._connected_at: float | None = None
+        self._last_request_completed_at: float | None = None
 
     @staticmethod
     def _remaining_time(deadline: float) -> float:
@@ -371,6 +373,8 @@ class UnityTcpClient:
                 timeout=timeout_seconds,
             )
             self._connection_verified = False
+            self._connected_at = time.perf_counter()
+            self._last_request_completed_at = None
             logger.info(
                 "trace=%s Connected to Unity at %s:%s %s",
                 trace_id,
@@ -392,6 +396,8 @@ class UnityTcpClient:
             self.reader = None
             self.writer = None
             self._connection_verified = False
+            self._connected_at = None
+            self._last_request_completed_at = None
             return False
 
     async def _await_request_phase(
@@ -428,6 +434,8 @@ class UnityTcpClient:
         self.writer = None
         self.reader = None
         self._connection_verified = False
+        self._connected_at = None
+        self._last_request_completed_at = None
 
         if writer:
             writer.close()
@@ -616,6 +624,7 @@ class UnityTcpClient:
                     )
                     response = json.loads(response_data.decode("utf-8"))
 
+                    self._last_request_completed_at = time.perf_counter()
                     duration_ms = round((time.perf_counter() - started_at) * 1000)
                     response_summary = _describe_response(response)
                     logger.info(
@@ -638,14 +647,27 @@ class UnityTcpClient:
                     OSError,
                 ) as e:
                     duration_ms = round((time.perf_counter() - started_at) * 1000)
+                    now = time.perf_counter()
+                    connection_age_ms = (
+                        round((now - self._connected_at) * 1000)
+                        if self._connected_at is not None
+                        else None
+                    )
+                    idle_ms = (
+                        round((now - self._last_request_completed_at) * 1000)
+                        if self._last_request_completed_at is not None
+                        else None
+                    )
                     logger.warning(
                         "trace=%s Unity request transport error %s duration_ms=%s "
-                        "error_type=%s error=%s",
+                        "error_type=%s error=%s connection_age_ms=%s idle_ms=%s",
                         trace_id,
                         request_summary,
                         duration_ms,
                         type(e).__name__,
                         e,
+                        connection_age_ms,
+                        idle_ms,
                         exc_info=True,
                     )
                     last_failure = (

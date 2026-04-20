@@ -548,6 +548,50 @@ class ScriptSelfTests(unittest.TestCase):
             "RuntimeError: bridge dropped during reload", payload["traceback"]
         )
 
+    def test_build_exception_payload_captures_connection_reset_error(self) -> None:
+        try:
+            raise ConnectionResetError(
+                "[WinError 64] The specified network name is no longer available"
+            )
+        except ConnectionResetError as exc:
+            payload = build_exception_payload("get_unity_info", exc)
+
+        self.assertEqual(payload["exception_type"], "ConnectionResetError")
+        self.assertIn("WinError 64", payload["message"])
+        self.assertIn("ConnectionResetError", payload["traceback"])
+
+    def test_build_exception_payload_captures_connection_refused_error(self) -> None:
+        try:
+            raise ConnectionRefusedError("[WinError 10061] No connection could be made")
+        except ConnectionRefusedError as exc:
+            payload = build_exception_payload("read_unity_console_logs", exc)
+
+        self.assertEqual(payload["exception_type"], "ConnectionRefusedError")
+        self.assertIn("WinError 10061", payload["message"])
+
+    def test_call_result_failed_detects_unity_error_prefix(self) -> None:
+        result = types.CallToolResult(
+            content=[
+                types.TextContent(type="text", text="Error: Unity server unreachable")
+            ],
+            isError=False,
+        )
+
+        self.assertTrue(call_result_failed(result))
+
+    def test_extract_text_blocks_returns_all_text_content(self) -> None:
+        result = types.CallToolResult(
+            content=[
+                types.TextContent(type="text", text="block one"),
+                types.TextContent(type="text", text="block two"),
+            ],
+            isError=False,
+        )
+
+        blocks = extract_text_blocks(result)
+
+        self.assertEqual(blocks, ["block one", "block two"])
+
 
 def run_self_tests() -> int:
     suite = unittest.defaultTestLoader.loadTestsFromTestCase(ScriptSelfTests)
