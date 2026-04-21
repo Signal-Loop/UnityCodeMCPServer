@@ -21,105 +21,61 @@ namespace UnityCodeMcpServer.Tests.EditMode
         }
 
         [Test]
-        public void TryBeginStart_ReturnsFalseWhenRestartIsPending()
+        public void RestartServer_PublicMethodStillExists()
+        {
+            var method = typeof(UnityCodeMcpHttpServer).GetMethod(
+                "RestartServer",
+                BindingFlags.Public | BindingFlags.Static);
+
+            Assert.That(method, Is.Not.Null, "RestartServer() should still exist");
+        }
+
+        [Test]
+        public void RemovedLifecycleStateFields_DoNotExist()
         {
             var restartScheduledField = typeof(UnityCodeMcpHttpServer).GetField(
                 "_restartScheduled",
                 BindingFlags.NonPublic | BindingFlags.Static);
+            var restartGenerationField = typeof(UnityCodeMcpHttpServer).GetField(
+                "_restartGeneration",
+                BindingFlags.NonPublic | BindingFlags.Static);
+            var startupRetryScheduledField = typeof(UnityCodeMcpHttpServer).GetField(
+                "_startupRetryScheduled",
+                BindingFlags.NonPublic | BindingFlags.Static);
+            var startupRetryAttemptField = typeof(UnityCodeMcpHttpServer).GetField(
+                "_startupRetryAttempt",
+                BindingFlags.NonPublic | BindingFlags.Static);
             var isRunningField = typeof(UnityCodeMcpHttpServer).GetField(
                 "_isRunning",
                 BindingFlags.NonPublic | BindingFlags.Static);
-            var method = typeof(UnityCodeMcpHttpServer).GetMethod(
+
+            Assert.That(restartScheduledField, Is.Null);
+            Assert.That(restartGenerationField, Is.Null);
+            Assert.That(startupRetryScheduledField, Is.Null);
+            Assert.That(startupRetryAttemptField, Is.Null);
+            Assert.That(isRunningField, Is.Null);
+        }
+
+        [Test]
+        public void RemovedLifecycleHelperMethods_DoNotExist()
+        {
+            var tryBeginStartMethod = typeof(UnityCodeMcpHttpServer).GetMethod(
                 "TryBeginStart",
                 BindingFlags.NonPublic | BindingFlags.Static);
-
-            Assert.That(restartScheduledField, Is.Not.Null, "_restartScheduled field should exist");
-            Assert.That(isRunningField, Is.Not.Null, "_isRunning field should exist");
-            Assert.That(method, Is.Not.Null, "TryBeginStart should exist");
-
-            var originalRestartScheduled = (bool)restartScheduledField.GetValue(null);
-            var originalIsRunning = (bool)isRunningField.GetValue(null);
-
-            try
-            {
-                restartScheduledField.SetValue(null, true);
-                isRunningField.SetValue(null, false);
-
-                var result = (bool)method.Invoke(null, new object[] { "test", false });
-
-                Assert.That(result, Is.False);
-            }
-            finally
-            {
-                restartScheduledField.SetValue(null, originalRestartScheduled);
-                isRunningField.SetValue(null, originalIsRunning);
-            }
-        }
-
-        [Test]
-        public void ShouldRetryBindConflict_ReturnsTrueForDelayedStartBelowRetryLimit()
-        {
-            var retryAttemptField = typeof(UnityCodeMcpHttpServer).GetField(
-                "_startupRetryAttempt",
-                BindingFlags.NonPublic | BindingFlags.Static);
-            var method = typeof(UnityCodeMcpHttpServer).GetMethod(
+            var shouldRetryBindConflictMethod = typeof(UnityCodeMcpHttpServer).GetMethod(
                 "ShouldRetryBindConflict",
                 BindingFlags.NonPublic | BindingFlags.Static);
-
-            Assert.That(retryAttemptField, Is.Not.Null, "_startupRetryAttempt field should exist");
-            Assert.That(method, Is.Not.Null, "ShouldRetryBindConflict should exist");
-
-            var originalRetryAttempt = (int)retryAttemptField.GetValue(null);
-
-            try
-            {
-                retryAttemptField.SetValue(null, 0);
-
-                var result = (bool)method.Invoke(null, new object[] { "delayed-start" });
-
-                Assert.That(result, Is.True);
-            }
-            finally
-            {
-                retryAttemptField.SetValue(null, originalRetryAttempt);
-            }
-        }
-
-        [Test]
-        public void ShouldRetryBindConflict_ReturnsFalseForRequestedStartAndAtRetryLimit()
-        {
-            var retryAttemptField = typeof(UnityCodeMcpHttpServer).GetField(
-                "_startupRetryAttempt",
+            var tryScheduleStartupRetryMethod = typeof(UnityCodeMcpHttpServer).GetMethod(
+                "TryScheduleStartupRetry",
                 BindingFlags.NonPublic | BindingFlags.Static);
-            var maxRetryField = typeof(UnityCodeMcpHttpServer).GetField(
-                "MaxStartupRetryAttempts",
-                BindingFlags.NonPublic | BindingFlags.Static | BindingFlags.FlattenHierarchy);
-            var method = typeof(UnityCodeMcpHttpServer).GetMethod(
-                "ShouldRetryBindConflict",
+            var retryStartupAfterBindConflictAsyncMethod = typeof(UnityCodeMcpHttpServer).GetMethod(
+                "RetryStartupAfterBindConflictAsync",
                 BindingFlags.NonPublic | BindingFlags.Static);
 
-            Assert.That(retryAttemptField, Is.Not.Null, "_startupRetryAttempt field should exist");
-            Assert.That(maxRetryField, Is.Not.Null, "MaxStartupRetryAttempts constant should exist");
-            Assert.That(method, Is.Not.Null, "ShouldRetryBindConflict should exist");
-
-            var originalRetryAttempt = (int)retryAttemptField.GetValue(null);
-            var maxRetryAttempts = (int)maxRetryField.GetRawConstantValue();
-
-            try
-            {
-                retryAttemptField.SetValue(null, 0);
-                var requestedResult = (bool)method.Invoke(null, new object[] { "requested" });
-
-                retryAttemptField.SetValue(null, maxRetryAttempts);
-                var exhaustedResult = (bool)method.Invoke(null, new object[] { "delayed-start" });
-
-                Assert.That(requestedResult, Is.False);
-                Assert.That(exhaustedResult, Is.False);
-            }
-            finally
-            {
-                retryAttemptField.SetValue(null, originalRetryAttempt);
-            }
+            Assert.That(tryBeginStartMethod, Is.Null);
+            Assert.That(shouldRetryBindConflictMethod, Is.Null);
+            Assert.That(tryScheduleStartupRetryMethod, Is.Null);
+            Assert.That(retryStartupAfterBindConflictAsyncMethod, Is.Null);
         }
     }
 }
