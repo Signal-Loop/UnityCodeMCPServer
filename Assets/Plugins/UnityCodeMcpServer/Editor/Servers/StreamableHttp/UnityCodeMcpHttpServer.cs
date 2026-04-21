@@ -66,7 +66,9 @@ namespace UnityCodeMcpServer.Servers.StreamableHttp
             }
 
             if (_listener != null)
+            if (_listener != null)
             {
+                LoopLogger.Debug($"{McpProtocol.LogPrefix} [HTTP] Start skipped because listener already exists reason={reason}");
                 LoopLogger.Debug($"{McpProtocol.LogPrefix} [HTTP] Start skipped because listener already exists reason={reason}");
                 return;
             }
