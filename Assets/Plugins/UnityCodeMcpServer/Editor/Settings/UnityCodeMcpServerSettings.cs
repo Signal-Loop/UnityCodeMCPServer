@@ -61,8 +61,12 @@ namespace UnityCodeMcpServer.Settings
         [Tooltip("Select which server automatically starts in the Unity Editor")]
         public ServerStartupMode StartupServer = ServerStartupMode.Stdio;
 
+        [Header("Logging")]
         [Tooltip("Minimum log level. Messages below this level are suppressed.")]
         public Helpers.LoopLogger.LogLevel MinLogLevel = Helpers.LoopLogger.LogLevel.Info;
+
+        [Tooltip("Enable logging to file (UnityCodeMcpServerLog.log in project root)")]
+        public bool LogToFile = false;
 
         [SerializeField, HideInInspector]
         private int _lastPort;

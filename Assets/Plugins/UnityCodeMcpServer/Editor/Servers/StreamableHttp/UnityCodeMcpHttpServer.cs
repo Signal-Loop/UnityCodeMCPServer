@@ -48,14 +48,21 @@ namespace UnityCodeMcpServer.Servers.StreamableHttp
             // Subscribe to editor events
             EditorApplication.quitting += OnEditorQuitting;
             AssemblyReloadEvents.beforeAssemblyReload += OnBeforeAssemblyReload;
+            AssemblyReloadEvents.afterAssemblyReload += OnAfterAssemblyReload;
 
             // Defer server startup to after domain load completes
             // This prevents blocking during "Completing Domain Reload"
             EditorApplication.delayCall += OnDelayedStart;
         }
 
+        private static void OnAfterAssemblyReload()
+        {
+            LoopLogger.Debug($"{McpProtocol.LogPrefix} Assembly reload completed");
+        }
+
         private static void OnDelayedStart()
         {
+            LoopLogger.Debug($"{McpProtocol.LogPrefix} Delayed start triggered");
             // Unsubscribe to prevent multiple calls
             EditorApplication.delayCall -= OnDelayedStart;
 
@@ -236,11 +243,13 @@ namespace UnityCodeMcpServer.Servers.StreamableHttp
 
         private static void OnEditorQuitting()
         {
+            LoopLogger.Debug($"{McpProtocol.LogPrefix} Editor quitting");
             StopServer("editor-quitting");
         }
 
         private static void OnBeforeAssemblyReload()
         {
+            LoopLogger.Debug($"{McpProtocol.LogPrefix} Assembly reload starting");
             StopServer("assembly-reload");
         }
 

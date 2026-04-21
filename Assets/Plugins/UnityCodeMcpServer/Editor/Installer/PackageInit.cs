@@ -3,6 +3,9 @@ using System.IO;
 using UnityCodeMcpServer.Helpers;
 using UnityCodeMcpServer.Settings;
 using UnityCodeMcpServer.Settings.Editor;
+using UnityEditor.PackageManager;
+using System;
+using NUnit.Framework.Internal;
 
 namespace UnityCodeMcpServer.Editor.Installer
 {
@@ -14,8 +17,20 @@ namespace UnityCodeMcpServer.Editor.Installer
 
         static PackageInit()
         {
-            // Delay call to ensure PackageInfo is ready
-            EditorApplication.delayCall += RunInstaller;
+            Events.registeringPackages += OnRegisteringPackages;
+            EditorApplication.delayCall += OnDelayCall;
+        }
+
+        private static void OnDelayCall()
+        {
+            EditorApplication.delayCall -= OnDelayCall;
+            LoopLogger.Debug($"{Protocol.McpProtocol.LogPrefix} EditorApplication.delayCall triggered");
+        }
+
+        private static void OnRegisteringPackages(PackageRegistrationEventArgs args)
+        {
+            LoopLogger.Debug($"{Protocol.McpProtocol.LogPrefix} Package registration event");
+            RunInstaller();
         }
 
         private static void RunInstaller()
@@ -54,19 +69,12 @@ namespace UnityCodeMcpServer.Editor.Installer
 
             LoopLogger.Debug($"{Protocol.McpProtocol.LogPrefix} Installing from {sourcePath} to {targetPath}");
 
-            bool installed = RunInstallSteps(
+            RunInstallSteps(
                 skipPackageInstall,
                 () => installer.Install(sourcePath, targetPath),
                 () => InstallSkills(fileSystem));
 
             LoopLogger.Debug($"{Protocol.McpProtocol.LogPrefix} Package installation process completed.");
-
-            // Only refresh if we actually changed something
-            if (installed)
-            {
-
-                AssetDatabase.Refresh();
-            }
         }
 
         public static bool RunInstallSteps(bool skipPackageInstall, System.Func<bool> installPackageFiles, System.Func<bool> installSkills)
