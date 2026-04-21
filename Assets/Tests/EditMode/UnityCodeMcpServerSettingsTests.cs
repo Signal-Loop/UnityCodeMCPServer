@@ -308,6 +308,68 @@ namespace UnityCodeMcpServer.Tests.EditMode
         }
 
         [Test]
+        public void OnValidate_InitialHttpSelection_DoesNotStartHttpImmediately()
+        {
+            var startHttpCount = 0;
+            var stopTcpCount = 0;
+            ServerLifecycleCoordinator.SetHandlers(
+                startTcp: () => { },
+                stopTcp: () => stopTcpCount++,
+                restartTcp: () => { },
+                startHttp: () => startHttpCount++,
+                stopHttp: () => { },
+                restartHttp: () => { });
+
+            var settings = ScriptableObject.CreateInstance<UnityCodeMcpServerSettings>();
+
+            try
+            {
+                settings.StartupServer = UnityCodeMcpServerSettings.ServerStartupMode.Http;
+
+                InvokeOnValidate(settings);
+
+                Assert.That(startHttpCount, Is.EqualTo(0));
+                Assert.That(stopTcpCount, Is.EqualTo(0));
+            }
+            finally
+            {
+                ScriptableObject.DestroyImmediate(settings);
+            }
+        }
+
+        [Test]
+        public void OnValidate_StartupServerChange_AppliesNewSelection()
+        {
+            var startHttpCount = 0;
+            var stopTcpCount = 0;
+            ServerLifecycleCoordinator.SetHandlers(
+                startTcp: () => { },
+                stopTcp: () => stopTcpCount++,
+                restartTcp: () => { },
+                startHttp: () => startHttpCount++,
+                stopHttp: () => { },
+                restartHttp: () => { });
+
+            var settings = ScriptableObject.CreateInstance<UnityCodeMcpServerSettings>();
+
+            try
+            {
+                settings.StartupServer = UnityCodeMcpServerSettings.ServerStartupMode.Stdio;
+                InvokeOnValidate(settings);
+
+                settings.StartupServer = UnityCodeMcpServerSettings.ServerStartupMode.Http;
+                InvokeOnValidate(settings);
+
+                Assert.That(startHttpCount, Is.EqualTo(1));
+                Assert.That(stopTcpCount, Is.EqualTo(1));
+            }
+            finally
+            {
+                ScriptableObject.DestroyImmediate(settings);
+            }
+        }
+
+        [Test]
         public void OnValidate_PortChangeWithHttpSelection_DoesNotRestartTcp()
         {
             var restartCount = 0;

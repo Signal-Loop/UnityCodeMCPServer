@@ -18,6 +18,8 @@ MonoBehaviour:
   _hasInitializedPortTracking: 1
   _lastHttpPort: 3002
   _hasInitializedHttpPortTracking: 1
+  _lastStartupServer: 1
+  _hasInitializedStartupServerTracking: 1
   StdioPort: 21099
   Backlog: 10
   ReadTimeoutMs: 30000

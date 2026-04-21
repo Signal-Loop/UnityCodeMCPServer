@@ -76,6 +76,12 @@ namespace UnityCodeMcpServer.Settings
         [SerializeField, HideInInspector]
         private bool _hasInitializedHttpPortTracking;
 
+        [SerializeField, HideInInspector]
+        private ServerStartupMode _lastStartupServer;
+
+        [SerializeField, HideInInspector]
+        private bool _hasInitializedStartupServerTracking;
+
         [Header("STDIO Server Configuration")]
         [Tooltip("The port the STDIO bridge will use to connect to Unity")]
         [UnityEngine.Serialization.FormerlySerializedAs("Port")]
@@ -343,6 +349,13 @@ namespace UnityCodeMcpServer.Settings
         {
             var shouldRestartStdio = ShouldRestartStdioForPortChange();
             var shouldRestartHttp = ShouldRestartHttpForPortChange();
+            var shouldApplyStartupSelection = ShouldApplyStartupSelectionChange();
+
+            if (!shouldRestartStdio && !shouldRestartHttp && !shouldApplyStartupSelection)
+            {
+                return;
+            }
+
             ServerLifecycleCoordinator.UpdateServerState(StartupServer, shouldRestartStdio, shouldRestartHttp);
         }
 
@@ -384,6 +397,24 @@ namespace UnityCodeMcpServer.Settings
 
             // Only restart the HTTP server when it's the selected transport.
             return StartupServer == ServerStartupMode.Http;
+        }
+
+        private bool ShouldApplyStartupSelectionChange()
+        {
+            if (!_hasInitializedStartupServerTracking)
+            {
+                _hasInitializedStartupServerTracking = true;
+                _lastStartupServer = StartupServer;
+                return false;
+            }
+
+            if (_lastStartupServer == StartupServer)
+            {
+                return false;
+            }
+
+            _lastStartupServer = StartupServer;
+            return true;
         }
 
         /// <summary>
