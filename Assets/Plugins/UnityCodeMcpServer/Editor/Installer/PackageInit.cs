@@ -17,17 +17,12 @@ namespace UnityCodeMcpServer.Editor.Installer
 
         static PackageInit()
         {
-            AssemblyReloadEvents.beforeAssemblyReload += OnBeforeAssemblyReload;
+            AssemblyReloadEvents.afterAssemblyReload += OnAfterAssemblyReload;
         }
 
-        private static void OnBeforeAssemblyReload()
+        private static void OnAfterAssemblyReload()
         {
-            RunInstaller();
-        }
-
-        private static void OnRegisteringPackages(PackageRegistrationEventArgs args)
-        {
-            LoopLogger.Debug($"{Protocol.McpProtocol.LogPrefix} [PackageInit] Package registering event");
+            LoopLogger.Debug($"{Protocol.McpProtocol.LogPrefix} [PackageInit] OnAfterAssemblyReload event");
             RunInstaller();
         }
 

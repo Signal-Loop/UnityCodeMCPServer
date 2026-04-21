@@ -191,13 +191,13 @@ namespace UnityCodeMcpServer.Servers.StreamableHttp
 
         private static void OnEditorQuitting()
         {
-            LoopLogger.Debug($"{McpProtocol.LogPrefix} Editor quitting");
+            LoopLogger.Debug($"{McpProtocol.LogPrefix} [HTTP] Editor quitting");
             StopServer("editor-quitting");
         }
 
         private static void OnBeforeAssemblyReload()
         {
-            LoopLogger.Debug($"{McpProtocol.LogPrefix} [HTTP] Assembly reload starting");
+            LoopLogger.Debug($"{McpProtocol.LogPrefix} [HTTP] OnBeforeAssemblyReload event");
             StopServer("assembly-reload");
         }
 
