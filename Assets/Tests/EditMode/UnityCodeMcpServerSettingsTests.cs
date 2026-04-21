@@ -41,8 +41,16 @@ namespace UnityCodeMcpServer.Tests.EditMode
         [Test]
         public void DefaultStartupServer_IsStdio()
         {
-            var settings = UnityCodeMcpServerSettings.Instance;
-            Assert.That(settings.StartupServer, Is.EqualTo(UnityCodeMcpServerSettings.ServerStartupMode.Stdio));
+            var settings = ScriptableObject.CreateInstance<UnityCodeMcpServerSettings>();
+
+            try
+            {
+                Assert.That(settings.StartupServer, Is.EqualTo(UnityCodeMcpServerSettings.ServerStartupMode.Stdio));
+            }
+            finally
+            {
+                ScriptableObject.DestroyImmediate(settings);
+            }
         }
 
         [Test]

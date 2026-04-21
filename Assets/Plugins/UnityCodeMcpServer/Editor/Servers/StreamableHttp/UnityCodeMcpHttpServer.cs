@@ -21,11 +21,16 @@ namespace UnityCodeMcpServer.Servers.StreamableHttp
     [InitializeOnLoad]
     public static class UnityCodeMcpHttpServer
     {
+        private const int RestartDelayMs = 500;
+
         private static HttpListener _listener;
         private static CancellationTokenSource _serverCts;
         private static McpRegistry _registry;
         private static McpMessageHandler _messageHandler;
         private static HttpRequestHandler _requestHandler;
+        private static readonly object _lifecycleLock = new object();
+        private static bool _restartScheduled;
+        private static int _restartGeneration;
         private static bool _isRunning;
 
         static UnityCodeMcpHttpServer()
@@ -51,7 +56,7 @@ namespace UnityCodeMcpServer.Servers.StreamableHttp
             EditorApplication.delayCall -= OnDelayedStart;
 
             // Start the server if enabled
-            StartServer();
+            StartServer("delayed-start");
         }
 
         /// <summary>
@@ -59,17 +64,21 @@ namespace UnityCodeMcpServer.Servers.StreamableHttp
         /// </summary>
         public static void StartServer()
         {
-            if (_isRunning)
-            {
-                LoopLogger.Trace($"{McpProtocol.LogPrefix} [HTTP] Server already running");
-                return;
-            }
+            StartServer("requested");
+        }
 
+        private static void StartServer(string reason, bool consumeScheduledRestart = false)
+        {
             var settings = UnityCodeMcpServerSettings.Instance;
 
             if (settings.StartupServer != UnityCodeMcpServerSettings.ServerStartupMode.Http)
             {
                 LoopLogger.Debug($"{McpProtocol.LogPrefix} [HTTP] Startup skipped because server selection is {settings.StartupServer}");
+                return;
+            }
+
+            if (!TryBeginStart(reason, consumeScheduledRestart))
+            {
                 return;
             }
 
@@ -104,16 +113,19 @@ namespace UnityCodeMcpServer.Servers.StreamableHttp
                 // Access denied
                 LoopLogger.Error($"{McpProtocol.LogPrefix} [HTTP] Access denied. Run as admin or add URL reservation:\n" +
                     $"netsh http add urlacl url=http://127.0.0.1:{settings.HttpPort}{McpHttpTransport.EndpointPath} user=Everyone");
+                CleanupFailedStart();
                 _isRunning = false;
             }
             catch (HttpListenerException ex) when (ex.ErrorCode == 183)
             {
                 LoopLogger.Error($"{McpProtocol.LogPrefix} [HTTP] Port {settings.HttpPort} is already in use");
+                CleanupFailedStart();
                 _isRunning = false;
             }
             catch (Exception ex)
             {
                 LoopLogger.Error($"{McpProtocol.LogPrefix} [HTTP] Failed to start server: {prefix} {ex.Message}");
+                CleanupFailedStart();
                 _isRunning = false;
             }
         }
@@ -123,15 +135,43 @@ namespace UnityCodeMcpServer.Servers.StreamableHttp
         /// </summary>
         public static void StopServer()
         {
+            StopServer("requested");
+        }
+
+        public static void StopServer(string reason)
+        {
+            StopServerInternal(reason, cancelPendingRestart: true);
+        }
+
+        private static void StopServerInternal(string reason, bool cancelPendingRestart)
+        {
+            if (cancelPendingRestart)
+            {
+                lock (_lifecycleLock)
+                {
+                    _restartScheduled = false;
+                    _restartGeneration++;
+                }
+            }
+
             if (!_isRunning)
                 return;
 
-            LoopLogger.Debug($"{McpProtocol.LogPrefix} [HTTP] Stopping server...");
+            LoopLogger.Debug($"{McpProtocol.LogPrefix} [HTTP] Stopping server reason={reason}");
 
             // Cancel all pending operations
             _serverCts?.Cancel();
 
             // Stop and close the listener
+            try
+            {
+                _listener?.Abort();
+            }
+            catch (Exception ex)
+            {
+                LoopLogger.Warn($"{McpProtocol.LogPrefix} [HTTP] Error aborting listener: {ex.Message}");
+            }
+
             try
             {
                 _listener?.Stop();
@@ -165,17 +205,17 @@ namespace UnityCodeMcpServer.Servers.StreamableHttp
             _registry = null;
             _isRunning = false;
 
-            LoopLogger.Debug($"{McpProtocol.LogPrefix} [HTTP] Server stopped");
+            LoopLogger.Debug($"{McpProtocol.LogPrefix} [HTTP] Server stopped reason={reason}");
         }
 
         private static void OnEditorQuitting()
         {
-            StopServer();
+            StopServer("editor-quitting");
         }
 
         private static void OnBeforeAssemblyReload()
         {
-            StopServer();
+            StopServer("assembly-reload");
         }
 
         /// <summary>
@@ -253,10 +293,28 @@ namespace UnityCodeMcpServer.Servers.StreamableHttp
 
         private static async UniTaskVoid RestartServerAsync()
         {
-            StopServer();
-            // Wait for resources to be fully released
-            await UniTask.Delay(200);
-            StartServer();
+            int restartGeneration;
+            lock (_lifecycleLock)
+            {
+                _restartScheduled = true;
+                restartGeneration = ++_restartGeneration;
+            }
+
+            StopServerInternal("restart-requested", cancelPendingRestart: false);
+
+            // Wait for the HTTP listener to release the URL reservation before restarting.
+            await UniTask.Delay(RestartDelayMs);
+
+            lock (_lifecycleLock)
+            {
+                if (!_restartScheduled || restartGeneration != _restartGeneration)
+                {
+                    LoopLogger.Trace($"{McpProtocol.LogPrefix} [HTTP] Skipping stale restart generation={restartGeneration}");
+                    return;
+                }
+            }
+
+            StartServer("scheduled-restart", consumeScheduledRestart: true);
         }
 
         /// <summary>
@@ -304,6 +362,64 @@ namespace UnityCodeMcpServer.Servers.StreamableHttp
         /// Check if the HTTP server is running
         /// </summary>
         public static bool IsRunning => _isRunning;
+
+        private static bool TryBeginStart(string reason, bool consumeScheduledRestart = false)
+        {
+            lock (_lifecycleLock)
+            {
+                if (_isRunning)
+                {
+                    LoopLogger.Trace($"{McpProtocol.LogPrefix} [HTTP] Server already running reason={reason}");
+                    return false;
+                }
+
+                if (_restartScheduled && !consumeScheduledRestart)
+                {
+                    LoopLogger.Trace($"{McpProtocol.LogPrefix} [HTTP] Start skipped because restart is pending reason={reason}");
+                    return false;
+                }
+
+                if (consumeScheduledRestart)
+                {
+                    _restartScheduled = false;
+                }
+
+                return true;
+            }
+        }
+
+        private static void CleanupFailedStart()
+        {
+            try
+            {
+                _listener?.Close();
+            }
+            catch
+            {
+                // Ignore cleanup errors for failed starts.
+            }
+            finally
+            {
+                _listener = null;
+            }
+
+            try
+            {
+                _serverCts?.Dispose();
+            }
+            catch
+            {
+                // Ignore cleanup errors for failed starts.
+            }
+            finally
+            {
+                _serverCts = null;
+            }
+
+            _requestHandler = null;
+            _messageHandler = null;
+            _registry = null;
+        }
 
         private static string BuildRegistrySummary()
         {

@@ -60,6 +60,7 @@ namespace UnityCodeMcpServer.Tests.EditMode
             mockFS.Directories.Add(source);
             mockFS.Files.Add(source + "/src/unity_code_mcp_stdio/__init__.py", "init");
             mockFS.Files.Add(source + "/src/unity_code_mcp_stdio/unity_code_mcp_bridge_stdio.py", "python code");
+            mockFS.Files.Add(source + "/src/unity_code_mcp_stdio/unity_code_mcp_bridge_stdio_over_http.py", "http python code");
             mockFS.Files.Add(source + "/pyproject.toml", "toml content");
             mockFS.Files.Add(source + "/uv.lock", "lock content");
 
@@ -70,9 +71,10 @@ namespace UnityCodeMcpServer.Tests.EditMode
 
             // Assert
             Assert.IsTrue(result);
-            Assert.AreEqual(4, mockFS.CopiedFiles.Count);
+            Assert.AreEqual(5, mockFS.CopiedFiles.Count);
             Assert.IsTrue(mockFS.CopiedFiles.Any(f => f.Contains("__init__.py")));
             Assert.IsTrue(mockFS.CopiedFiles.Any(f => f.Contains("unity_code_mcp_bridge_stdio.py")));
+            Assert.IsTrue(mockFS.CopiedFiles.Any(f => f.Contains("unity_code_mcp_bridge_stdio_over_http.py")));
             Assert.IsTrue(mockFS.CopiedFiles.Any(f => f.Contains("pyproject.toml")));
             Assert.IsTrue(mockFS.CopiedFiles.Any(f => f.Contains("uv.lock")));
         }
@@ -91,12 +93,14 @@ namespace UnityCodeMcpServer.Tests.EditMode
             // Add source files
             mockFS.Files.Add(source + "/src/unity_code_mcp_stdio/__init__.py", "init");
             mockFS.Files.Add(source + "/src/unity_code_mcp_stdio/unity_code_mcp_bridge_stdio.py", "python code");
+            mockFS.Files.Add(source + "/src/unity_code_mcp_stdio/unity_code_mcp_bridge_stdio_over_http.py", "http python code");
             mockFS.Files.Add(source + "/pyproject.toml", "toml content");
             mockFS.Files.Add(source + "/uv.lock", "lock content");
 
             // Add existing target files with same content (same hash)
             mockFS.Files.Add(target + "/src/unity_code_mcp_stdio/__init__.py", "init");
             mockFS.Files.Add(target + "/src/unity_code_mcp_stdio/unity_code_mcp_bridge_stdio.py", "python code");
+            mockFS.Files.Add(target + "/src/unity_code_mcp_stdio/unity_code_mcp_bridge_stdio_over_http.py", "http python code");
             mockFS.Files.Add(target + "/pyproject.toml", "toml content");
             mockFS.Files.Add(target + "/uv.lock", "lock content");
 
@@ -124,12 +128,14 @@ namespace UnityCodeMcpServer.Tests.EditMode
             // Add source files
             mockFS.Files.Add(source + "/src/unity_code_mcp_stdio/__init__.py", "init");
             mockFS.Files.Add(source + "/src/unity_code_mcp_stdio/unity_code_mcp_bridge_stdio.py", "NEW python code");
+            mockFS.Files.Add(source + "/src/unity_code_mcp_stdio/unity_code_mcp_bridge_stdio_over_http.py", "NEW http python code");
             mockFS.Files.Add(source + "/pyproject.toml", "toml content");
             mockFS.Files.Add(source + "/uv.lock", "NEW lock content");
 
             // Add existing target files - only pyproject.toml matches
             mockFS.Files.Add(target + "/src/unity_code_mcp_stdio/__init__.py", "init"); // Same
             mockFS.Files.Add(target + "/src/unity_code_mcp_stdio/unity_code_mcp_bridge_stdio.py", "OLD python code");
+            mockFS.Files.Add(target + "/src/unity_code_mcp_stdio/unity_code_mcp_bridge_stdio_over_http.py", "OLD http python code");
             mockFS.Files.Add(target + "/pyproject.toml", "toml content"); // Same content
             mockFS.Files.Add(target + "/uv.lock", "OLD lock content");
 
@@ -140,9 +146,10 @@ namespace UnityCodeMcpServer.Tests.EditMode
 
             // Assert
             Assert.IsTrue(result); // Changed files were copied
-            Assert.AreEqual(2, mockFS.CopiedFiles.Count); // Only 2 changed files
+            Assert.AreEqual(3, mockFS.CopiedFiles.Count); // Only changed files
             Assert.IsFalse(mockFS.CopiedFiles.Any(f => f.Contains("__init__.py"))); // Unchanged
             Assert.IsTrue(mockFS.CopiedFiles.Any(f => f.Contains("unity_code_mcp_bridge_stdio.py")));
+            Assert.IsTrue(mockFS.CopiedFiles.Any(f => f.Contains("unity_code_mcp_bridge_stdio_over_http.py")));
             Assert.IsFalse(mockFS.CopiedFiles.Any(f => f.Contains("pyproject.toml"))); // Unchanged
             Assert.IsTrue(mockFS.CopiedFiles.Any(f => f.Contains("uv.lock")));
         }
