@@ -69,7 +69,7 @@ def build_server_parameters(bridge_dir: Path) -> StdioServerParameters:
             "run",
             "--directory",
             str(bridge_dir),
-            "unity-code-mcp-stdio",
+            "unity-code-mcp-stdio-over-http",
         ],
     )
 
@@ -171,9 +171,9 @@ var elapsedMilliseconds = (UnityEditor.EditorApplication.timeSinceStartup - star
 UnityEngine.Debug.Log($"Long-running script completed elapsed_ms={{elapsedMilliseconds:F0}} iterations={{iterations}}");"""
 
 
-def workspace_to_asset_path(path: Path) -> str:
+def workspace_to_asset_path(path: Path, workspace_root: Path) -> str:
     resolved_path = path.resolve()
-    resolved_root = WORKSPACE_ROOT.resolve()
+    resolved_root = workspace_root.resolve()
     relative_path = resolved_path.relative_to(resolved_root)
     if not relative_path.parts or relative_path.parts[0] != "Assets":
         raise ValueError(f"Path is not inside the Unity Assets folder: {path}")
@@ -332,7 +332,9 @@ async def execute_operation(
             source, timestamp
         )
         atomic_write_text(args.domain_reload_file, updated)
-        asset_path = workspace_to_asset_path(args.domain_reload_file)
+        asset_path = workspace_to_asset_path(
+            args.domain_reload_file, args.workspace_dir or WORKSPACE_ROOT
+        )
         success, result = await call_tool_and_log(
             session,
             TOOL_EXECUTE_CSHARP,
@@ -357,7 +359,9 @@ async def execute_operation(
         return success, normalize_for_json(response)
 
     if operation.name == "force_domain_recompile_and_reload":
-        asset_path = workspace_to_asset_path(args.domain_reload_file)
+        asset_path = workspace_to_asset_path(
+            args.domain_reload_file, args.workspace_dir or WORKSPACE_ROOT
+        )
         success, result = await call_tool_and_log(
             session,
             TOOL_EXECUTE_CSHARP,
@@ -459,7 +463,7 @@ class ScriptSelfTests(unittest.TestCase):
         )
 
     def test_workspace_to_asset_path_returns_project_relative_assets_path(self) -> None:
-        asset_path = workspace_to_asset_path(DEFAULT_DOMAIN_RELOAD_FILE)
+        asset_path = workspace_to_asset_path(DEFAULT_DOMAIN_RELOAD_FILE, WORKSPACE_ROOT)
 
         self.assertEqual(asset_path, "Assets/Tests/Mcp/TestDomainReload.cs")
 
@@ -592,6 +596,86 @@ class ScriptSelfTests(unittest.TestCase):
 
         self.assertEqual(blocks, ["block one", "block two"])
 
+    def test_parse_args_workspace_dir_dot_uses_current_working_directory(self) -> None:
+        original_argv = sys.argv[:]
+        original_cwd = Path.cwd()
+        temp_dir = Path(self._testMethodName)
+        temp_dir.mkdir(exist_ok=True)
+        try:
+            os.chdir(temp_dir)
+            expected_workspace_dir = Path.cwd().resolve()
+            sys.argv = [
+                "mcp_random_tester.py",
+                "--workspace-dir",
+                ".",
+            ]
+
+            args = parse_args()
+
+            self.assertEqual(args.workspace_dir, expected_workspace_dir)
+            self.assertEqual(
+                args.bridge_dir,
+                expected_workspace_dir
+                / "Assets"
+                / "Plugins"
+                / "UnityCodeMcpServer"
+                / "Editor"
+                / "STDIO~",
+            )
+            self.assertEqual(
+                args.domain_reload_file,
+                expected_workspace_dir
+                / "Assets"
+                / "Tests"
+                / "Mcp"
+                / "TestDomainReload.cs",
+            )
+        finally:
+            os.chdir(original_cwd)
+            temp_dir.rmdir()
+            sys.argv = original_argv
+
+    def test_parse_args_workspace_dir_relative_child_uses_current_working_directory(
+        self,
+    ) -> None:
+        original_argv = sys.argv[:]
+        original_cwd = Path.cwd()
+        temp_dir = Path(self._testMethodName)
+        temp_dir.mkdir(exist_ok=True)
+        try:
+            os.chdir(temp_dir)
+            expected_workspace_dir = (Path.cwd() / "Assets" / "Tests" / "..").resolve()
+            sys.argv = [
+                "mcp_random_tester.py",
+                "--workspace-dir",
+                "Assets/Tests/..",
+            ]
+
+            args = parse_args()
+
+            self.assertEqual(args.workspace_dir, expected_workspace_dir)
+            self.assertEqual(
+                args.bridge_dir,
+                expected_workspace_dir
+                / "Assets"
+                / "Plugins"
+                / "UnityCodeMcpServer"
+                / "Editor"
+                / "STDIO~",
+            )
+            self.assertEqual(
+                args.domain_reload_file,
+                expected_workspace_dir
+                / "Assets"
+                / "Tests"
+                / "Mcp"
+                / "TestDomainReload.cs",
+            )
+        finally:
+            os.chdir(original_cwd)
+            temp_dir.rmdir()
+            sys.argv = original_argv
+
 
 def run_self_tests() -> int:
     suite = unittest.defaultTestLoader.loadTestsFromTestCase(ScriptSelfTests)
@@ -610,7 +694,9 @@ async def run_sequence(_args: argparse.Namespace) -> int:
     log_json(
         "startup",
         {
-            "workspace_root": WORKSPACE_ROOT,
+            "workspace_dir": args.workspace_dir
+            if args.workspace_dir
+            else WORKSPACE_ROOT,
             "bridge_dir": args.bridge_dir,
             "domain_reload_file": args.domain_reload_file,
             "sequence_length": args.sequence_length,
@@ -721,6 +807,11 @@ def parse_args() -> argparse.Namespace:
         "--self-test", action="store_true", help="Run the built-in self-tests and exit"
     )
     parser.add_argument(
+        "--workspace-dir",
+        type=Path,
+        help="Root workspace directory (overrides default bridge-dir and domain-reload-file)",
+    )
+    parser.add_argument(
         "--sequence-length",
         type=int,
         default=20,
@@ -730,13 +821,13 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--bridge-dir",
         type=Path,
-        default=DEFAULT_BRIDGE_DIR,
+        default=None,
         help="Path to the Unity STDIO bridge directory",
     )
     parser.add_argument(
         "--domain-reload-file",
         type=Path,
-        default=DEFAULT_DOMAIN_RELOAD_FILE,
+        default=None,
         help="Path to the C# file whose timestamp marker is updated to force domain reloads",
     )
     parser.add_argument(
@@ -768,7 +859,33 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="Stop the sequence immediately after the first failed operation; without this flag the script records the failure and continues",
     )
-    return parser.parse_args()
+
+    args = parser.parse_args()
+
+    # If workspace-dir is provided, resolve it from the caller's current working directory.
+    if args.workspace_dir is not None:
+        args.workspace_dir = args.workspace_dir.resolve()
+        if args.bridge_dir is None:
+            args.bridge_dir = (
+                args.workspace_dir
+                / "Assets"
+                / "Plugins"
+                / "UnityCodeMcpServer"
+                / "Editor"
+                / "STDIO~"
+            )
+        if args.domain_reload_file is None:
+            args.domain_reload_file = (
+                args.workspace_dir / "Assets" / "Tests" / "Mcp" / "TestDomainReload.cs"
+            )
+    else:
+        # Use defaults if workspace-dir not provided
+        if args.bridge_dir is None:
+            args.bridge_dir = DEFAULT_BRIDGE_DIR
+        if args.domain_reload_file is None:
+            args.domain_reload_file = DEFAULT_DOMAIN_RELOAD_FILE
+
+    return args
 
 
 def main() -> int:

@@ -21,21 +21,11 @@ namespace UnityCodeMcpServer.Servers.StreamableHttp
     [InitializeOnLoad]
     public static class UnityCodeMcpHttpServer
     {
-        private const int MaxStartupRetryAttempts = 5;
-        private const int RestartDelayMs = 500;
-        private const int StartupRetryDelayMs = 1000;
-
         private static HttpListener _listener;
         private static CancellationTokenSource _serverCts;
         private static McpRegistry _registry;
         private static McpMessageHandler _messageHandler;
         private static HttpRequestHandler _requestHandler;
-        private static readonly object _lifecycleLock = new object();
-        private static bool _restartScheduled;
-        private static int _restartGeneration;
-        private static bool _startupRetryScheduled;
-        private static int _startupRetryAttempt;
-        private static bool _isRunning;
 
         static UnityCodeMcpHttpServer()
         {
@@ -49,25 +39,12 @@ namespace UnityCodeMcpServer.Servers.StreamableHttp
             EditorApplication.quitting += OnEditorQuitting;
             AssemblyReloadEvents.beforeAssemblyReload += OnBeforeAssemblyReload;
             AssemblyReloadEvents.afterAssemblyReload += OnAfterAssemblyReload;
-
-            // Defer server startup to after domain load completes
-            // This prevents blocking during "Completing Domain Reload"
-            EditorApplication.delayCall += OnDelayedStart;
         }
 
         private static void OnAfterAssemblyReload()
         {
-            LoopLogger.Debug($"{McpProtocol.LogPrefix} Assembly reload completed");
-        }
-
-        private static void OnDelayedStart()
-        {
-            LoopLogger.Debug($"{McpProtocol.LogPrefix} Delayed start triggered");
-            // Unsubscribe to prevent multiple calls
-            EditorApplication.delayCall -= OnDelayedStart;
-
-            // Start the server if enabled
-            StartServer("delayed-start");
+            LoopLogger.Debug($"{McpProtocol.LogPrefix} [HTTP] UnityCodeMcpHttpServer Assembly reload completed");
+            StartServer("assembly-reload");
         }
 
         /// <summary>
@@ -78,7 +55,7 @@ namespace UnityCodeMcpServer.Servers.StreamableHttp
             StartServer("requested");
         }
 
-        private static void StartServer(string reason, bool consumeScheduledRestart = false)
+        private static void StartServer(string reason)
         {
             var settings = UnityCodeMcpServerSettings.Instance;
 
@@ -88,8 +65,9 @@ namespace UnityCodeMcpServer.Servers.StreamableHttp
                 return;
             }
 
-            if (!TryBeginStart(reason, consumeScheduledRestart))
+            if (_listener != null)
             {
+                LoopLogger.Debug($"{McpProtocol.LogPrefix} [HTTP] Start skipped because listener already exists reason={reason}");
                 return;
             }
 
@@ -112,13 +90,6 @@ namespace UnityCodeMcpServer.Servers.StreamableHttp
                 _listener.Prefixes.Add(prefix);
 
                 _listener.Start();
-                _isRunning = true;
-
-                lock (_lifecycleLock)
-                {
-                    _startupRetryScheduled = false;
-                    _startupRetryAttempt = 0;
-                }
 
                 LoopLogger.Info($"{McpProtocol.LogPrefix} [HTTP] Server started on {prefix}\n{BuildRegistrySummary()}");
 
@@ -131,33 +102,23 @@ namespace UnityCodeMcpServer.Servers.StreamableHttp
                 LoopLogger.Error($"{McpProtocol.LogPrefix} [HTTP] Access denied. Run as admin or add URL reservation:\n" +
                     $"netsh http add urlacl url=http://127.0.0.1:{settings.HttpPort}{McpHttpTransport.EndpointPath} user=Everyone");
                 CleanupFailedStart();
-                _isRunning = false;
             }
-            catch (HttpListenerException ex) when (ex.ErrorCode == 183)
+            catch (HttpListenerException ex)
             {
-                if (TryScheduleStartupRetry(reason, prefix, ex))
+                if (ex.ErrorCode == 183)
                 {
-                    CleanupFailedStart();
-                    _isRunning = false;
-                    return;
+                    LoopLogger.Error($"{McpProtocol.LogPrefix} [HTTP] Port {settings.HttpPort} is already in use");
                 }
-
-                LoopLogger.Error($"{McpProtocol.LogPrefix} [HTTP] Port {settings.HttpPort} is already in use");
+                else
+                {
+                    LoopLogger.Error($"{McpProtocol.LogPrefix} [HTTP] Failed to start server: {prefix} {ex.Message}");
+                }
                 CleanupFailedStart();
-                _isRunning = false;
             }
             catch (Exception ex)
             {
-                if (IsBindConflict(ex) && TryScheduleStartupRetry(reason, prefix, ex))
-                {
-                    CleanupFailedStart();
-                    _isRunning = false;
-                    return;
-                }
-
                 LoopLogger.Error($"{McpProtocol.LogPrefix} [HTTP] Failed to start server: {prefix} {ex.Message}");
                 CleanupFailedStart();
-                _isRunning = false;
             }
         }
 
@@ -171,24 +132,10 @@ namespace UnityCodeMcpServer.Servers.StreamableHttp
 
         public static void StopServer(string reason)
         {
-            StopServerInternal(reason, cancelPendingRestart: true);
-        }
-
-        private static void StopServerInternal(string reason, bool cancelPendingRestart)
-        {
-            if (cancelPendingRestart)
+            if (_listener == null && _serverCts == null)
             {
-                lock (_lifecycleLock)
-                {
-                    _restartScheduled = false;
-                    _restartGeneration++;
-                    _startupRetryScheduled = false;
-                    _startupRetryAttempt = 0;
-                }
-            }
-
-            if (!_isRunning)
                 return;
+            }
 
             LoopLogger.Debug($"{McpProtocol.LogPrefix} [HTTP] Stopping server reason={reason}");
 
@@ -236,7 +183,6 @@ namespace UnityCodeMcpServer.Servers.StreamableHttp
             _requestHandler = null;
             _messageHandler = null;
             _registry = null;
-            _isRunning = false;
 
             LoopLogger.Debug($"{McpProtocol.LogPrefix} [HTTP] Server stopped reason={reason}");
         }
@@ -249,7 +195,7 @@ namespace UnityCodeMcpServer.Servers.StreamableHttp
 
         private static void OnBeforeAssemblyReload()
         {
-            LoopLogger.Debug($"{McpProtocol.LogPrefix} Assembly reload starting");
+            LoopLogger.Debug($"{McpProtocol.LogPrefix} [HTTP] Assembly reload starting");
             StopServer("assembly-reload");
         }
 
@@ -323,33 +269,12 @@ namespace UnityCodeMcpServer.Servers.StreamableHttp
         [MenuItem("Tools/UnityCodeMcpServer/HTTP/Restart Server")]
         public static void RestartServer()
         {
-            RestartServerAsync().Forget();
-        }
-
-        private static async UniTaskVoid RestartServerAsync()
-        {
-            int restartGeneration;
-            lock (_lifecycleLock)
+            if (_listener != null)
             {
-                _restartScheduled = true;
-                restartGeneration = ++_restartGeneration;
+                StopServer("restart-requested");
             }
 
-            StopServerInternal("restart-requested", cancelPendingRestart: false);
-
-            // Wait for the HTTP listener to release the URL reservation before restarting.
-            await UniTask.Delay(RestartDelayMs);
-
-            lock (_lifecycleLock)
-            {
-                if (!_restartScheduled || restartGeneration != _restartGeneration)
-                {
-                    LoopLogger.Trace($"{McpProtocol.LogPrefix} [HTTP] Skipping stale restart generation={restartGeneration}");
-                    return;
-                }
-            }
-
-            StartServer("scheduled-restart", consumeScheduledRestart: true);
+            StartServer("restart-requested");
         }
 
         /// <summary>
@@ -360,7 +285,7 @@ namespace UnityCodeMcpServer.Servers.StreamableHttp
         {
             var settings = UnityCodeMcpServerSettings.Instance;
 
-            var status = _isRunning ? "Running" : "Stopped";
+            var status = _listener != null && _listener.IsListening ? "Running" : "Stopped";
 
             LoopLogger.Info($"{McpProtocol.LogPrefix} [HTTP] Server Status:\n" +
                 $"  Status: {status}\n" +
@@ -393,42 +318,6 @@ namespace UnityCodeMcpServer.Servers.StreamableHttp
 
         #region Public Properties
 
-        /// <summary>
-        /// Check if the HTTP server is running
-        /// </summary>
-        public static bool IsRunning => _isRunning;
-
-        private static bool TryBeginStart(string reason, bool consumeScheduledRestart = false)
-        {
-            lock (_lifecycleLock)
-            {
-                if (_isRunning)
-                {
-                    LoopLogger.Trace($"{McpProtocol.LogPrefix} [HTTP] Server already running reason={reason}");
-                    return false;
-                }
-
-                if (_restartScheduled && !consumeScheduledRestart)
-                {
-                    LoopLogger.Trace($"{McpProtocol.LogPrefix} [HTTP] Start skipped because restart is pending reason={reason}");
-                    return false;
-                }
-
-                if (_startupRetryScheduled && !string.Equals(reason, "delayed-start-retry", StringComparison.Ordinal))
-                {
-                    LoopLogger.Trace($"{McpProtocol.LogPrefix} [HTTP] Start skipped because delayed-start retry is pending reason={reason}");
-                    return false;
-                }
-
-                if (consumeScheduledRestart)
-                {
-                    _restartScheduled = false;
-                }
-
-                return true;
-            }
-        }
-
         private static void CleanupFailedStart()
         {
             try
@@ -460,65 +349,6 @@ namespace UnityCodeMcpServer.Servers.StreamableHttp
             _requestHandler = null;
             _messageHandler = null;
             _registry = null;
-        }
-
-        private static bool ShouldRetryBindConflict(string reason)
-        {
-            if (!string.Equals(reason, "delayed-start", StringComparison.Ordinal) &&
-                !string.Equals(reason, "delayed-start-retry", StringComparison.Ordinal))
-            {
-                return false;
-            }
-
-            return _startupRetryAttempt < MaxStartupRetryAttempts;
-        }
-
-        private static bool TryScheduleStartupRetry(string reason, string prefix, Exception exception)
-        {
-            lock (_lifecycleLock)
-            {
-                if (!ShouldRetryBindConflict(reason))
-                {
-                    return false;
-                }
-
-                if (_startupRetryScheduled)
-                {
-                    return true;
-                }
-
-                _startupRetryScheduled = true;
-                _startupRetryAttempt++;
-            }
-
-            LoopLogger.Warn(
-                $"{McpProtocol.LogPrefix} [HTTP] Delayed start bind conflict. Scheduling retry attempt={_startupRetryAttempt}/{MaxStartupRetryAttempts} prefix={prefix} error={exception.Message}");
-            RetryStartupAfterBindConflictAsync().Forget();
-            return true;
-        }
-
-        private static async UniTaskVoid RetryStartupAfterBindConflictAsync()
-        {
-            await UniTask.Delay(StartupRetryDelayMs);
-
-            lock (_lifecycleLock)
-            {
-                _startupRetryScheduled = false;
-            }
-
-            StartServer("delayed-start-retry");
-        }
-
-        private static bool IsBindConflict(Exception exception)
-        {
-            if (exception is HttpListenerException httpListenerException && httpListenerException.ErrorCode == 183)
-            {
-                return true;
-            }
-
-            return exception.Message.IndexOf(
-                "Only one usage of each socket address",
-                StringComparison.OrdinalIgnoreCase) >= 0;
         }
 
         private static string BuildRegistrySummary()
