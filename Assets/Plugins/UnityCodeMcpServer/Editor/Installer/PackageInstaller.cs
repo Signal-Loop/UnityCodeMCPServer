@@ -49,7 +49,7 @@ namespace UnityCodeMcpServer.Editor.Installer
                 }
                 else
                 {
-                    LoopLogger.Debug($"{Protocol.McpProtocol.LogPrefix} No files needed updating in: {targetPath}");
+                    LoopLogger.Trace($"{Protocol.McpProtocol.LogPrefix} No files needed updating in: {targetPath}");
                 }
 
                 return anyFilesCopied;
@@ -94,7 +94,7 @@ namespace UnityCodeMcpServer.Editor.Installer
                 }
                 else
                 {
-                    LoopLogger.Debug($"{Protocol.McpProtocol.LogPrefix} Skipped (unchanged): {NormalizePath(Path.Combine(targetDir, relativeFilePath))}");
+                    LoopLogger.Trace($"{Protocol.McpProtocol.LogPrefix} Skipped (unchanged): {NormalizePath(Path.Combine(targetDir, relativeFilePath))}");
                 }
             }
 

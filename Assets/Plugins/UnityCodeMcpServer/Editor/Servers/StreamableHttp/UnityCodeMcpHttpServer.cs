@@ -62,7 +62,7 @@ namespace UnityCodeMcpServer.Servers.StreamableHttp
         {
             if (_isRunning)
             {
-                LoopLogger.Debug($"{McpProtocol.LogPrefix} [HTTP] Server already running");
+                LoopLogger.Trace($"{McpProtocol.LogPrefix} [HTTP] Server already running");
                 return;
             }
 

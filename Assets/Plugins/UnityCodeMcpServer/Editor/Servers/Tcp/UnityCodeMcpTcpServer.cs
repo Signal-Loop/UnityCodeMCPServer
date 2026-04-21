@@ -66,7 +66,7 @@ namespace UnityCodeMcpServer.Servers.Tcp
 
             if (_isRunning)
             {
-                LoopLogger.Debug($"{McpProtocol.LogPrefix} [STDIO] Server already running");
+                LoopLogger.Trace($"{McpProtocol.LogPrefix} [STDIO] Server already running");
                 return;
             }
 
@@ -75,7 +75,7 @@ namespace UnityCodeMcpServer.Servers.Tcp
 
                 if (settings.StartupServer != UnityCodeMcpServerSettings.ServerStartupMode.Stdio)
                 {
-                    LoopLogger.Debug($"{McpProtocol.LogPrefix} [STDIO] Startup skipped because server selection is {settings.StartupServer}");
+                    LoopLogger.Trace($"{McpProtocol.LogPrefix} [STDIO] Startup skipped because server selection is {settings.StartupServer}");
                     return;
                 }
 
