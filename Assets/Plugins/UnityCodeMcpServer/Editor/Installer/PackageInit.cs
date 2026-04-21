@@ -24,12 +24,12 @@ namespace UnityCodeMcpServer.Editor.Installer
         private static void OnDelayCall()
         {
             EditorApplication.delayCall -= OnDelayCall;
-            LoopLogger.Debug($"{Protocol.McpProtocol.LogPrefix} EditorApplication.delayCall triggered");
+            LoopLogger.Debug($"{Protocol.McpProtocol.LogPrefix} [PackageInit] EditorApplication.delayCall triggered");
         }
 
         private static void OnRegisteringPackages(PackageRegistrationEventArgs args)
         {
-            LoopLogger.Debug($"{Protocol.McpProtocol.LogPrefix} Package registration event");
+            LoopLogger.Debug($"{Protocol.McpProtocol.LogPrefix} [PackageInit] Package registering event");
             RunInstaller();
         }
 
@@ -46,7 +46,7 @@ namespace UnityCodeMcpServer.Editor.Installer
                 packageRoot = Path.GetFullPath("Assets/Plugins/UnityCodeMcpServer");
                 if (!Directory.Exists(packageRoot))
                 {
-                    LoopLogger.Warn("[PackageInit] PackageInfo not found and fallback path does not exist. Skipping installation.");
+                    LoopLogger.Warn($"{Protocol.McpProtocol.LogPrefix} [PackageInit] PackageInfo not found and fallback path does not exist. Skipping installation.");
                     return;
                 }
             }
@@ -67,14 +67,14 @@ namespace UnityCodeMcpServer.Editor.Installer
             IFileSystem fileSystem = new EditorFileSystem();
             PackageInstaller installer = new PackageInstaller(fileSystem);
 
-            LoopLogger.Debug($"{Protocol.McpProtocol.LogPrefix} Installing from {sourcePath} to {targetPath}");
+            LoopLogger.Debug($"{Protocol.McpProtocol.LogPrefix} [PackageInit] Installing from {sourcePath} to {targetPath}");
 
             RunInstallSteps(
                 skipPackageInstall,
                 () => installer.Install(sourcePath, targetPath),
                 () => InstallSkills(fileSystem));
 
-            LoopLogger.Debug($"{Protocol.McpProtocol.LogPrefix} Package installation process completed.");
+            LoopLogger.Debug($"{Protocol.McpProtocol.LogPrefix} [PackageInit] Package installation process completed.");
         }
 
         public static bool RunInstallSteps(bool skipPackageInstall, System.Func<bool> installPackageFiles, System.Func<bool> installSkills)
@@ -84,7 +84,7 @@ namespace UnityCodeMcpServer.Editor.Installer
                 {
                     if (skipPackageInstall)
                     {
-                        LoopLogger.Debug($"{Protocol.McpProtocol.LogPrefix} Source and target are the same, skipping STDIO installation.");
+                        LoopLogger.Debug($"{Protocol.McpProtocol.LogPrefix} [PackageInit] Source and target are the same, skipping STDIO installation.");
                         return false;
                     }
 
@@ -98,7 +98,7 @@ namespace UnityCodeMcpServer.Editor.Installer
             string sourcePath = UnityCodeMcpServerSettingsEditor.ResolveSkillsSourcePath();
             if (string.IsNullOrEmpty(sourcePath))
             {
-                LoopLogger.Warn($"{Protocol.McpProtocol.LogPrefix} Could not locate the Skills source directory within the package. Skipping skills install.");
+                LoopLogger.Warn($"{Protocol.McpProtocol.LogPrefix} [PackageInit] Could not locate the Skills source directory within the package. Skipping skills install.");
                 return false;
             }
 
@@ -106,7 +106,7 @@ namespace UnityCodeMcpServer.Editor.Installer
             string targetPath = settings.GetEffectiveSkillsTargetPath();
             if (string.IsNullOrWhiteSpace(targetPath))
             {
-                LoopLogger.Warn($"{Protocol.McpProtocol.LogPrefix} Skills target directory is empty. Skipping skills install.");
+                LoopLogger.Warn($"{Protocol.McpProtocol.LogPrefix} [PackageInit] Skills target directory is empty. Skipping skills install.");
                 return false;
             }
 
