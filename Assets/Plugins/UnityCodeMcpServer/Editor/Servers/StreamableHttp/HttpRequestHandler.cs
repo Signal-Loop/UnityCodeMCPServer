@@ -40,7 +40,7 @@ namespace UnityCodeMcpServer.Servers.StreamableHttp
 
     /// <summary>
     /// Handles HTTP requests for the MCP Streamable HTTP transport.
-    /// Implements routing, session validation, and request processing.
+    /// This bridge-focused implementation accepts POST request/response traffic only.
     /// </summary>
     public sealed class HttpRequestHandler
     {
@@ -76,31 +76,14 @@ namespace UnityCodeMcpServer.Servers.StreamableHttp
                     return;
                 }
 
-                // Route by HTTP method
-                switch (request.HttpMethod.ToUpperInvariant())
+                if (string.Equals(request.HttpMethod, "POST", StringComparison.OrdinalIgnoreCase))
                 {
-                    case "POST":
-                        await HandlePostAsync(context, ct);
-                        break;
-
-                    case "GET":
-                        await HandleGetAsync(context, ct);
-                        break;
-
-                    case "DELETE":
-                        await HandleDeleteAsync(context, ct);
-                        break;
-
-                    case "OPTIONS":
-                        // CORS preflight
-                        await HandleOptionsAsync(context, ct);
-                        break;
-
-                    default:
-                        response.Headers.Add("Allow", "GET, POST, DELETE, OPTIONS");
-                        await SendErrorResponseAsync(response, 405, "Method Not Allowed", ct);
-                        break;
+                    await HandlePostAsync(context, ct);
+                    return;
                 }
+
+                response.Headers.Add("Allow", "POST");
+                await SendErrorResponseAsync(response, 405, "Method Not Allowed", ct);
             }
             catch (OperationCanceledException)
             {
@@ -164,65 +147,18 @@ namespace UnityCodeMcpServer.Servers.StreamableHttp
 
             LoopLogger.Trace($"{McpProtocol.LogPrefix} [HTTP] Received: {requestBody}");
 
-            // Parse to determine if this is an initialize request
-            bool isInitializeRequest = false;
             bool isNotification = false;
             try
             {
                 using (var doc = JsonDocument.Parse(requestBody))
                 {
                     var root = doc.RootElement;
-                    if (root.TryGetProperty("method", out var methodProp))
-                    {
-                        var method = methodProp.GetString();
-                        isInitializeRequest = method == McpMethods.Initialize;
-
-                        // Check if notification (no id field)
-                        isNotification = !root.TryGetProperty("id", out _);
-                    }
+                    isNotification = !root.TryGetProperty("id", out _);
                 }
             }
             catch (JsonException)
             {
                 // Will be handled by message processor
-            }
-
-            // Session validation
-            var sessionId = request.Headers[McpHttpTransport.SessionIdHeader];
-
-            if (isInitializeRequest)
-            {
-                // Create new session for initialize requests
-                sessionId = _sessionManager.CreateSession();
-            }
-            else
-            {
-                // Validate existing session for non-initialize requests
-                if (string.IsNullOrEmpty(sessionId))
-                {
-                    await SendJsonRpcErrorAsync(response, null, JsonRpcErrorCodes.InvalidRequest,
-                        "Missing session ID header", 400, ct);
-                    return;
-                }
-
-                if (!_sessionManager.ValidateSession(sessionId))
-                {
-                    await SendJsonRpcErrorAsync(response, null, JsonRpcErrorCodes.InvalidRequest,
-                        "Invalid or expired session", 404, ct);
-                    return;
-                }
-
-                _sessionManager.TouchSession(sessionId);
-            }
-
-            // Mark session as initialized if this is an initialize request
-            if (isInitializeRequest)
-            {
-                var session = _sessionManager.GetSession(sessionId);
-                if (session != null)
-                {
-                    session.IsInitialized = true;
-                }
             }
 
             // Process message on main thread for Unity API access
@@ -233,187 +169,13 @@ namespace UnityCodeMcpServer.Servers.StreamableHttp
             if (isNotification || responseJson == null)
             {
                 response.StatusCode = 202;
-                response.Headers.Add(McpHttpTransport.SessionIdHeader, sessionId);
                 response.Close();
                 return;
             }
 
             // Return JSON response (could also use SSE if client prefers and server wants)
             // For simplicity, we return JSON for single request-response
-            await SendJsonResponseAsync(response, responseJson, sessionId, ct);
-        }
-
-        /// <summary>
-        /// Handle GET requests - open SSE stream for server-initiated messages
-        /// </summary>
-        private async UniTask HandleGetAsync(HttpListenerContext context, CancellationToken ct)
-        {
-            var request = context.Request;
-            var response = context.Response;
-
-            // Check Accept header
-            var acceptHeader = request.Headers["Accept"] ?? "";
-            if (!acceptHeader.Contains(McpHttpTransport.ContentTypeSse))
-            {
-                await SendErrorResponseAsync(response, 406,
-                    $"Accept header must include {McpHttpTransport.ContentTypeSse}", ct);
-                return;
-            }
-
-            // Session validation
-            var sessionId = request.Headers[McpHttpTransport.SessionIdHeader];
-            SessionState session = null;
-
-            if (!string.IsNullOrEmpty(sessionId))
-            {
-                session = _sessionManager.GetSession(sessionId);
-                if (session == null)
-                {
-                    await SendErrorResponseAsync(response, 404, "Session not found or expired", ct);
-                    return;
-                }
-
-                if (!session.IsInitialized)
-                {
-                    await SendErrorResponseAsync(response, 400, "Session not initialized", ct);
-                    return;
-                }
-
-                _sessionManager.TouchSession(sessionId);
-            }
-            else
-            {
-                await SendErrorResponseAsync(response, 400, "Missing session ID header", ct);
-                return;
-            }
-
-            // Check Last-Event-ID for resumability (optional feature)
-            var lastEventId = request.Headers["Last-Event-ID"];
-            if (!string.IsNullOrEmpty(lastEventId))
-            {
-                LoopLogger.Debug($"{McpProtocol.LogPrefix} [HTTP] Client attempting to resume from event: {lastEventId}");
-            }
-
-            // Create SSE stream
-            var sseWriter = new SseStreamWriter(response);
-
-            try
-            {
-                sseWriter.Initialize();
-                response.Headers.Add(McpHttpTransport.SessionIdHeader, sessionId);
-
-                // Close any existing SSE stream before setting new one
-                session.CloseSseStream();
-                session.SetSseStream(sseWriter);
-
-                LoopLogger.Debug($"{McpProtocol.LogPrefix} [HTTP] SSE stream opened for session: {sessionId}");
-
-                // Keep connection alive with periodic pings
-                var keepAliveInterval = Math.Max(5, UnityCodeMcpServerSettings.Instance.SseKeepAliveIntervalSeconds);
-                try
-                {
-                    using (var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(ct, session.CancellationTokenSource.Token))
-                    {
-                        // Send initial keepalive immediately to confirm connection
-                        await sseWriter.WriteKeepAliveAsync(linkedCts.Token);
-
-                        while (!linkedCts.Token.IsCancellationRequested && !sseWriter.IsDisposed)
-                        {
-                            await Task.Delay(TimeSpan.FromSeconds(keepAliveInterval), linkedCts.Token);
-
-                            // Touch session on each keepalive to prevent timeout
-                            _sessionManager.TouchSession(sessionId);
-
-                            if (!sseWriter.IsDisposed)
-                            {
-                                await sseWriter.WriteKeepAliveAsync(linkedCts.Token);
-                            }
-                        }
-                    }
-                }
-                catch (OperationCanceledException)
-                {
-                    // Expected when session ends or server stops
-                }
-                catch (IOException)
-                {
-                    // Client disconnected - this is normal
-                    LoopLogger.Debug($"{McpProtocol.LogPrefix} [HTTP] SSE client disconnected for session: {sessionId}");
-                }
-                catch (Exception ex)
-                {
-                    LoopLogger.Warn($"{McpProtocol.LogPrefix} [HTTP] SSE stream error for session {sessionId}: {ex.Message}");
-                }
-                finally
-                {
-                    session.CloseSseStream();
-                    LoopLogger.Debug($"{McpProtocol.LogPrefix} [HTTP] SSE stream closed for session: {sessionId}");
-                }
-            }
-            catch (Exception ex)
-            {
-                LoopLogger.Error($"{McpProtocol.LogPrefix} [HTTP] Failed to setup SSE stream: {ex.Message}");
-                sseWriter?.Dispose();
-                throw;
-            }
-        }
-
-        /// <summary>
-        /// Handle DELETE requests - terminate session
-        /// </summary>
-        private async UniTask HandleDeleteAsync(HttpListenerContext context, CancellationToken ct)
-        {
-            var request = context.Request;
-            var response = context.Response;
-
-            var sessionId = request.Headers[McpHttpTransport.SessionIdHeader];
-            if (string.IsNullOrEmpty(sessionId))
-            {
-                await SendErrorResponseAsync(response, 400, "Missing session ID header", ct);
-                return;
-            }
-
-            var terminated = _sessionManager.TerminateSession(sessionId);
-            if (terminated)
-            {
-                response.StatusCode = 200;
-                response.Close();
-            }
-            else
-            {
-                await SendErrorResponseAsync(response, 404, "Session not found", ct);
-            }
-        }
-
-        /// <summary>
-        /// Handle OPTIONS requests for CORS preflight
-        /// </summary>
-        private UniTask HandleOptionsAsync(HttpListenerContext context, CancellationToken ct)
-        {
-            var request = context.Request;
-            var response = context.Response;
-
-            response.StatusCode = 204;
-
-            // Allow the requesting origin if it's localhost
-            var origin = request.Headers["Origin"];
-            if (!string.IsNullOrEmpty(origin))
-            {
-                response.Headers.Add("Access-Control-Allow-Origin", origin);
-            }
-            else
-            {
-                response.Headers.Add("Access-Control-Allow-Origin", "*");
-            }
-
-            response.Headers.Add("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS");
-            response.Headers.Add("Access-Control-Allow-Headers",
-                $"Content-Type, Accept, {McpHttpTransport.SessionIdHeader}, Last-Event-ID, Cache-Control");
-            response.Headers.Add("Access-Control-Expose-Headers", McpHttpTransport.SessionIdHeader);
-            response.Headers.Add("Access-Control-Max-Age", "86400");
-            response.Close();
-
-            return UniTask.CompletedTask;
+            await SendJsonResponseAsync(response, responseJson, ct);
         }
 
         /// <summary>
@@ -444,11 +206,10 @@ namespace UnityCodeMcpServer.Servers.StreamableHttp
         /// <summary>
         /// Send a JSON response
         /// </summary>
-        private async Task SendJsonResponseAsync(HttpListenerResponse response, string json, string sessionId, CancellationToken ct)
+        private async Task SendJsonResponseAsync(HttpListenerResponse response, string json, CancellationToken ct)
         {
             response.StatusCode = 200;
             response.ContentType = McpHttpTransport.ContentTypeJson;
-            response.Headers.Add(McpHttpTransport.SessionIdHeader, sessionId);
             response.Headers.Add("Access-Control-Allow-Origin", "*");
             response.Headers.Add("Access-Control-Expose-Headers", McpHttpTransport.SessionIdHeader);
 

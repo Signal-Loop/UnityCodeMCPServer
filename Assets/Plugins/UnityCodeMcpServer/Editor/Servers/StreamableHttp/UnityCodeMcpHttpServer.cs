@@ -74,6 +74,8 @@ namespace UnityCodeMcpServer.Servers.StreamableHttp
                 return;
             }
 
+            var prefix = $"http://127.0.0.1:{settings.HttpPort}/mcp/";
+
             try
             {
                 // Initialize registry and handlers
@@ -93,7 +95,6 @@ namespace UnityCodeMcpServer.Servers.StreamableHttp
 
                 // Bind to localhost only (127.0.0.1) for security
                 // HttpListener with trailing slash handles both /mcp and /mcp/
-                var prefix = $"http://127.0.0.1:{settings.HttpPort}/mcp/";
                 _listener.Prefixes.Add(prefix);
 
                 _listener.Start();
@@ -118,7 +119,7 @@ namespace UnityCodeMcpServer.Servers.StreamableHttp
             }
             catch (Exception ex)
             {
-                LoopLogger.Error($"{McpProtocol.LogPrefix} [HTTP] Failed to start server: {ex.Message}");
+                LoopLogger.Error($"{McpProtocol.LogPrefix} [HTTP] Failed to start server: {prefix} {ex.Message}");
                 _isRunning = false;
             }
         }
