@@ -51,7 +51,7 @@ namespace UnityCodeMcpServer.Editor.Installer
         {
             if (!_fileSystem.DirectoryExists(sourcePath))
             {
-                LoopLogger.Error($"{Protocol.McpProtocol.LogPrefix} Skills source directory not found: {sourcePath}");
+                LoopLogger.Error($"{Protocol.McpProtocol.LogPrefix} [SkillsInstaller] Skills source directory not found: {sourcePath}");
                 return SkillsInstallResult.Failure($"Source directory not found: {sourcePath}");
             }
 
@@ -78,25 +78,25 @@ namespace UnityCodeMcpServer.Editor.Installer
                         result.SkillFoldersUpdated++;
                         result.FilesUpdated += filesCopied;
                         LoopLogger.Info(
-                            $"{Protocol.McpProtocol.LogPrefix} Installed skill '{folderName}'" +
+                            $"{Protocol.McpProtocol.LogPrefix} [SkillsInstaller] Installed skill '{folderName}'" +
                             $" ({filesCopied} file(s) updated) to: {targetSkillFolder}");
                     }
                     else
                     {
                         LoopLogger.Trace(
-                            $"{Protocol.McpProtocol.LogPrefix} Skill '{folderName}' is already up to date.");
+                            $"{Protocol.McpProtocol.LogPrefix} [SkillsInstaller] Skill '{folderName}' is already up to date.");
                     }
                 }
 
                 if (result.AnyChanges)
-                    LoopLogger.Debug($"{Protocol.McpProtocol.LogPrefix} Skills install complete — {result}");
+                    LoopLogger.Debug($"{Protocol.McpProtocol.LogPrefix} [SkillsInstaller] Skills install complete — {result}");
                 else
-                    LoopLogger.Trace($"{Protocol.McpProtocol.LogPrefix} Skills install complete — {result}");
+                    LoopLogger.Trace($"{Protocol.McpProtocol.LogPrefix} [SkillsInstaller] Skills install complete — {result}");
                 return result;
             }
             catch (Exception ex)
             {
-                LoopLogger.Error($"{Protocol.McpProtocol.LogPrefix} Failed to install skills. Error: {ex.Message}");
+                LoopLogger.Error($"{Protocol.McpProtocol.LogPrefix} [SkillsInstaller] Failed to install skills. Error: {ex.Message}");
                 return SkillsInstallResult.Failure(ex.Message);
             }
         }
@@ -160,7 +160,7 @@ namespace UnityCodeMcpServer.Editor.Installer
 
                 _fileSystem.DeleteFile(oldTargetFilePath);
                 removedAnyFiles = true;
-                LoopLogger.Trace($"{Protocol.McpProtocol.LogPrefix} Removed old skill file: {oldTargetFilePath}");
+                LoopLogger.Trace($"{Protocol.McpProtocol.LogPrefix} [SkillsInstaller] Removed old skill file: {oldTargetFilePath}");
             }
 
             foreach (string sourceSubDir in _fileSystem.GetDirectories(sourceDir))
@@ -175,7 +175,7 @@ namespace UnityCodeMcpServer.Editor.Installer
                 _fileSystem.GetDirectories(oldTargetDir).Length == 0)
             {
                 _fileSystem.DeleteDirectory(oldTargetDir, recursive: false);
-                LoopLogger.Trace($"{Protocol.McpProtocol.LogPrefix} Removed empty old skill directory: {oldTargetDir}");
+                LoopLogger.Trace($"{Protocol.McpProtocol.LogPrefix} [SkillsInstaller] Removed empty old skill directory: {oldTargetDir}");
                 return true;
             }
 
@@ -189,7 +189,7 @@ namespace UnityCodeMcpServer.Editor.Installer
             if (!_fileSystem.DirectoryExists(targetDir))
             {
                 _fileSystem.CreateDirectory(targetDir);
-                LoopLogger.Trace($"{Protocol.McpProtocol.LogPrefix} Created directory: {targetDir}");
+                LoopLogger.Trace($"{Protocol.McpProtocol.LogPrefix} [SkillsInstaller] Created directory: {targetDir}");
             }
 
             foreach (string filePath in _fileSystem.GetFiles(sourceDir))
@@ -203,7 +203,7 @@ namespace UnityCodeMcpServer.Editor.Installer
                 if (ShouldCopyFile(filePath, destPath))
                 {
                     _fileSystem.CopyFile(filePath, destPath, overwrite: true);
-                    LoopLogger.Trace($"{Protocol.McpProtocol.LogPrefix} Copied: {destPath}");
+                    LoopLogger.Trace($"{Protocol.McpProtocol.LogPrefix} [SkillsInstaller] Copied: {destPath}");
                     filesCopied++;
                 }
             }
