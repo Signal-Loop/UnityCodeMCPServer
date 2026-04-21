@@ -25,7 +25,6 @@ namespace UnityCodeMcpServer.Servers.StreamableHttp
         private static CancellationTokenSource _serverCts;
         private static McpRegistry _registry;
         private static McpMessageHandler _messageHandler;
-        private static SessionManager _sessionManager;
         private static HttpRequestHandler _requestHandler;
         private static bool _isRunning;
 
@@ -82,12 +81,7 @@ namespace UnityCodeMcpServer.Servers.StreamableHttp
                 _registry = new McpRegistry();
                 _registry.DiscoverAndRegisterAll();
                 _messageHandler = new McpMessageHandler(_registry);
-                _sessionManager = new SessionManager(
-                    settings.SessionTimeoutSeconds,
-                    cleanupIntervalSeconds: 60
-                );
-                _sessionManager.StartCleanupLoop();
-                _requestHandler = new HttpRequestHandler(_messageHandler, _sessionManager);
+                _requestHandler = new HttpRequestHandler(_messageHandler);
 
                 // Configure and start HTTP listener
                 _serverCts = new CancellationTokenSource();
@@ -137,26 +131,6 @@ namespace UnityCodeMcpServer.Servers.StreamableHttp
             // Cancel all pending operations
             _serverCts?.Cancel();
 
-            // Terminate all sessions (closes SSE streams)
-            try
-            {
-                _sessionManager?.TerminateAllSessions();
-            }
-            catch (Exception ex)
-            {
-                LoopLogger.Warn($"{McpProtocol.LogPrefix} [HTTP] Error terminating sessions: {ex.Message}");
-            }
-
-            // Dispose session manager
-            try
-            {
-                _sessionManager?.Dispose();
-            }
-            catch (Exception ex)
-            {
-                LoopLogger.Warn($"{McpProtocol.LogPrefix} [HTTP] Error disposing session manager: {ex.Message}");
-            }
-
             // Stop and close the listener
             try
             {
@@ -186,7 +160,6 @@ namespace UnityCodeMcpServer.Servers.StreamableHttp
                 _serverCts = null;
             }
 
-            _sessionManager = null;
             _requestHandler = null;
             _messageHandler = null;
             _registry = null;
@@ -295,15 +268,11 @@ namespace UnityCodeMcpServer.Servers.StreamableHttp
             var settings = UnityCodeMcpServerSettings.Instance;
 
             var status = _isRunning ? "Running" : "Stopped";
-            var sessionCount = _sessionManager?.ActiveSessionCount ?? 0;
 
             LoopLogger.Info($"{McpProtocol.LogPrefix} [HTTP] Server Status:\n" +
                 $"  Status: {status}\n" +
                 $"  Port: {settings.HttpPort}\n" +
-                $"  Startup Server: {settings.StartupServer}\n" +
-                $"  Active Sessions: {sessionCount}\n" +
-                $"  Session Timeout: {settings.SessionTimeoutSeconds}s\n" +
-                $"  SSE Keep-Alive: {settings.SseKeepAliveIntervalSeconds}s");
+                $"  Startup Server: {settings.StartupServer}");
         }
 
         /// <summary>
@@ -335,16 +304,6 @@ namespace UnityCodeMcpServer.Servers.StreamableHttp
         /// Check if the HTTP server is running
         /// </summary>
         public static bool IsRunning => _isRunning;
-
-        /// <summary>
-        /// Get the number of active sessions
-        /// </summary>
-        public static int ActiveSessionCount => _sessionManager?.ActiveSessionCount ?? 0;
-
-        /// <summary>
-        /// Get the session manager (for testing/advanced usage)
-        /// </summary>
-        public static SessionManager SessionManager => _sessionManager;
 
         private static string BuildRegistrySummary()
         {

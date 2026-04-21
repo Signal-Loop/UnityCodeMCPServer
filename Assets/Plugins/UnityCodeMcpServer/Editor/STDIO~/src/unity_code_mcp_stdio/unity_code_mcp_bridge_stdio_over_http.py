@@ -16,7 +16,6 @@ import time
 from pathlib import Path
 from typing import Any
 from urllib import error, request
-from typing import cast
 
 import anyio
 from anyio import create_memory_object_stream, create_task_group
@@ -286,9 +285,9 @@ class UnityHttpClient:
             f"Unsupported Unity HTTP content type '{content_type or '<none>'}'"
         )
 
-    async def send_request(self, request_payload: dict[str, Any]) -> dict[str, Any]:
+    async def send_request(self, request: dict[str, Any]) -> dict[str, Any]:
         trace_id = _next_request_trace_id()
-        request_summary = _describe_request(request_payload)
+        request_summary = _describe_request(request)
         started_at = time.perf_counter()
 
         logger.info(
@@ -308,7 +307,7 @@ class UnityHttpClient:
                     await self._refresh_port(trace_id, request_summary)
 
                     response = await self._send_transport_request(
-                        request_payload,
+                        request,
                         trace_id=trace_id,
                         request_summary=request_summary,
                         deadline=deadline,
@@ -316,7 +315,7 @@ class UnityHttpClient:
                     if response is None:
                         response = {
                             "jsonrpc": "2.0",
-                            "id": request_payload.get("id"),
+                            "id": request.get("id"),
                             "result": {},
                         }
 
@@ -366,9 +365,7 @@ class UnityHttpClient:
                         request_summary,
                         exc_info=True,
                     )
-                    return self._build_error(
-                        request_payload, -32603, f"Internal error: {exc}"
-                    )
+                    return self._build_error(request, -32603, f"Internal error: {exc}")
 
             duration_ms = round((time.perf_counter() - started_at) * 1000)
             logger.warning(
@@ -379,7 +376,7 @@ class UnityHttpClient:
                 last_failure,
             )
             return self._build_error(
-                request_payload,
+                request,
                 REQUEST_UNAVAILABLE_ERROR_CODE,
                 self._build_retryable_error_message(last_failure),
             )
@@ -413,7 +410,7 @@ async def run_server(
             port_resolver=get_http_port,
             request_timeout=request_timeout,
         )
-        server = create_server(cast(Any, unity_client))
+        server = create_server(unity_client)
 
         client_to_server_send, client_to_server_recv = create_memory_object_stream[
             SessionMessage | Exception

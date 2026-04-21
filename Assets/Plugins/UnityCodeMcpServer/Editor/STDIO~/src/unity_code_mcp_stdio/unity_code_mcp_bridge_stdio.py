@@ -17,7 +17,7 @@ from pathlib import Path
 import struct
 import sys
 import time
-from typing import Any
+from typing import Any, Protocol
 
 import anyio
 from anyio import create_memory_object_stream, create_task_group
@@ -771,6 +771,12 @@ class SafeServer(Server):
             )
 
 
+class UnityBridgeClient(Protocol):
+    """Minimal client interface shared by the TCP and HTTP bridge transports."""
+
+    async def send_request(self, request: dict[str, Any]) -> dict[str, Any]: ...
+
+
 def _convert_resource_contents(
     resource: dict[str, Any],
 ) -> types.TextResourceContents:
@@ -811,7 +817,7 @@ def _convert_content_item(
     return None
 
 
-def create_server(unity_client: UnityTcpClient) -> Server:
+def create_server(unity_client: UnityBridgeClient) -> Server:
     """Create MCP server that proxies requests to Unity."""
     server = SafeServer("unity-code-mcp-stdio")
 

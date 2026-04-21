@@ -19,23 +19,6 @@ namespace UnityCodeMcpServer.Tests.EditMode.StreamableHttp
             Assert.That(result.ErrorMessage, Is.Null);
         }
 
-        [Test]
-        public void Success_WithSessionId_ReturnsValidResultWithSessionId()
-        {
-            var result = ValidationResult.Success("test-session-id");
-
-            Assert.That(result.IsValid, Is.True);
-            Assert.That(result.SessionId, Is.EqualTo("test-session-id"));
-        }
-
-        [Test]
-        public void Success_WithoutSessionId_ReturnsNullSessionId()
-        {
-            var result = ValidationResult.Success();
-
-            Assert.That(result.SessionId, Is.Null);
-        }
-
         #endregion
 
         #region Failure Tests
@@ -48,14 +31,6 @@ namespace UnityCodeMcpServer.Tests.EditMode.StreamableHttp
             Assert.That(result.IsValid, Is.False);
             Assert.That(result.StatusCode, Is.EqualTo(400));
             Assert.That(result.ErrorMessage, Is.EqualTo("Bad Request"));
-        }
-
-        [Test]
-        public void Failure_SessionIdIsNull()
-        {
-            var result = ValidationResult.Failure(403, "Forbidden");
-
-            Assert.That(result.SessionId, Is.Null);
         }
 
         [Test]

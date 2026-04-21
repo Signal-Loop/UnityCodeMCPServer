@@ -9,7 +9,6 @@ using Cysharp.Threading.Tasks;
 using UnityCodeMcpServer.Handlers;
 using UnityCodeMcpServer.Helpers;
 using UnityCodeMcpServer.Protocol;
-using UnityCodeMcpServer.Settings;
 
 namespace UnityCodeMcpServer.Servers.StreamableHttp
 {
@@ -21,21 +20,19 @@ namespace UnityCodeMcpServer.Servers.StreamableHttp
         public bool IsValid { get; }
         public int StatusCode { get; }
         public string ErrorMessage { get; }
-        public string SessionId { get; }
 
-        private ValidationResult(bool isValid, int statusCode, string errorMessage, string sessionId)
+        private ValidationResult(bool isValid, int statusCode, string errorMessage)
         {
             IsValid = isValid;
             StatusCode = statusCode;
             ErrorMessage = errorMessage;
-            SessionId = sessionId;
         }
 
-        public static ValidationResult Success(string sessionId = null) =>
-            new ValidationResult(true, 200, null, sessionId);
+        public static ValidationResult Success() =>
+            new ValidationResult(true, 200, null);
 
         public static ValidationResult Failure(int statusCode, string errorMessage) =>
-            new ValidationResult(false, statusCode, errorMessage, null);
+            new ValidationResult(false, statusCode, errorMessage);
     }
 
     /// <summary>
@@ -45,13 +42,11 @@ namespace UnityCodeMcpServer.Servers.StreamableHttp
     public sealed class HttpRequestHandler
     {
         private readonly McpMessageHandler _messageHandler;
-        private readonly SessionManager _sessionManager;
         private readonly Encoding _utf8NoBom = new UTF8Encoding(false);
 
-        public HttpRequestHandler(McpMessageHandler messageHandler, SessionManager sessionManager)
+        public HttpRequestHandler(McpMessageHandler messageHandler)
         {
             _messageHandler = messageHandler ?? throw new ArgumentNullException(nameof(messageHandler));
-            _sessionManager = sessionManager ?? throw new ArgumentNullException(nameof(sessionManager));
         }
 
         /// <summary>
@@ -211,8 +206,6 @@ namespace UnityCodeMcpServer.Servers.StreamableHttp
             response.StatusCode = 200;
             response.ContentType = McpHttpTransport.ContentTypeJson;
             response.Headers.Add("Access-Control-Allow-Origin", "*");
-            response.Headers.Add("Access-Control-Expose-Headers", McpHttpTransport.SessionIdHeader);
-
             var bytes = _utf8NoBom.GetBytes(json);
             response.ContentLength64 = bytes.Length;
 
@@ -220,24 +213,6 @@ namespace UnityCodeMcpServer.Servers.StreamableHttp
             response.Close();
 
             LoopLogger.Trace($"{McpProtocol.LogPrefix} [HTTP] Sent: {json}");
-        }
-
-        /// <summary>
-        /// Send a JSON-RPC error response
-        /// </summary>
-        private async Task SendJsonRpcErrorAsync(HttpListenerResponse response, object id, int code, string message, int httpStatus, CancellationToken ct)
-        {
-            var error = JsonRpcResponse.Failure(id, code, message);
-            var json = JsonHelper.Serialize(error);
-
-            response.StatusCode = httpStatus;
-            response.ContentType = McpHttpTransport.ContentTypeJson;
-
-            var bytes = _utf8NoBom.GetBytes(json);
-            response.ContentLength64 = bytes.Length;
-
-            await response.OutputStream.WriteAsync(bytes, 0, bytes.Length, ct);
-            response.Close();
         }
 
         /// <summary>

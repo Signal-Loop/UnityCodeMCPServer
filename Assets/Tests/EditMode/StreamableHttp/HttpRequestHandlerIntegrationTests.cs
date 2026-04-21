@@ -12,7 +12,7 @@ namespace UnityCodeMcpServer.Tests.EditMode.StreamableHttp
 {
     /// <summary>
     /// Integration tests for the HTTP server components.
-    /// These tests verify the interaction between HttpRequestHandler, SessionManager, and McpMessageHandler.
+    /// These tests verify the interaction between HttpRequestHandler and McpMessageHandler.
     /// </summary>
     [TestFixture]
     public class HttpRequestHandlerIntegrationTests
@@ -29,7 +29,7 @@ namespace UnityCodeMcpServer.Tests.EditMode.StreamableHttp
             _registry.DiscoverAndRegisterAll();
             _messageHandler = new McpMessageHandler(_registry);
             _sessionManager = new SessionManager(sessionTimeoutSeconds: 3600, cleanupIntervalSeconds: 60);
-            _requestHandler = new HttpRequestHandler(_messageHandler, _sessionManager);
+            _requestHandler = new HttpRequestHandler(_messageHandler);
         }
 
         [TearDown]
@@ -44,20 +44,13 @@ namespace UnityCodeMcpServer.Tests.EditMode.StreamableHttp
         public void Constructor_NullMessageHandler_ThrowsArgumentNullException()
         {
             Assert.Throws<ArgumentNullException>(() =>
-                new HttpRequestHandler(null, _sessionManager));
-        }
-
-        [Test]
-        public void Constructor_NullSessionManager_ThrowsArgumentNullException()
-        {
-            Assert.Throws<ArgumentNullException>(() =>
-                new HttpRequestHandler(_messageHandler, null));
+                new HttpRequestHandler(null));
         }
 
         [Test]
         public void Constructor_ValidParameters_CreatesHandler()
         {
-            var handler = new HttpRequestHandler(_messageHandler, _sessionManager);
+            var handler = new HttpRequestHandler(_messageHandler);
             Assert.That(handler, Is.Not.Null);
         }
 
