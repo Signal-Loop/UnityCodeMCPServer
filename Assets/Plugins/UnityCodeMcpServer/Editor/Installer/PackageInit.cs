@@ -17,14 +17,12 @@ namespace UnityCodeMcpServer.Editor.Installer
 
         static PackageInit()
         {
-            Events.registeringPackages += OnRegisteringPackages;
-            EditorApplication.delayCall += OnDelayCall;
+            AssemblyReloadEvents.beforeAssemblyReload += OnBeforeAssemblyReload;
         }
 
-        private static void OnDelayCall()
+        private static void OnBeforeAssemblyReload()
         {
-            EditorApplication.delayCall -= OnDelayCall;
-            LoopLogger.Debug($"{Protocol.McpProtocol.LogPrefix} [PackageInit] EditorApplication.delayCall triggered");
+            RunInstaller();
         }
 
         private static void OnRegisteringPackages(PackageRegistrationEventArgs args)
