@@ -55,5 +55,71 @@ namespace UnityCodeMcpServer.Tests.EditMode
                 isRunningField.SetValue(null, originalIsRunning);
             }
         }
+
+        [Test]
+        public void ShouldRetryBindConflict_ReturnsTrueForDelayedStartBelowRetryLimit()
+        {
+            var retryAttemptField = typeof(UnityCodeMcpHttpServer).GetField(
+                "_startupRetryAttempt",
+                BindingFlags.NonPublic | BindingFlags.Static);
+            var method = typeof(UnityCodeMcpHttpServer).GetMethod(
+                "ShouldRetryBindConflict",
+                BindingFlags.NonPublic | BindingFlags.Static);
+
+            Assert.That(retryAttemptField, Is.Not.Null, "_startupRetryAttempt field should exist");
+            Assert.That(method, Is.Not.Null, "ShouldRetryBindConflict should exist");
+
+            var originalRetryAttempt = (int)retryAttemptField.GetValue(null);
+
+            try
+            {
+                retryAttemptField.SetValue(null, 0);
+
+                var result = (bool)method.Invoke(null, new object[] { "delayed-start" });
+
+                Assert.That(result, Is.True);
+            }
+            finally
+            {
+                retryAttemptField.SetValue(null, originalRetryAttempt);
+            }
+        }
+
+        [Test]
+        public void ShouldRetryBindConflict_ReturnsFalseForRequestedStartAndAtRetryLimit()
+        {
+            var retryAttemptField = typeof(UnityCodeMcpHttpServer).GetField(
+                "_startupRetryAttempt",
+                BindingFlags.NonPublic | BindingFlags.Static);
+            var maxRetryField = typeof(UnityCodeMcpHttpServer).GetField(
+                "MaxStartupRetryAttempts",
+                BindingFlags.NonPublic | BindingFlags.Static | BindingFlags.FlattenHierarchy);
+            var method = typeof(UnityCodeMcpHttpServer).GetMethod(
+                "ShouldRetryBindConflict",
+                BindingFlags.NonPublic | BindingFlags.Static);
+
+            Assert.That(retryAttemptField, Is.Not.Null, "_startupRetryAttempt field should exist");
+            Assert.That(maxRetryField, Is.Not.Null, "MaxStartupRetryAttempts constant should exist");
+            Assert.That(method, Is.Not.Null, "ShouldRetryBindConflict should exist");
+
+            var originalRetryAttempt = (int)retryAttemptField.GetValue(null);
+            var maxRetryAttempts = (int)maxRetryField.GetRawConstantValue();
+
+            try
+            {
+                retryAttemptField.SetValue(null, 0);
+                var requestedResult = (bool)method.Invoke(null, new object[] { "requested" });
+
+                retryAttemptField.SetValue(null, maxRetryAttempts);
+                var exhaustedResult = (bool)method.Invoke(null, new object[] { "delayed-start" });
+
+                Assert.That(requestedResult, Is.False);
+                Assert.That(exhaustedResult, Is.False);
+            }
+            finally
+            {
+                retryAttemptField.SetValue(null, originalRetryAttempt);
+            }
+        }
     }
 }

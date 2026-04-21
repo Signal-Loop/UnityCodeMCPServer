@@ -21,7 +21,9 @@ namespace UnityCodeMcpServer.Servers.StreamableHttp
     [InitializeOnLoad]
     public static class UnityCodeMcpHttpServer
     {
+        private const int MaxStartupRetryAttempts = 5;
         private const int RestartDelayMs = 500;
+        private const int StartupRetryDelayMs = 1000;
 
         private static HttpListener _listener;
         private static CancellationTokenSource _serverCts;
@@ -31,6 +33,8 @@ namespace UnityCodeMcpServer.Servers.StreamableHttp
         private static readonly object _lifecycleLock = new object();
         private static bool _restartScheduled;
         private static int _restartGeneration;
+        private static bool _startupRetryScheduled;
+        private static int _startupRetryAttempt;
         private static bool _isRunning;
 
         static UnityCodeMcpHttpServer()
@@ -103,6 +107,12 @@ namespace UnityCodeMcpServer.Servers.StreamableHttp
                 _listener.Start();
                 _isRunning = true;
 
+                lock (_lifecycleLock)
+                {
+                    _startupRetryScheduled = false;
+                    _startupRetryAttempt = 0;
+                }
+
                 LoopLogger.Info($"{McpProtocol.LogPrefix} [HTTP] Server started on {prefix}\n{BuildRegistrySummary()}");
 
                 // Start accepting requests
@@ -118,12 +128,26 @@ namespace UnityCodeMcpServer.Servers.StreamableHttp
             }
             catch (HttpListenerException ex) when (ex.ErrorCode == 183)
             {
+                if (TryScheduleStartupRetry(reason, prefix, ex))
+                {
+                    CleanupFailedStart();
+                    _isRunning = false;
+                    return;
+                }
+
                 LoopLogger.Error($"{McpProtocol.LogPrefix} [HTTP] Port {settings.HttpPort} is already in use");
                 CleanupFailedStart();
                 _isRunning = false;
             }
             catch (Exception ex)
             {
+                if (IsBindConflict(ex) && TryScheduleStartupRetry(reason, prefix, ex))
+                {
+                    CleanupFailedStart();
+                    _isRunning = false;
+                    return;
+                }
+
                 LoopLogger.Error($"{McpProtocol.LogPrefix} [HTTP] Failed to start server: {prefix} {ex.Message}");
                 CleanupFailedStart();
                 _isRunning = false;
@@ -151,6 +175,8 @@ namespace UnityCodeMcpServer.Servers.StreamableHttp
                 {
                     _restartScheduled = false;
                     _restartGeneration++;
+                    _startupRetryScheduled = false;
+                    _startupRetryAttempt = 0;
                 }
             }
 
@@ -379,6 +405,12 @@ namespace UnityCodeMcpServer.Servers.StreamableHttp
                     return false;
                 }
 
+                if (_startupRetryScheduled && !string.Equals(reason, "delayed-start-retry", StringComparison.Ordinal))
+                {
+                    LoopLogger.Trace($"{McpProtocol.LogPrefix} [HTTP] Start skipped because delayed-start retry is pending reason={reason}");
+                    return false;
+                }
+
                 if (consumeScheduledRestart)
                 {
                     _restartScheduled = false;
@@ -419,6 +451,65 @@ namespace UnityCodeMcpServer.Servers.StreamableHttp
             _requestHandler = null;
             _messageHandler = null;
             _registry = null;
+        }
+
+        private static bool ShouldRetryBindConflict(string reason)
+        {
+            if (!string.Equals(reason, "delayed-start", StringComparison.Ordinal) &&
+                !string.Equals(reason, "delayed-start-retry", StringComparison.Ordinal))
+            {
+                return false;
+            }
+
+            return _startupRetryAttempt < MaxStartupRetryAttempts;
+        }
+
+        private static bool TryScheduleStartupRetry(string reason, string prefix, Exception exception)
+        {
+            lock (_lifecycleLock)
+            {
+                if (!ShouldRetryBindConflict(reason))
+                {
+                    return false;
+                }
+
+                if (_startupRetryScheduled)
+                {
+                    return true;
+                }
+
+                _startupRetryScheduled = true;
+                _startupRetryAttempt++;
+            }
+
+            LoopLogger.Warn(
+                $"{McpProtocol.LogPrefix} [HTTP] Delayed start bind conflict. Scheduling retry attempt={_startupRetryAttempt}/{MaxStartupRetryAttempts} prefix={prefix} error={exception.Message}");
+            RetryStartupAfterBindConflictAsync().Forget();
+            return true;
+        }
+
+        private static async UniTaskVoid RetryStartupAfterBindConflictAsync()
+        {
+            await UniTask.Delay(StartupRetryDelayMs);
+
+            lock (_lifecycleLock)
+            {
+                _startupRetryScheduled = false;
+            }
+
+            StartServer("delayed-start-retry");
+        }
+
+        private static bool IsBindConflict(Exception exception)
+        {
+            if (exception is HttpListenerException httpListenerException && httpListenerException.ErrorCode == 183)
+            {
+                return true;
+            }
+
+            return exception.Message.IndexOf(
+                "Only one usage of each socket address",
+                StringComparison.OrdinalIgnoreCase) >= 0;
         }
 
         private static string BuildRegistrySummary()
