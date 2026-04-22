@@ -47,13 +47,13 @@ namespace UnityCodeMcpServer.Handlers
             catch (JsonException ex)
             {
                 UnityCodeMcpServerLogger.Warn($"Parse error: {ex.Message}");
-                var parseError = JsonRpcResponse.Failure(null, JsonRpcErrorCodes.ParseError, "Parse error");
+                JsonRpcResponse parseError = JsonRpcResponse.Failure(null, JsonRpcErrorCodes.ParseError, "Parse error");
                 return JsonHelper.Serialize(parseError);
             }
 
             if (request == null || string.IsNullOrEmpty(request.Method))
             {
-                var invalidRequest = JsonRpcResponse.Failure(request?.Id, JsonRpcErrorCodes.InvalidRequest, "Invalid request");
+                JsonRpcResponse invalidRequest = JsonRpcResponse.Failure(request?.Id, JsonRpcErrorCodes.InvalidRequest, "Invalid request");
                 return JsonHelper.Serialize(invalidRequest);
             }
 
@@ -64,7 +64,7 @@ namespace UnityCodeMcpServer.Handlers
                 return null;
             }
 
-            var response = await HandleRequestAsync(request);
+            JsonRpcResponse response = await HandleRequestAsync(request);
             return JsonHelper.Serialize(response);
         }
 
@@ -87,7 +87,7 @@ namespace UnityCodeMcpServer.Handlers
         {
             UnityCodeMcpServerLogger.Debug($"Handling request: {request.Method} (id: {request.Id})");
 
-            if (_handlers.TryGetValue(request.Method, out var handler))
+            if (_handlers.TryGetValue(request.Method, out Func<JsonRpcRequest, UniTask<JsonRpcResponse>> handler))
             {
                 try
                 {
@@ -116,7 +116,7 @@ namespace UnityCodeMcpServer.Handlers
 
             UnityCodeMcpServerLogger.Info($"Initialize from {initParams?.ClientInfo?.Name ?? "unknown"} (protocol: {initParams?.ProtocolVersion ?? "unknown"})");
 
-            var result = new InitializeResult
+            InitializeResult result = new()
             {
                 ProtocolVersion = McpProtocol.Version,
                 Capabilities = new ServerCapabilities
@@ -143,7 +143,7 @@ namespace UnityCodeMcpServer.Handlers
         private UniTask<JsonRpcResponse> HandleToolsList(JsonRpcRequest request)
         {
             UnityCodeMcpServerLogger.Debug($"tools/list request (id: {request.Id})");
-            var result = _registry.GetToolsList();
+            ToolsListResult result = _registry.GetToolsList();
             return UniTask.FromResult(JsonRpcResponse.Success(request.Id, result));
         }
 
@@ -167,15 +167,15 @@ namespace UnityCodeMcpServer.Handlers
                 return JsonRpcResponse.Failure(request.Id, JsonRpcErrorCodes.InvalidParams, $"Tool not found: {callParams.Name}");
             }
 
-            var arguments = callParams.Arguments ?? JsonHelper.ParseElement("{}");
-            var result = await _registry.ExecuteToolAsync(callParams.Name, arguments);
+            JsonElement arguments = callParams.Arguments ?? JsonHelper.ParseElement("{}");
+            ToolsCallResult result = await _registry.ExecuteToolAsync(callParams.Name, arguments);
             return JsonRpcResponse.Success(request.Id, result);
         }
 
         private UniTask<JsonRpcResponse> HandlePromptsList(JsonRpcRequest request)
         {
             UnityCodeMcpServerLogger.Debug($"prompts/list request (id: {request.Id})");
-            var result = _registry.GetPromptsList();
+            PromptsListResult result = _registry.GetPromptsList();
             return UniTask.FromResult(JsonRpcResponse.Success(request.Id, result));
         }
 
@@ -199,14 +199,14 @@ namespace UnityCodeMcpServer.Handlers
                 return UniTask.FromResult(JsonRpcResponse.Failure(request.Id, JsonRpcErrorCodes.InvalidParams, $"Prompt not found: {getParams.Name}"));
             }
 
-            var result = _registry.GetPromptMessages(getParams.Name, getParams.Arguments ?? new Dictionary<string, string>());
+            PromptsGetResult result = _registry.GetPromptMessages(getParams.Name, getParams.Arguments ?? new Dictionary<string, string>());
             return UniTask.FromResult(JsonRpcResponse.Success(request.Id, result));
         }
 
         private UniTask<JsonRpcResponse> HandleResourcesList(JsonRpcRequest request)
         {
             UnityCodeMcpServerLogger.Debug($"resources/list request (id: {request.Id})");
-            var result = _registry.GetResourcesList();
+            ResourcesListResult result = _registry.GetResourcesList();
             return UniTask.FromResult(JsonRpcResponse.Success(request.Id, result));
         }
 
@@ -230,20 +230,20 @@ namespace UnityCodeMcpServer.Handlers
                 return UniTask.FromResult(JsonRpcResponse.Failure(request.Id, JsonRpcErrorCodes.ResourceNotFound, $"Resource not found: {readParams.Uri}"));
             }
 
-            var result = _registry.ReadResource(readParams.Uri);
+            ResourcesReadResult result = _registry.ReadResource(readParams.Uri);
             return UniTask.FromResult(JsonRpcResponse.Success(request.Id, result));
         }
 
         private UniTask<JsonRpcResponse> HandleResourcesTemplatesList(JsonRpcRequest request)
         {
             // Currently no resource templates supported
-            var result = new ResourcesTemplatesListResult();
+            ResourcesTemplatesListResult result = new();
             return UniTask.FromResult(JsonRpcResponse.Success(request.Id, result));
         }
 
         private void LogRequestSummary(string kind, string name, object id)
         {
-            var displayName = string.IsNullOrEmpty(name) ? "<unknown>" : name;
+            string displayName = string.IsNullOrEmpty(name) ? "<unknown>" : name;
             UnityCodeMcpServerLogger.Debug($"Received {kind} request: {displayName} (id: {id ?? "notification"})");
         }
 

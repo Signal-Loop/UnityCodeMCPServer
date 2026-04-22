@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Diagnostics;
 using System.IO;
 using UnityCodeMcpServer.Settings;
 using UnityEngine;
@@ -138,7 +139,7 @@ namespace UnityCodeMcpServer.Helpers
 
                 if (captureStackTrace)
                 {
-                    var stack_trace = new System.Diagnostics.StackTrace(true);
+                    StackTrace stack_trace = new(true);
                     log_entry += $"\n{stack_trace}";
                 }
 
@@ -161,7 +162,7 @@ namespace UnityCodeMcpServer.Helpers
                 // Check file size rotation
                 if (File.Exists(_log_file_path))
                 {
-                    var file_info = new FileInfo(_log_file_path);
+                    FileInfo file_info = new(_log_file_path);
                     if (file_info.Length > _max_log_file_size)
                     {
                         RotateLogFiles();

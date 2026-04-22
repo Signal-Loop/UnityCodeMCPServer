@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections;
 using Cysharp.Threading.Tasks;
 using NUnit.Framework;
@@ -50,7 +50,7 @@ namespace UnityCodeMcpServer.Tests.EditMode.StreamableHttp
         [Test]
         public void Constructor_ValidParameters_CreatesHandler()
         {
-            var handler = new HttpRequestHandler(_messageHandler);
+            HttpRequestHandler handler = new(_messageHandler);
             Assert.That(handler, Is.Not.Null);
         }
 
@@ -64,11 +64,11 @@ namespace UnityCodeMcpServer.Tests.EditMode.StreamableHttp
             // Simulate the HTTP workflow without actual HTTP
 
             // 1. Create session (happens during initialize POST)
-            var sessionId = _sessionManager.CreateSession();
+            string sessionId = _sessionManager.CreateSession();
             Assert.That(_sessionManager.ValidateSession(sessionId), Is.True);
 
             // 2. Mark as initialized
-            var session = _sessionManager.GetSession(sessionId);
+            SessionState session = _sessionManager.GetSession(sessionId);
             session.IsInitialized = true;
             Assert.That(session.IsInitialized, Is.True);
 
@@ -76,7 +76,7 @@ namespace UnityCodeMcpServer.Tests.EditMode.StreamableHttp
             _sessionManager.TouchSession(sessionId);
 
             // 4. Terminate session (DELETE request)
-            var terminated = _sessionManager.TerminateSession(sessionId);
+            bool terminated = _sessionManager.TerminateSession(sessionId);
             Assert.That(terminated, Is.True);
             Assert.That(_sessionManager.ValidateSession(sessionId), Is.False);
         }
@@ -85,9 +85,9 @@ namespace UnityCodeMcpServer.Tests.EditMode.StreamableHttp
         public void SessionWorkflow_MultipleSessionsIndependent()
         {
             // Create multiple sessions
-            var sessionId1 = _sessionManager.CreateSession();
-            var sessionId2 = _sessionManager.CreateSession();
-            var sessionId3 = _sessionManager.CreateSession();
+            string sessionId1 = _sessionManager.CreateSession();
+            string sessionId2 = _sessionManager.CreateSession();
+            string sessionId3 = _sessionManager.CreateSession();
 
             // Mark them as initialized
             _sessionManager.GetSession(sessionId1).IsInitialized = true;
@@ -112,26 +112,26 @@ namespace UnityCodeMcpServer.Tests.EditMode.StreamableHttp
         [Test]
         public void MessageHandler_InitializeRequest_ReturnsCapabilities()
         {
-            var initParams = new InitializeParams
+            InitializeParams initParams = new()
             {
                 ProtocolVersion = McpProtocol.Version,
                 ClientInfo = new ClientInfo { Name = "TestClient", Version = "1.0.0" }
             };
 
-            var request = new JsonRpcRequest
+            JsonRpcRequest request = new()
             {
                 Id = 1,
                 Method = McpMethods.Initialize,
                 Params = JsonHelper.ParseElement(JsonHelper.Serialize(initParams))
             };
 
-            var result = _messageHandler.ProcessMessageAsync(JsonHelper.Serialize(request)).GetAwaiter().GetResult();
-            var response = JsonHelper.Deserialize<JsonRpcResponse>(result);
+            string result = _messageHandler.ProcessMessageAsync(JsonHelper.Serialize(request)).GetAwaiter().GetResult();
+            JsonRpcResponse response = JsonHelper.Deserialize<JsonRpcResponse>(result);
 
             Assert.That(response.Error, Is.Null);
             Assert.That(response.Result, Is.Not.Null);
 
-            var initResult = JsonHelper.Deserialize<InitializeResult>(response.Result);
+            InitializeResult initResult = JsonHelper.Deserialize<InitializeResult>(response.Result);
             Assert.That(initResult.ProtocolVersion, Is.EqualTo(McpProtocol.Version));
             Assert.That(initResult.Capabilities.Tools, Is.Not.Null);
         }
@@ -139,33 +139,33 @@ namespace UnityCodeMcpServer.Tests.EditMode.StreamableHttp
         [Test]
         public void MessageHandler_ToolsListRequest_ReturnsList()
         {
-            var request = new JsonRpcRequest
+            JsonRpcRequest request = new()
             {
                 Id = 1,
                 Method = McpMethods.ToolsList
             };
 
-            var result = _messageHandler.ProcessMessageAsync(JsonHelper.Serialize(request)).GetAwaiter().GetResult();
-            var response = JsonHelper.Deserialize<JsonRpcResponse>(result);
+            string result = _messageHandler.ProcessMessageAsync(JsonHelper.Serialize(request)).GetAwaiter().GetResult();
+            JsonRpcResponse response = JsonHelper.Deserialize<JsonRpcResponse>(result);
 
             Assert.That(response.Error, Is.Null);
             Assert.That(response.Result, Is.Not.Null);
 
-            var toolsResult = JsonHelper.Deserialize<ToolsListResult>(response.Result);
+            ToolsListResult toolsResult = JsonHelper.Deserialize<ToolsListResult>(response.Result);
             Assert.That(toolsResult.Tools, Is.Not.Null);
         }
 
         [Test]
         public void MessageHandler_PingRequest_ReturnsSuccess()
         {
-            var request = new JsonRpcRequest
+            JsonRpcRequest request = new()
             {
                 Id = 1,
                 Method = McpMethods.Ping
             };
 
-            var result = _messageHandler.ProcessMessageAsync(JsonHelper.Serialize(request)).GetAwaiter().GetResult();
-            var response = JsonHelper.Deserialize<JsonRpcResponse>(result);
+            string result = _messageHandler.ProcessMessageAsync(JsonHelper.Serialize(request)).GetAwaiter().GetResult();
+            JsonRpcResponse response = JsonHelper.Deserialize<JsonRpcResponse>(result);
 
             Assert.That(response.Error, Is.Null);
             Assert.That(response.Result, Is.Not.Null);
@@ -174,13 +174,13 @@ namespace UnityCodeMcpServer.Tests.EditMode.StreamableHttp
         [Test]
         public void MessageHandler_Notification_ReturnsNull()
         {
-            var request = new JsonRpcRequest
+            JsonRpcRequest request = new()
             {
                 // No Id = notification
                 Method = McpMethods.Initialized
             };
 
-            var result = _messageHandler.ProcessMessageAsync(JsonHelper.Serialize(request)).GetAwaiter().GetResult();
+            string result = _messageHandler.ProcessMessageAsync(JsonHelper.Serialize(request)).GetAwaiter().GetResult();
 
             Assert.That(result, Is.Null);
         }
@@ -193,42 +193,42 @@ namespace UnityCodeMcpServer.Tests.EditMode.StreamableHttp
         public void FullWorkflow_InitializeThenToolsListThenPing()
         {
             // Step 1: Initialize - creates session
-            var sessionId = _sessionManager.CreateSession();
-            var session = _sessionManager.GetSession(sessionId);
+            string sessionId = _sessionManager.CreateSession();
+            SessionState session = _sessionManager.GetSession(sessionId);
             session.IsInitialized = true;
 
-            var initParams = new InitializeParams
+            InitializeParams initParams = new()
             {
                 ProtocolVersion = McpProtocol.Version,
                 ClientInfo = new ClientInfo { Name = "TestClient", Version = "1.0.0" }
             };
-            var initRequest = new JsonRpcRequest
+            JsonRpcRequest initRequest = new()
             {
                 Id = 1,
                 Method = McpMethods.Initialize,
                 Params = JsonHelper.ParseElement(JsonHelper.Serialize(initParams))
             };
-            var initResult = _messageHandler.ProcessMessageAsync(JsonHelper.Serialize(initRequest)).GetAwaiter().GetResult();
+            string initResult = _messageHandler.ProcessMessageAsync(JsonHelper.Serialize(initRequest)).GetAwaiter().GetResult();
             Assert.That(initResult, Is.Not.Null);
 
             // Step 2: tools/list
             _sessionManager.TouchSession(sessionId);
-            var toolsRequest = new JsonRpcRequest
+            JsonRpcRequest toolsRequest = new()
             {
                 Id = 2,
                 Method = McpMethods.ToolsList
             };
-            var toolsResult = _messageHandler.ProcessMessageAsync(JsonHelper.Serialize(toolsRequest)).GetAwaiter().GetResult();
+            string toolsResult = _messageHandler.ProcessMessageAsync(JsonHelper.Serialize(toolsRequest)).GetAwaiter().GetResult();
             Assert.That(toolsResult, Is.Not.Null);
 
             // Step 3: ping
             _sessionManager.TouchSession(sessionId);
-            var pingRequest = new JsonRpcRequest
+            JsonRpcRequest pingRequest = new()
             {
                 Id = 3,
                 Method = McpMethods.Ping
             };
-            var pingResult = _messageHandler.ProcessMessageAsync(JsonHelper.Serialize(pingRequest)).GetAwaiter().GetResult();
+            string pingResult = _messageHandler.ProcessMessageAsync(JsonHelper.Serialize(pingRequest)).GetAwaiter().GetResult();
             Assert.That(pingResult, Is.Not.Null);
 
             // Session should still be valid
@@ -239,29 +239,29 @@ namespace UnityCodeMcpServer.Tests.EditMode.StreamableHttp
         public IEnumerator FullWorkflow_ExecuteAsyncTool() => UniTask.ToCoroutine(async () =>
         {
             // Create and initialize session
-            var sessionId = _sessionManager.CreateSession();
-            var session = _sessionManager.GetSession(sessionId);
+            string sessionId = _sessionManager.CreateSession();
+            SessionState session = _sessionManager.GetSession(sessionId);
             session.IsInitialized = true;
 
             // Execute async tool
-            var toolParams = new ToolsCallParams
+            ToolsCallParams toolParams = new()
             {
                 Name = "test_async_tool"
             };
-            var request = new JsonRpcRequest
+            JsonRpcRequest request = new()
             {
                 Id = 1,
                 Method = McpMethods.ToolsCall,
                 Params = JsonHelper.ParseElement(JsonHelper.Serialize(toolParams))
             };
 
-            var result = await _messageHandler.ProcessMessageAsync(JsonHelper.Serialize(request));
-            var response = JsonHelper.Deserialize<JsonRpcResponse>(result);
+            string result = await _messageHandler.ProcessMessageAsync(JsonHelper.Serialize(request));
+            JsonRpcResponse response = JsonHelper.Deserialize<JsonRpcResponse>(result);
 
             Assert.That(response.Error, Is.Null);
             Assert.That(response.Result, Is.Not.Null);
 
-            var callResult = JsonHelper.Deserialize<ToolsCallResult>(response.Result);
+            ToolsCallResult callResult = JsonHelper.Deserialize<ToolsCallResult>(response.Result);
             Assert.That(callResult.Content, Is.Not.Empty);
             Assert.That(callResult.Content[0].Text, Does.Contain("Test async result"));
         });

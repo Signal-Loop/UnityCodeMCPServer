@@ -1,9 +1,11 @@
-using System;
+﻿using System;
 using System.Linq;
+using System.Reflection;
 using System.Text.Json;
 using Cysharp.Threading.Tasks;
 using NUnit.Framework;
 using UnityCodeMcpServer.McpTools;
+using UnityCodeMcpServer.Protocol;
 using UnityCodeMcpServer.Settings;
 using UnityEngine;
 
@@ -32,13 +34,13 @@ namespace UnityCodeMcpServer.Tests.EditMode
         [Test]
         public void ExecuteCSharpScriptInUnityEditor_UsesDefaultAssemblies()
         {
-            var tool = new ExecuteCSharpScriptInUnityEditor();
-            var scriptJson = JsonSerializer.Serialize(new { script = "return typeof(UnityEngine.GameObject).Assembly.GetName().Name;" });
-            var args = JsonDocument.Parse(scriptJson).RootElement;
+            ExecuteCSharpScriptInUnityEditor tool = new();
+            string scriptJson = JsonSerializer.Serialize(new { script = "return typeof(UnityEngine.GameObject).Assembly.GetName().Name;" });
+            JsonElement args = JsonDocument.Parse(scriptJson).RootElement;
 
-            var task = tool.ExecuteAsync(args);
+            UniTask<ToolsCallResult> task = tool.ExecuteAsync(args);
             task.GetAwaiter().GetResult();
-            var result = task.GetAwaiter().GetResult();
+            ToolsCallResult result = task.GetAwaiter().GetResult();
 
             Assert.That(result.IsError, Is.False);
             Assert.That(result.Content[0].Text, Does.Contain("UnityEngine.CoreModule"));
@@ -51,9 +53,9 @@ namespace UnityCodeMcpServer.Tests.EditMode
         public void ExecuteCSharpScriptInUnityEditor_UsesAdditionalAssemblies()
         {
             // Add an additional assembly to settings
-            var settings = UnityCodeMcpServerSettings.Instance;
-            var loadedAssemblies = AppDomain.CurrentDomain.GetAssemblies();
-            var additionalAssembly = loadedAssemblies
+            UnityCodeMcpServerSettings settings = UnityCodeMcpServerSettings.Instance;
+            Assembly[] loadedAssemblies = AppDomain.CurrentDomain.GetAssemblies();
+            string additionalAssembly = loadedAssemblies
                 .Select(a => a.GetName().Name)
                 .FirstOrDefault(name => !UnityCodeMcpServerSettings.DefaultAssemblyNames.Contains(name)
                     && !string.IsNullOrWhiteSpace(name)
@@ -65,16 +67,16 @@ namespace UnityCodeMcpServer.Tests.EditMode
 
                 try
                 {
-                    var allAssemblies = settings.GetAllAssemblyNames();
+                    string[] allAssemblies = settings.GetAllAssemblyNames();
                     Assert.That(allAssemblies, Contains.Item(additionalAssembly));
 
-                    var tool = new ExecuteCSharpScriptInUnityEditor();
-                    var scriptJson = JsonSerializer.Serialize(new { script = "return \"Assembly loaded successfully\";" });
-                    var args = JsonDocument.Parse(scriptJson).RootElement;
+                    ExecuteCSharpScriptInUnityEditor tool = new();
+                    string scriptJson = JsonSerializer.Serialize(new { script = "return \"Assembly loaded successfully\";" });
+                    JsonElement args = JsonDocument.Parse(scriptJson).RootElement;
 
-                    var task = tool.ExecuteAsync(args);
+                    UniTask<ToolsCallResult> task = tool.ExecuteAsync(args);
                     task.GetAwaiter().GetResult();
-                    var result = task.GetAwaiter().GetResult();
+                    ToolsCallResult result = task.GetAwaiter().GetResult();
 
                     Assert.That(result.IsError, Is.False);
                     Assert.That(result.Content[0].Text, Does.Contain("### Loaded Assemblies"));
@@ -94,12 +96,12 @@ namespace UnityCodeMcpServer.Tests.EditMode
         [Test]
         public void GetAllAssemblyNames_HandlesMissingAssembliesGracefully()
         {
-            var settings = ScriptableObject.CreateInstance<UnityCodeMcpServerSettings>();
+            UnityCodeMcpServerSettings settings = ScriptableObject.CreateInstance<UnityCodeMcpServerSettings>();
 
             try
             {
                 settings.AdditionalAssemblyNames.Add("NonExistentAssembly");
-                var allAssemblies = settings.GetAllAssemblyNames();
+                string[] allAssemblies = settings.GetAllAssemblyNames();
 
                 Assert.That(allAssemblies, Contains.Item("NonExistentAssembly"));
                 Assert.That(allAssemblies.Length, Is.EqualTo(UnityCodeMcpServerSettings.DefaultAssemblyNames.Length + 1));
@@ -113,25 +115,25 @@ namespace UnityCodeMcpServer.Tests.EditMode
         [Test]
         public void DefaultAssemblyNames_AreAccessibleIfLoaded()
         {
-            var loadedAssemblies = AppDomain.CurrentDomain.GetAssemblies();
-            var loadedNames = loadedAssemblies.Select(a => a.GetName().Name).ToArray();
+            Assembly[] loadedAssemblies = AppDomain.CurrentDomain.GetAssemblies();
+            string[] loadedNames = loadedAssemblies.Select(a => a.GetName().Name).ToArray();
 
             // Check that core assemblies that should always be loaded are present
-            var coreAssemblies = new[]
+            string[] coreAssemblies = new[]
             {
                 "UnityEngine.CoreModule",
                 "UnityEditor.CoreModule",
                 "System.Core"
             };
 
-            foreach (var assemblyName in coreAssemblies)
+            foreach (string assemblyName in coreAssemblies)
             {
                 Assert.That(loadedNames, Contains.Item(assemblyName),
                     $"Core assembly '{assemblyName}' should be loaded in the current AppDomain");
             }
 
             // Count how many default assemblies are currently loaded
-            var loadedDefaultCount = UnityCodeMcpServerSettings.DefaultAssemblyNames
+            int loadedDefaultCount = UnityCodeMcpServerSettings.DefaultAssemblyNames
                 .Count(name => loadedNames.Contains(name));
 
             // At least half of the default assemblies should be loaded during tests
@@ -142,19 +144,19 @@ namespace UnityCodeMcpServer.Tests.EditMode
         [Test]
         public void AddAssembly_CanAddFromCurrentAppDomain()
         {
-            var settings = ScriptableObject.CreateInstance<UnityCodeMcpServerSettings>();
+            UnityCodeMcpServerSettings settings = ScriptableObject.CreateInstance<UnityCodeMcpServerSettings>();
 
             try
             {
-                var loadedAssemblies = AppDomain.CurrentDomain.GetAssemblies();
-                var availableAssembly = loadedAssemblies
+                Assembly[] loadedAssemblies = AppDomain.CurrentDomain.GetAssemblies();
+                string availableAssembly = loadedAssemblies
                     .Select(a => a.GetName().Name)
                     .FirstOrDefault(name => !UnityCodeMcpServerSettings.DefaultAssemblyNames.Contains(name)
                         && !string.IsNullOrWhiteSpace(name));
 
                 if (availableAssembly != null)
                 {
-                    var result = settings.AddAssembly(availableAssembly);
+                    bool result = settings.AddAssembly(availableAssembly);
 
                     Assert.That(result, Is.True);
                     Assert.That(settings.AdditionalAssemblyNames, Contains.Item(availableAssembly));

@@ -1,4 +1,6 @@
-﻿using NUnit.Framework;
+﻿using System;
+using System.Collections.Generic;
+using NUnit.Framework;
 using UnityCodeMcpServer.Servers.StreamableHttp;
 
 namespace UnityCodeMcpServer.Tests.EditMode.StreamableHttp
@@ -27,7 +29,7 @@ namespace UnityCodeMcpServer.Tests.EditMode.StreamableHttp
         [Test]
         public void CreateSession_ReturnsValidSessionId()
         {
-            var sessionId = _sessionManager.CreateSession();
+            string sessionId = _sessionManager.CreateSession();
 
             Assert.That(sessionId, Is.Not.Null);
             Assert.That(sessionId, Is.Not.Empty);
@@ -37,9 +39,9 @@ namespace UnityCodeMcpServer.Tests.EditMode.StreamableHttp
         [Test]
         public void CreateSession_ReturnsUniqueIds()
         {
-            var sessionId1 = _sessionManager.CreateSession();
-            var sessionId2 = _sessionManager.CreateSession();
-            var sessionId3 = _sessionManager.CreateSession();
+            string sessionId1 = _sessionManager.CreateSession();
+            string sessionId2 = _sessionManager.CreateSession();
+            string sessionId3 = _sessionManager.CreateSession();
 
             Assert.That(sessionId1, Is.Not.EqualTo(sessionId2));
             Assert.That(sessionId2, Is.Not.EqualTo(sessionId3));
@@ -65,9 +67,9 @@ namespace UnityCodeMcpServer.Tests.EditMode.StreamableHttp
         [Test]
         public void ValidateSession_ValidSession_ReturnsTrue()
         {
-            var sessionId = _sessionManager.CreateSession();
+            string sessionId = _sessionManager.CreateSession();
 
-            var isValid = _sessionManager.ValidateSession(sessionId);
+            bool isValid = _sessionManager.ValidateSession(sessionId);
 
             Assert.That(isValid, Is.True);
         }
@@ -75,7 +77,7 @@ namespace UnityCodeMcpServer.Tests.EditMode.StreamableHttp
         [Test]
         public void ValidateSession_InvalidSession_ReturnsFalse()
         {
-            var isValid = _sessionManager.ValidateSession("nonexistent-session-id");
+            bool isValid = _sessionManager.ValidateSession("nonexistent-session-id");
 
             Assert.That(isValid, Is.False);
         }
@@ -83,7 +85,7 @@ namespace UnityCodeMcpServer.Tests.EditMode.StreamableHttp
         [Test]
         public void ValidateSession_NullSession_ReturnsFalse()
         {
-            var isValid = _sessionManager.ValidateSession(null);
+            bool isValid = _sessionManager.ValidateSession(null);
 
             Assert.That(isValid, Is.False);
         }
@@ -91,7 +93,7 @@ namespace UnityCodeMcpServer.Tests.EditMode.StreamableHttp
         [Test]
         public void ValidateSession_EmptySession_ReturnsFalse()
         {
-            var isValid = _sessionManager.ValidateSession(string.Empty);
+            bool isValid = _sessionManager.ValidateSession(string.Empty);
 
             Assert.That(isValid, Is.False);
         }
@@ -103,9 +105,9 @@ namespace UnityCodeMcpServer.Tests.EditMode.StreamableHttp
         [Test]
         public void GetSession_ValidSession_ReturnsSession()
         {
-            var sessionId = _sessionManager.CreateSession();
+            string sessionId = _sessionManager.CreateSession();
 
-            var session = _sessionManager.GetSession(sessionId);
+            SessionState session = _sessionManager.GetSession(sessionId);
 
             Assert.That(session, Is.Not.Null);
             Assert.That(session.Id, Is.EqualTo(sessionId));
@@ -114,7 +116,7 @@ namespace UnityCodeMcpServer.Tests.EditMode.StreamableHttp
         [Test]
         public void GetSession_InvalidSession_ReturnsNull()
         {
-            var session = _sessionManager.GetSession("nonexistent-session-id");
+            SessionState session = _sessionManager.GetSession("nonexistent-session-id");
 
             Assert.That(session, Is.Null);
         }
@@ -122,7 +124,7 @@ namespace UnityCodeMcpServer.Tests.EditMode.StreamableHttp
         [Test]
         public void GetSession_NullSession_ReturnsNull()
         {
-            var session = _sessionManager.GetSession(null);
+            SessionState session = _sessionManager.GetSession(null);
 
             Assert.That(session, Is.Null);
         }
@@ -134,9 +136,9 @@ namespace UnityCodeMcpServer.Tests.EditMode.StreamableHttp
         [Test]
         public void TouchSession_UpdatesLastActivity()
         {
-            var sessionId = _sessionManager.CreateSession();
-            var session = _sessionManager.GetSession(sessionId);
-            var initialActivity = session.LastActivityUtc;
+            string sessionId = _sessionManager.CreateSession();
+            SessionState session = _sessionManager.GetSession(sessionId);
+            DateTime initialActivity = session.LastActivityUtc;
 
             // Force time to advance by modifying the internal state via Touch
             // Touch uses DateTime.UtcNow internally, so we verify it changed
@@ -159,9 +161,9 @@ namespace UnityCodeMcpServer.Tests.EditMode.StreamableHttp
         [Test]
         public void TerminateSession_ValidSession_ReturnsTrue()
         {
-            var sessionId = _sessionManager.CreateSession();
+            string sessionId = _sessionManager.CreateSession();
 
-            var terminated = _sessionManager.TerminateSession(sessionId);
+            bool terminated = _sessionManager.TerminateSession(sessionId);
 
             Assert.That(terminated, Is.True);
         }
@@ -169,7 +171,7 @@ namespace UnityCodeMcpServer.Tests.EditMode.StreamableHttp
         [Test]
         public void TerminateSession_RemovesSession()
         {
-            var sessionId = _sessionManager.CreateSession();
+            string sessionId = _sessionManager.CreateSession();
             Assert.That(_sessionManager.ActiveSessionCount, Is.EqualTo(1));
 
             _sessionManager.TerminateSession(sessionId);
@@ -181,7 +183,7 @@ namespace UnityCodeMcpServer.Tests.EditMode.StreamableHttp
         [Test]
         public void TerminateSession_InvalidSession_ReturnsFalse()
         {
-            var terminated = _sessionManager.TerminateSession("nonexistent-session-id");
+            bool terminated = _sessionManager.TerminateSession("nonexistent-session-id");
 
             Assert.That(terminated, Is.False);
         }
@@ -189,7 +191,7 @@ namespace UnityCodeMcpServer.Tests.EditMode.StreamableHttp
         [Test]
         public void TerminateSession_NullSession_ReturnsFalse()
         {
-            var terminated = _sessionManager.TerminateSession(null);
+            bool terminated = _sessionManager.TerminateSession(null);
 
             Assert.That(terminated, Is.False);
         }
@@ -197,7 +199,7 @@ namespace UnityCodeMcpServer.Tests.EditMode.StreamableHttp
         [Test]
         public void TerminateSession_FiresTerminatedEvent()
         {
-            var sessionId = _sessionManager.CreateSession();
+            string sessionId = _sessionManager.CreateSession();
             string terminatedSessionId = null;
             _sessionManager.SessionTerminated += id => terminatedSessionId = id;
 
@@ -226,11 +228,11 @@ namespace UnityCodeMcpServer.Tests.EditMode.StreamableHttp
         [Test]
         public void GetActiveSessionIds_ReturnsAllSessionIds()
         {
-            var id1 = _sessionManager.CreateSession();
-            var id2 = _sessionManager.CreateSession();
-            var id3 = _sessionManager.CreateSession();
+            string id1 = _sessionManager.CreateSession();
+            string id2 = _sessionManager.CreateSession();
+            string id3 = _sessionManager.CreateSession();
 
-            var ids = _sessionManager.GetActiveSessionIds();
+            ICollection<string> ids = _sessionManager.GetActiveSessionIds();
 
             Assert.That(ids, Contains.Item(id1));
             Assert.That(ids, Contains.Item(id2));
@@ -246,14 +248,14 @@ namespace UnityCodeMcpServer.Tests.EditMode.StreamableHttp
         public void ValidateSession_ExpiredSession_ReturnsFalse()
         {
             // Create manager with 1 second timeout for testing
-            using var shortTimeoutManager = new SessionManager(sessionTimeoutSeconds: 1, cleanupIntervalSeconds: 60);
-            var sessionId = shortTimeoutManager.CreateSession();
+            using SessionManager shortTimeoutManager = new(sessionTimeoutSeconds: 1, cleanupIntervalSeconds: 60);
+            string sessionId = shortTimeoutManager.CreateSession();
 
             // Session should be valid initially
             Assert.That(shortTimeoutManager.ValidateSession(sessionId), Is.True);
 
             // Manually set last activity to past (simulate timeout)
-            var session = shortTimeoutManager.GetSession(sessionId);
+            SessionState session = shortTimeoutManager.GetSession(sessionId);
             // We can't directly set LastActivityUtc, but we can verify timeout logic works
             // by checking that validation uses the timeout value
             Assert.That(shortTimeoutManager.ValidateSession(sessionId), Is.True);
@@ -262,8 +264,8 @@ namespace UnityCodeMcpServer.Tests.EditMode.StreamableHttp
         [Test]
         public void SessionManager_ZeroTimeout_DisablesExpiration()
         {
-            using var noTimeoutManager = new SessionManager(sessionTimeoutSeconds: 0, cleanupIntervalSeconds: 60);
-            var sessionId = noTimeoutManager.CreateSession();
+            using SessionManager noTimeoutManager = new(sessionTimeoutSeconds: 0, cleanupIntervalSeconds: 60);
+            string sessionId = noTimeoutManager.CreateSession();
 
             // Session should always be valid with zero timeout
             Assert.That(noTimeoutManager.ValidateSession(sessionId), Is.True);
@@ -276,9 +278,9 @@ namespace UnityCodeMcpServer.Tests.EditMode.StreamableHttp
         [Test]
         public void Dispose_TerminatesAllSessions()
         {
-            var manager = new SessionManager(sessionTimeoutSeconds: 60, cleanupIntervalSeconds: 60);
-            var id1 = manager.CreateSession();
-            var id2 = manager.CreateSession();
+            SessionManager manager = new(sessionTimeoutSeconds: 60, cleanupIntervalSeconds: 60);
+            string id1 = manager.CreateSession();
+            string id2 = manager.CreateSession();
             Assert.That(manager.ActiveSessionCount, Is.EqualTo(2));
 
             manager.Dispose();
@@ -289,7 +291,7 @@ namespace UnityCodeMcpServer.Tests.EditMode.StreamableHttp
         [Test]
         public void Dispose_CanBeCalledMultipleTimes()
         {
-            var manager = new SessionManager(sessionTimeoutSeconds: 60, cleanupIntervalSeconds: 60);
+            SessionManager manager = new(sessionTimeoutSeconds: 60, cleanupIntervalSeconds: 60);
             manager.CreateSession();
 
             Assert.DoesNotThrow(() =>

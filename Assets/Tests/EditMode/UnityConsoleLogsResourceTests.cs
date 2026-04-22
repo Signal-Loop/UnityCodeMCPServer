@@ -1,6 +1,7 @@
-using System;
+﻿using System;
 using NUnit.Framework;
 using UnityCodeMcpServer.McpResources;
+using UnityCodeMcpServer.Protocol;
 using UnityEngine;
 
 namespace UnityCodeMcpServer.Tests.EditMode
@@ -10,7 +11,7 @@ namespace UnityCodeMcpServer.Tests.EditMode
         [Test]
         public void Resource_Metadata_IsCorrect()
         {
-            var resource = new UnityConsoleLogsResource();
+            UnityConsoleLogsResource resource = new();
 
             Assert.AreEqual("Unity Console Logs", resource.Name);
             Assert.AreEqual("unity://console/logs", resource.Uri);
@@ -22,13 +23,13 @@ namespace UnityCodeMcpServer.Tests.EditMode
         public void Read_UsesSharedReaderLimit()
         {
             int capturedLimit = -1;
-            var resource = new UnityConsoleLogsResource(limit =>
+            UnityConsoleLogsResource resource = new(limit =>
             {
                 capturedLimit = limit;
                 return ("tail", false);
             });
 
-            var result = resource.Read();
+            ResourcesReadResult result = resource.Read();
 
             Assert.AreEqual(1000, capturedLimit);
             Assert.AreEqual(1, result.Contents.Count);
@@ -40,9 +41,9 @@ namespace UnityCodeMcpServer.Tests.EditMode
         [Test]
         public void Read_ReplacesWhitespaceResult_WithPlaceholder()
         {
-            var resource = new UnityConsoleLogsResource(_ => ("  ", false));
+            UnityConsoleLogsResource resource = new(_ => ("  ", false));
 
-            var result = resource.Read();
+            ResourcesReadResult result = resource.Read();
 
             StringAssert.Contains("(No console logs available)", result.Contents[0].Text);
         }
@@ -50,11 +51,11 @@ namespace UnityCodeMcpServer.Tests.EditMode
         [Test]
         public void Read_CapturesCurrentConsoleMessage()
         {
-            var resource = new UnityConsoleLogsResource();
+            UnityConsoleLogsResource resource = new();
             string uniqueMessage = "Resource_Log_" + Guid.NewGuid();
             Debug.Log(uniqueMessage);
 
-            var result = resource.Read();
+            ResourcesReadResult result = resource.Read();
 
             StringAssert.Contains(uniqueMessage, result.Contents[0].Text);
         }

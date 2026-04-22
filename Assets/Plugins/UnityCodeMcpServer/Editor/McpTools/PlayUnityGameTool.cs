@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Text.Json;
@@ -69,7 +69,7 @@ SIDE EFFECTS: Alters Time.timeScale, overrides active Input System states, and c
 
     public async UniTask<ToolsCallResult> ExecuteAsync(JsonElement arguments)
     {
-        if (!TryParseArguments(arguments, out var options, out var errorMessage))
+        if (!TryParseArguments(arguments, out PlayOptions options, out string errorMessage))
         {
             UnityCodeMcpServerLogger.Warn($"#PlayUnityGameTool: invalid arguments: {errorMessage}");
             return ToolsCallResult.ErrorResult(errorMessage);
@@ -82,13 +82,13 @@ SIDE EFFECTS: Alters Time.timeScale, overrides active Input System states, and c
             return ToolsCallResult.ErrorResult("Unity is not in Play Mode. Use the enter_play_mode tool first.");
         }
 
-        var held_actions = new List<InputAction>();
-        var actions_to_release = new List<InputAction>();
+        List<InputAction> held_actions = new();
+        List<InputAction> actions_to_release = new();
 
-        var logCapture = new LogCapture();
+        LogCapture logCapture = new();
 
-        var previousBackgroundBehavior = InputSystem.settings.backgroundBehavior;
-        var previousEditorInputBehavior = InputSystem.settings.editorInputBehaviorInPlayMode;
+        InputSettings.BackgroundBehavior previousBackgroundBehavior = InputSystem.settings.backgroundBehavior;
+        InputSettings.EditorInputBehaviorInPlayMode previousEditorInputBehavior = InputSystem.settings.editorInputBehaviorInPlayMode;
 
         try
         {
@@ -104,8 +104,8 @@ SIDE EFFECTS: Alters Time.timeScale, overrides active Input System states, and c
             // Re-enable devices that were disabled when Unity lost focus.
             // OnFocusChanged(false) disables devices with DisabledWhileInBackground flag
             // BEFORE our IgnoreFocus setting takes effect, so we must re-enable them.
-            var reenabledCount = 0;
-            foreach (var device in InputSystem.devices)
+            int reenabledCount = 0;
+            foreach (InputDevice device in InputSystem.devices)
             {
                 if (!device.enabled)
                 {
@@ -125,7 +125,7 @@ SIDE EFFECTS: Alters Time.timeScale, overrides active Input System states, and c
 
             ToolsCallResult success_result = null;
 
-            var input_asset = Resources.Load<InputActionAsset>(InputAssetName);
+            InputActionAsset input_asset = Resources.Load<InputActionAsset>(InputAssetName);
             if (input_asset == null)
             {
                 return ToolsCallResult.ErrorResult($"Could not find InputActionAsset '{InputAssetName}' in Resources folder.");
@@ -137,7 +137,7 @@ SIDE EFFECTS: Alters Time.timeScale, overrides active Input System states, and c
             TriggerInputs(input_asset, options.Inputs, held_actions, actions_to_release);
 
             // Log post-trigger action states (events processed on next frame).
-            foreach (var heldAction in held_actions)
+            foreach (InputAction heldAction in held_actions)
             {
                 UnityCodeMcpServerLogger.Debug($"#PlayUnityGameTool: post-trigger action '{heldAction.name}' phase={heldAction.phase}, " +
                     $"IsPressed={heldAction.IsPressed()}, triggered={heldAction.triggered}");
@@ -153,7 +153,7 @@ SIDE EFFECTS: Alters Time.timeScale, overrides active Input System states, and c
                 }
                 else
                 {
-                    var end_time = Time.realtimeSinceStartup + (options.DurationMs / 1000f);
+                    float end_time = Time.realtimeSinceStartup + (options.DurationMs / 1000f);
                     while (Time.realtimeSinceStartup < end_time)
                     {
                         TriggerHeldInputs(held_actions);
@@ -163,14 +163,14 @@ SIDE EFFECTS: Alters Time.timeScale, overrides active Input System states, and c
             }
 
             UnityCodeMcpServerLogger.Debug("#PlayUnityGameTool: capturing screenshot.");
-            var capture_result = await CaptureGameViewScreenshotAsync();
+            CaptureResult capture_result = await CaptureGameViewScreenshotAsync();
             if (capture_result.IsError)
             {
                 UnityCodeMcpServerLogger.Warn($"#PlayUnityGameTool: screenshot failed: {capture_result.ErrorMessage}");
                 return ToolsCallResult.ErrorResult(capture_result.ErrorMessage ?? "Failed to capture Game View screenshot.");
             }
 
-            var scaled_capture = ScaleCaptureToMaxHeight(capture_result, options.MaxHeight);
+            CaptureResult scaled_capture = ScaleCaptureToMaxHeight(capture_result, options.MaxHeight);
             if (scaled_capture.IsError)
             {
                 return ToolsCallResult.ErrorResult(scaled_capture.ErrorMessage ?? "Failed to scale screenshot.");
@@ -212,9 +212,9 @@ SIDE EFFECTS: Alters Time.timeScale, overrides active Input System states, and c
         List<InputAction> heldActions,
         List<InputAction> actionsToRelease)
     {
-        foreach (var input in inputs)
+        foreach (InputRequest input in inputs)
         {
-            var action = asset.FindAction(input.ActionName, false);
+            InputAction action = asset.FindAction(input.ActionName, false);
             if (action == null)
             {
                 UnityCodeMcpServerLogger.Warn($"#PlayUnityGameTool: Action '{input.ActionName}' not found in asset.");
@@ -227,7 +227,7 @@ SIDE EFFECTS: Alters Time.timeScale, overrides active Input System states, and c
                 UnityCodeMcpServerLogger.Debug($"#PlayUnityGameTool: Enabled action '{action.name}'.");
             }
 
-            var control = action.controls.Count > 0 ? action.controls[0] : null;
+            InputControl control = action.controls.Count > 0 ? action.controls[0] : null;
             UnityCodeMcpServerLogger.Debug($"#PlayUnityGameTool: Action '{action.name}' -> control={control?.path ?? "NONE"}, " +
                 $"device={control?.device?.name ?? "NONE"}, deviceEnabled={control?.device?.enabled}, " +
                 $"phase={action.phase}, type={input.Type}");
@@ -260,7 +260,7 @@ SIDE EFFECTS: Alters Time.timeScale, overrides active Input System states, and c
             return;
         }
 
-        var control = action.controls[0];
+        InputControl control = action.controls[0];
 
         if (control is KeyControl keyControl && keyControl.device is Keyboard keyboard)
         {
@@ -272,7 +272,7 @@ SIDE EFFECTS: Alters Time.timeScale, overrides active Input System states, and c
 
         if (control is ButtonControl buttonControl)
         {
-            using (StateEvent.From(buttonControl.device, out var eventPtr))
+            using (StateEvent.From(buttonControl.device, out InputEventPtr eventPtr))
             {
                 buttonControl.WriteValueIntoEvent(value > 0f ? 1f : 0f, eventPtr);
                 InputSystem.QueueEvent(eventPtr);
@@ -289,7 +289,7 @@ SIDE EFFECTS: Alters Time.timeScale, overrides active Input System states, and c
             return;
         }
 
-        using (StateEvent.From(control.device, out var eventPtr))
+        using (StateEvent.From(control.device, out InputEventPtr eventPtr))
         {
             control.WriteValueIntoEvent(value, eventPtr);
             InputSystem.QueueEvent(eventPtr);
@@ -299,7 +299,7 @@ SIDE EFFECTS: Alters Time.timeScale, overrides active Input System states, and c
 
     private void QueueKeyboardStateEvent(Keyboard keyboard, Key key, bool isPressed)
     {
-        if (!_active_keys_by_keyboard.TryGetValue(keyboard, out var activeKeys))
+        if (!_active_keys_by_keyboard.TryGetValue(keyboard, out HashSet<Key> activeKeys))
         {
             activeKeys = new HashSet<Key>();
             _active_keys_by_keyboard[keyboard] = activeKeys;
@@ -314,9 +314,9 @@ SIDE EFFECTS: Alters Time.timeScale, overrides active Input System states, and c
             activeKeys.Remove(key);
         }
 
-        var keysArray = new Key[activeKeys.Count];
+        Key[] keysArray = new Key[activeKeys.Count];
         activeKeys.CopyTo(keysArray);
-        var keyboardState = new KeyboardState(keysArray);
+        KeyboardState keyboardState = new(keysArray);
         InputSystem.QueueStateEvent(keyboard, keyboardState);
         UnityCodeMcpServerLogger.Debug($"#PlayUnityGameTool: Queued keyboard event for {key} ({(isPressed ? "pressed" : "released")}). Active keys: {string.Join(", ", activeKeys)}");
     }
@@ -328,7 +328,7 @@ SIDE EFFECTS: Alters Time.timeScale, overrides active Input System states, and c
             return;
         }
 
-        foreach (var action in actions)
+        foreach (InputAction action in actions)
         {
             TriggerAction(action, 0.0f);
         }
@@ -341,7 +341,7 @@ SIDE EFFECTS: Alters Time.timeScale, overrides active Input System states, and c
         // Reset all devices so keyboard, gamepad, and other controller state cannot leak
         // between invocations. A soft device reset cancels in-progress actions and clears
         // pressed/button-like state without requiring per-device state event code.
-        foreach (var device in InputSystem.devices)
+        foreach (InputDevice device in InputSystem.devices)
         {
             if (device == null)
             {
@@ -360,7 +360,7 @@ SIDE EFFECTS: Alters Time.timeScale, overrides active Input System states, and c
         options = default;
         errorMessage = null;
 
-        if (!TryGetRequiredInt(arguments, "duration", out var duration_ms, out errorMessage))
+        if (!TryGetRequiredInt(arguments, "duration", out int duration_ms, out errorMessage))
         {
             return false;
         }
@@ -371,12 +371,12 @@ SIDE EFFECTS: Alters Time.timeScale, overrides active Input System states, and c
             return false;
         }
 
-        if (!TryGetOptionalInt(arguments, "max_height", 640, out var max_height, out errorMessage))
+        if (!TryGetOptionalInt(arguments, "max_height", 640, out int max_height, out errorMessage))
         {
             return false;
         }
 
-        if (!TryGetOptionalInt(arguments, "max_base64_bytes", 50_000_000, out var max_base64_bytes, out errorMessage))
+        if (!TryGetOptionalInt(arguments, "max_base64_bytes", 50_000_000, out int max_base64_bytes, out errorMessage))
         {
             return false;
         }
@@ -393,7 +393,7 @@ SIDE EFFECTS: Alters Time.timeScale, overrides active Input System states, and c
             return false;
         }
 
-        if (!TryParseInputs(arguments, out var inputs, out errorMessage))
+        if (!TryParseInputs(arguments, out List<InputRequest> inputs, out errorMessage))
         {
             return false;
         }
@@ -407,7 +407,7 @@ SIDE EFFECTS: Alters Time.timeScale, overrides active Input System states, and c
         value = default;
         errorMessage = null;
 
-        if (!arguments.TryGetProperty(propertyName, out var element))
+        if (!arguments.TryGetProperty(propertyName, out JsonElement element))
         {
             errorMessage = $"Missing required parameter: '{propertyName}'.";
             return false;
@@ -427,7 +427,7 @@ SIDE EFFECTS: Alters Time.timeScale, overrides active Input System states, and c
         value = defaultValue;
         errorMessage = null;
 
-        if (!arguments.TryGetProperty(propertyName, out var element))
+        if (!arguments.TryGetProperty(propertyName, out JsonElement element))
         {
             return true;
         }
@@ -446,7 +446,7 @@ SIDE EFFECTS: Alters Time.timeScale, overrides active Input System states, and c
         value = false;
         errorMessage = null;
 
-        if (!arguments.TryGetProperty(propertyName, out var element))
+        if (!arguments.TryGetProperty(propertyName, out JsonElement element))
         {
             return true;
         }
@@ -472,7 +472,7 @@ SIDE EFFECTS: Alters Time.timeScale, overrides active Input System states, and c
         inputs = new List<InputRequest>();
         errorMessage = null;
 
-        if (!arguments.TryGetProperty("input", out var inputElement))
+        if (!arguments.TryGetProperty("input", out JsonElement inputElement))
         {
             return true;
         }
@@ -483,7 +483,7 @@ SIDE EFFECTS: Alters Time.timeScale, overrides active Input System states, and c
             return false;
         }
 
-        foreach (var item in inputElement.EnumerateArray())
+        foreach (JsonElement item in inputElement.EnumerateArray())
         {
             if (item.ValueKind != JsonValueKind.Object)
             {
@@ -491,20 +491,20 @@ SIDE EFFECTS: Alters Time.timeScale, overrides active Input System states, and c
                 return false;
             }
 
-            if (!item.TryGetProperty("action", out var actionElement) || actionElement.ValueKind != JsonValueKind.String)
+            if (!item.TryGetProperty("action", out JsonElement actionElement) || actionElement.ValueKind != JsonValueKind.String)
             {
                 errorMessage = "Each input entry must contain string property 'action'.";
                 return false;
             }
 
-            if (!item.TryGetProperty("type", out var typeElement) || typeElement.ValueKind != JsonValueKind.String)
+            if (!item.TryGetProperty("type", out JsonElement typeElement) || typeElement.ValueKind != JsonValueKind.String)
             {
                 errorMessage = "Each input entry must contain string property 'type'.";
                 return false;
             }
 
-            var actionName = (actionElement.GetString() ?? string.Empty).Trim();
-            var typeRaw = (typeElement.GetString() ?? string.Empty).Trim();
+            string actionName = (actionElement.GetString() ?? string.Empty).Trim();
+            string typeRaw = (typeElement.GetString() ?? string.Empty).Trim();
 
             if (string.IsNullOrWhiteSpace(actionName))
             {
@@ -512,7 +512,7 @@ SIDE EFFECTS: Alters Time.timeScale, overrides active Input System states, and c
                 return false;
             }
 
-            if (!TryParseInputType(typeRaw, out var inputType))
+            if (!TryParseInputType(typeRaw, out InputType inputType))
             {
                 errorMessage = "Input type must be 'press' or 'hold'.";
                 return false;
@@ -568,7 +568,7 @@ SIDE EFFECTS: Alters Time.timeScale, overrides active Input System states, and c
             return;
         }
 
-        var scale = (double)maxHeight / height;
+        double scale = (double)maxHeight / height;
         scaledWidth = Math.Max(1, (int)Math.Floor(width * scale));
         scaledHeight = maxHeight;
     }
@@ -583,10 +583,10 @@ SIDE EFFECTS: Alters Time.timeScale, overrides active Input System states, and c
             return CaptureResult.Error("Empty screenshot bytes.");
         }
 
-        var source_texture = new Texture2D(2, 2, TextureFormat.RGB24, false);
+        Texture2D source_texture = new(2, 2, TextureFormat.RGB24, false);
         Texture2D scaled_texture = null;
         RenderTexture temporary_render_texture = null;
-        var previous_render_texture = RenderTexture.active;
+        RenderTexture previous_render_texture = RenderTexture.active;
 
         try
         {
@@ -609,7 +609,7 @@ SIDE EFFECTS: Alters Time.timeScale, overrides active Input System states, and c
             scaled_texture.ReadPixels(new Rect(0, 0, target_width, target_height), 0, 0);
             scaled_texture.Apply(false, false);
 
-            var png_bytes = scaled_texture.EncodeToPNG();
+            byte[] png_bytes = scaled_texture.EncodeToPNG();
             if (png_bytes == null || png_bytes.Length == 0)
             {
                 return CaptureResult.Error("Failed to encode screenshot to PNG.");
@@ -642,13 +642,13 @@ SIDE EFFECTS: Alters Time.timeScale, overrides active Input System states, and c
     {
         try
         {
-            var game_view_type = Type.GetType("UnityEditor.GameView, UnityEditor");
+            Type game_view_type = Type.GetType("UnityEditor.GameView, UnityEditor");
             if (game_view_type == null)
             {
                 return;
             }
 
-            var game_view = EditorWindow.GetWindow(game_view_type);
+            EditorWindow game_view = EditorWindow.GetWindow(game_view_type);
             if (game_view != null)
             {
                 game_view.Repaint();
@@ -666,7 +666,7 @@ SIDE EFFECTS: Alters Time.timeScale, overrides active Input System states, and c
     /// </summary>
     private void TriggerHeldInputs(List<InputAction> heldActions)
     {
-        foreach (var heldAction in heldActions)
+        foreach (InputAction heldAction in heldActions)
         {
             TriggerAction(heldAction, 1.0f);
         }
@@ -680,13 +680,13 @@ SIDE EFFECTS: Alters Time.timeScale, overrides active Input System states, and c
             tempPath = CreateTempScreenshotPath();
             RequestScreenshot(tempPath);
 
-            var pngBytes = await ReadFileWhenReadyAsync(tempPath, ScreenshotTimeout, ScreenshotPollInterval);
+            byte[] pngBytes = await ReadFileWhenReadyAsync(tempPath, ScreenshotTimeout, ScreenshotPollInterval);
             if (pngBytes == null || pngBytes.Length == 0)
             {
                 return CaptureResult.Error("Game View screenshot not ready. Ensure the Game View is visible and try again.");
             }
 
-            var base64 = Convert.ToBase64String(pngBytes);
+            string base64 = Convert.ToBase64String(pngBytes);
             return CaptureResult.Success(base64, DefaultMimeType);
         }
         catch (Exception ex)
@@ -701,7 +701,7 @@ SIDE EFFECTS: Alters Time.timeScale, overrides active Input System states, and c
 
     private static string CreateTempScreenshotPath()
     {
-        var tempDir = Path.Combine(Application.dataPath, "..", "Temp", "UnityGameViewScreenshots");
+        string tempDir = Path.Combine(Application.dataPath, "..", "Temp", "UnityGameViewScreenshots");
         Directory.CreateDirectory(tempDir);
         return Path.Combine(tempDir, $"game_view_{Guid.NewGuid():N}.png");
     }
@@ -718,14 +718,14 @@ SIDE EFFECTS: Alters Time.timeScale, overrides active Input System states, and c
             return null;
         }
 
-        var start = DateTime.UtcNow;
+        DateTime start = DateTime.UtcNow;
         while (DateTime.UtcNow - start < timeout)
         {
             if (File.Exists(path))
             {
                 try
                 {
-                    var bytes = File.ReadAllBytes(path);
+                    byte[] bytes = File.ReadAllBytes(path);
                     if (bytes != null && bytes.Length > 0)
                     {
                         return bytes;
@@ -844,7 +844,7 @@ SIDE EFFECTS: Alters Time.timeScale, overrides active Input System states, and c
             return CaptureResult.Error($"Captured screenshot data was not valid base64: {ex.Message}");
         }
 
-        var temp_texture = new Texture2D(2, 2);
+        Texture2D temp_texture = new(2, 2);
         try
         {
             if (!temp_texture.LoadImage(png_bytes, false))
@@ -852,14 +852,14 @@ SIDE EFFECTS: Alters Time.timeScale, overrides active Input System states, and c
                 return CaptureResult.Error("Failed to decode screenshot image.");
             }
 
-            GetScaledDimensionsToMaxHeight(temp_texture.width, temp_texture.height, maxHeight, out var scaled_width, out var scaled_height);
+            GetScaledDimensionsToMaxHeight(temp_texture.width, temp_texture.height, maxHeight, out int scaled_width, out int scaled_height);
 
             if (temp_texture.width == scaled_width && temp_texture.height == scaled_height)
             {
                 return captureResult;
             }
 
-            var scaled_result = ScalePngImage(png_bytes, scaled_width, scaled_height);
+            CaptureResult scaled_result = ScalePngImage(png_bytes, scaled_width, scaled_height);
             if (scaled_result.IsError)
             {
                 return scaled_result;

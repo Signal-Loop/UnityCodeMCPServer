@@ -1,4 +1,5 @@
-using System;
+﻿using System;
+using System.Threading;
 using NUnit.Framework;
 using UnityCodeMcpServer.Servers.StreamableHttp;
 
@@ -12,7 +13,7 @@ namespace UnityCodeMcpServer.Tests.EditMode.StreamableHttp
         [Test]
         public void Constructor_SetsId()
         {
-            using var session = new SessionState("test-session-id");
+            using SessionState session = new("test-session-id");
 
             Assert.That(session.Id, Is.EqualTo("test-session-id"));
         }
@@ -20,9 +21,9 @@ namespace UnityCodeMcpServer.Tests.EditMode.StreamableHttp
         [Test]
         public void Constructor_SetsCreatedAtUtc()
         {
-            var before = DateTime.UtcNow;
-            using var session = new SessionState("test-session-id");
-            var after = DateTime.UtcNow;
+            DateTime before = DateTime.UtcNow;
+            using SessionState session = new("test-session-id");
+            DateTime after = DateTime.UtcNow;
 
             Assert.That(session.CreatedAtUtc, Is.InRange(before, after));
         }
@@ -30,7 +31,7 @@ namespace UnityCodeMcpServer.Tests.EditMode.StreamableHttp
         [Test]
         public void Constructor_SetsLastActivityUtcToCreatedTime()
         {
-            using var session = new SessionState("test-session-id");
+            using SessionState session = new("test-session-id");
 
             Assert.That(session.LastActivityUtc, Is.EqualTo(session.CreatedAtUtc));
         }
@@ -38,7 +39,7 @@ namespace UnityCodeMcpServer.Tests.EditMode.StreamableHttp
         [Test]
         public void Constructor_InitializesIsInitializedToFalse()
         {
-            using var session = new SessionState("test-session-id");
+            using SessionState session = new("test-session-id");
 
             Assert.That(session.IsInitialized, Is.False);
         }
@@ -52,7 +53,7 @@ namespace UnityCodeMcpServer.Tests.EditMode.StreamableHttp
         [Test]
         public void Constructor_CreatesCancellationTokenSource()
         {
-            using var session = new SessionState("test-session-id");
+            using SessionState session = new("test-session-id");
 
             Assert.That(session.CancellationTokenSource, Is.Not.Null);
             Assert.That(session.CancellationTokenSource.IsCancellationRequested, Is.False);
@@ -65,8 +66,8 @@ namespace UnityCodeMcpServer.Tests.EditMode.StreamableHttp
         [Test]
         public void Touch_UpdatesLastActivityUtc()
         {
-            using var session = new SessionState("test-session-id");
-            var initialActivity = session.LastActivityUtc;
+            using SessionState session = new("test-session-id");
+            DateTime initialActivity = session.LastActivityUtc;
 
             session.Touch();
 
@@ -81,7 +82,7 @@ namespace UnityCodeMcpServer.Tests.EditMode.StreamableHttp
         [Test]
         public void IsInitialized_CanBeSetToTrue()
         {
-            using var session = new SessionState("test-session-id");
+            using SessionState session = new("test-session-id");
 
             session.IsInitialized = true;
 
@@ -95,7 +96,7 @@ namespace UnityCodeMcpServer.Tests.EditMode.StreamableHttp
         [Test]
         public void SetSseStream_SetsActiveStream()
         {
-            using var session = new SessionState("test-session-id");
+            using SessionState session = new("test-session-id");
 
             // We can't easily create a real SseStreamWriter in unit tests
             // but we can verify the null case
@@ -106,7 +107,7 @@ namespace UnityCodeMcpServer.Tests.EditMode.StreamableHttp
         [Test]
         public void CloseSseStream_ClearsStream()
         {
-            using var session = new SessionState("test-session-id");
+            using SessionState session = new("test-session-id");
 
             session.CloseSseStream();
 
@@ -121,8 +122,8 @@ namespace UnityCodeMcpServer.Tests.EditMode.StreamableHttp
         [Test]
         public void Dispose_CancelsCancellationToken()
         {
-            var session = new SessionState("test-session-id");
-            var cts = session.CancellationTokenSource;
+            SessionState session = new("test-session-id");
+            CancellationTokenSource cts = session.CancellationTokenSource;
 
             session.Dispose();
 
@@ -132,7 +133,7 @@ namespace UnityCodeMcpServer.Tests.EditMode.StreamableHttp
         [Test]
         public void Dispose_CanBeCalledMultipleTimes()
         {
-            var session = new SessionState("test-session-id");
+            SessionState session = new("test-session-id");
 
             Assert.DoesNotThrow(() =>
             {

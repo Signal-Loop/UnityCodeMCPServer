@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Linq;
 using System.Security.Cryptography;
 using System.Text;
@@ -60,12 +60,12 @@ namespace UnityCodeMcpServer.Tests.EditMode
                 if (!recursive)
                     return;
 
-                foreach (var file in Files.Keys.Where(k => k.StartsWith(path + "/")).ToList())
+                foreach (string file in Files.Keys.Where(k => k.StartsWith(path + "/")).ToList())
                 {
                     Files.Remove(file);
                 }
 
-                foreach (var dir in Directories.Where(d => d.StartsWith(path + "/")).ToList())
+                foreach (string dir in Directories.Where(d => d.StartsWith(path + "/")).ToList())
                 {
                     Directories.Remove(dir);
                 }
@@ -87,8 +87,8 @@ namespace UnityCodeMcpServer.Tests.EditMode
             public string[] GetDirectories(string path)
             {
                 // Return the unique immediate sub-directories of `path`
-                var result = new HashSet<string>();
-                foreach (var dir in Directories)
+                HashSet<string> result = new();
+                foreach (string dir in Directories)
                 {
                     if (!dir.StartsWith(path + "/")) continue;
                     string remainder = dir.Substring(path.Length + 1);
@@ -107,7 +107,7 @@ namespace UnityCodeMcpServer.Tests.EditMode
             public string ComputeFileHash(string filePath)
             {
                 string content = ReadAllText(filePath);
-                using (var sha = SHA256.Create())
+                using (SHA256 sha = SHA256.Create())
                 {
                     byte[] hash = sha.ComputeHash(Encoding.UTF8.GetBytes(content));
                     return string.Concat(hash.Select(b => b.ToString("x2")));
@@ -135,8 +135,8 @@ namespace UnityCodeMcpServer.Tests.EditMode
         [Test]
         public void Install_ReturnsFailure_WhenSourceDirectoryDoesNotExist()
         {
-            var fs = new MockFileSystem();
-            var installer = new SkillsInstaller(fs);
+            MockFileSystem fs = new();
+            SkillsInstaller installer = new(fs);
 
             LogAssert.Expect(UnityEngine.LogType.Error,
                 $"[ERROR] #UnityCodeMcpServer Skills source directory not found: missing/path");
@@ -151,9 +151,9 @@ namespace UnityCodeMcpServer.Tests.EditMode
         [Test]
         public void Install_ReturnsFailure_WhenTargetPathIsEmpty()
         {
-            var fs = new MockFileSystem();
+            MockFileSystem fs = new();
             fs.Directories.Add(SourceRoot);
-            var installer = new SkillsInstaller(fs);
+            SkillsInstaller installer = new(fs);
 
             SkillsInstallResult result = installer.Install(SourceRoot, string.Empty);
 
@@ -164,9 +164,9 @@ namespace UnityCodeMcpServer.Tests.EditMode
         [Test]
         public void Install_ReturnsFailure_WhenTargetPathIsWhitespace()
         {
-            var fs = new MockFileSystem();
+            MockFileSystem fs = new();
             fs.Directories.Add(SourceRoot);
-            var installer = new SkillsInstaller(fs);
+            SkillsInstaller installer = new(fs);
 
             SkillsInstallResult result = installer.Install(SourceRoot, "   ");
 
@@ -178,9 +178,9 @@ namespace UnityCodeMcpServer.Tests.EditMode
         [Test]
         public void Install_ReturnsSuccessWithNoChanges_WhenSourceIsEmpty()
         {
-            var fs = new MockFileSystem();
+            MockFileSystem fs = new();
             fs.Directories.Add(SourceRoot);
-            var installer = new SkillsInstaller(fs);
+            SkillsInstaller installer = new(fs);
 
             SkillsInstallResult result = installer.Install(SourceRoot, TargetRoot);
 
@@ -195,11 +195,11 @@ namespace UnityCodeMcpServer.Tests.EditMode
         [Test]
         public void Install_CopiesAllFiles_WhenTargetDoesNotExist()
         {
-            var fs = new MockFileSystem();
+            MockFileSystem fs = new();
             fs.Directories.Add(SourceRoot);
             AddSkillFolder(fs, SourceRoot, "my-skill");
 
-            var installer = new SkillsInstaller(fs);
+            SkillsInstaller installer = new(fs);
             SkillsInstallResult result = installer.Install(SourceRoot, TargetRoot);
 
             Assert.IsTrue(result.Success);
@@ -213,11 +213,11 @@ namespace UnityCodeMcpServer.Tests.EditMode
         [Test]
         public void Install_CreatesTargetSkillDirectory_WhenItDoesNotExist()
         {
-            var fs = new MockFileSystem();
+            MockFileSystem fs = new();
             fs.Directories.Add(SourceRoot);
             AddSkillFolder(fs, SourceRoot, "my-skill");
 
-            var installer = new SkillsInstaller(fs);
+            SkillsInstaller installer = new(fs);
             installer.Install(SourceRoot, TargetRoot);
 
             Assert.IsTrue(fs.Directories.Any(d => d.Contains("my-skill")));
@@ -228,13 +228,13 @@ namespace UnityCodeMcpServer.Tests.EditMode
         [Test]
         public void Install_CopiesAllSkillFolders_WhenMultipleSkillsExist()
         {
-            var fs = new MockFileSystem();
+            MockFileSystem fs = new();
             fs.Directories.Add(SourceRoot);
             AddSkillFolder(fs, SourceRoot, "skill-a");
             AddSkillFolder(fs, SourceRoot, "skill-b");
             AddSkillFolder(fs, SourceRoot, "skill-c");
 
-            var installer = new SkillsInstaller(fs);
+            SkillsInstaller installer = new(fs);
             SkillsInstallResult result = installer.Install(SourceRoot, TargetRoot);
 
             Assert.IsTrue(result.Success);
@@ -248,7 +248,7 @@ namespace UnityCodeMcpServer.Tests.EditMode
         public void Install_SkipsFile_WhenHashMatchesExistingTarget()
         {
             const string content = "# unchanged skill";
-            var fs = new MockFileSystem();
+            MockFileSystem fs = new();
             fs.Directories.Add(SourceRoot);
             AddSkillFolder(fs, SourceRoot, "my-skill", content);
 
@@ -257,7 +257,7 @@ namespace UnityCodeMcpServer.Tests.EditMode
             fs.Directories.Add(targetSkillDir);
             fs.Files[$"{targetSkillDir}/SKILL.md"] = content;
 
-            var installer = new SkillsInstaller(fs);
+            SkillsInstaller installer = new(fs);
             SkillsInstallResult result = installer.Install(SourceRoot, TargetRoot);
 
             Assert.IsTrue(result.Success);
@@ -269,7 +269,7 @@ namespace UnityCodeMcpServer.Tests.EditMode
         [Test]
         public void Install_CopiesOnlyChangedFiles_WhenSomeHashesDiffer()
         {
-            var fs = new MockFileSystem();
+            MockFileSystem fs = new();
             fs.Directories.Add(SourceRoot);
             AddSkillFolder(fs, SourceRoot, "skill-unchanged", "# same");
             AddSkillFolder(fs, SourceRoot, "skill-changed", "# new content");
@@ -282,7 +282,7 @@ namespace UnityCodeMcpServer.Tests.EditMode
             fs.Directories.Add(targetChangedDir);
             fs.Files[$"{targetChangedDir}/SKILL.md"] = "# old content";
 
-            var installer = new SkillsInstaller(fs);
+            SkillsInstaller installer = new(fs);
             SkillsInstallResult result = installer.Install(SourceRoot, TargetRoot);
 
             Assert.IsTrue(result.Success);
@@ -296,7 +296,7 @@ namespace UnityCodeMcpServer.Tests.EditMode
         [Test]
         public void Install_CopiesFilesRecursively_WhenSkillHasSubfolders()
         {
-            var fs = new MockFileSystem();
+            MockFileSystem fs = new();
             fs.Directories.Add(SourceRoot);
 
             string skillDir = $"{SourceRoot}/deep-skill";
@@ -306,7 +306,7 @@ namespace UnityCodeMcpServer.Tests.EditMode
             fs.Files[$"{skillDir}/SKILL.md"] = "# root file";
             fs.Files[$"{subDir}/example.md"] = "# example";
 
-            var installer = new SkillsInstaller(fs);
+            SkillsInstaller installer = new(fs);
             SkillsInstallResult result = installer.Install(SourceRoot, TargetRoot);
 
             Assert.IsTrue(result.Success);
@@ -318,7 +318,7 @@ namespace UnityCodeMcpServer.Tests.EditMode
         [Test]
         public void RelocateInstalledSkills_InstallsIntoNewTarget_AndRemovesOldSkillFolders()
         {
-            var fs = new MockFileSystem();
+            MockFileSystem fs = new();
             fs.Directories.Add(SourceRoot);
             AddSkillFolder(fs, SourceRoot, "my-skill", "# packaged");
 
@@ -327,7 +327,7 @@ namespace UnityCodeMcpServer.Tests.EditMode
             fs.Directories.Add(previousSkillDir);
             fs.Files[$"{previousSkillDir}/SKILL.md"] = "# old target";
 
-            var installer = new SkillsInstaller(fs);
+            SkillsInstaller installer = new(fs);
 
             bool result = installer.RelocateInstalledSkills(SourceRoot, previousTarget, TargetRoot);
 
@@ -340,7 +340,7 @@ namespace UnityCodeMcpServer.Tests.EditMode
         [Test]
         public void RelocateInstalledSkills_PreservesUnrelatedFiles_InOldTargetSkillFolder()
         {
-            var fs = new MockFileSystem();
+            MockFileSystem fs = new();
             fs.Directories.Add(SourceRoot);
             AddSkillFolder(fs, SourceRoot, "my-skill", "# packaged");
 
@@ -350,7 +350,7 @@ namespace UnityCodeMcpServer.Tests.EditMode
             fs.Files[$"{previousSkillDir}/SKILL.md"] = "# old target";
             fs.Files[$"{previousSkillDir}/notes.md"] = "# keep me";
 
-            var installer = new SkillsInstaller(fs);
+            SkillsInstaller installer = new(fs);
 
             bool result = installer.RelocateInstalledSkills(SourceRoot, previousTarget, TargetRoot);
 
@@ -366,7 +366,7 @@ namespace UnityCodeMcpServer.Tests.EditMode
         [Test]
         public void InstallResult_ToString_DescribesFailure()
         {
-            var result = SkillsInstallResult.Failure("oops");
+            SkillsInstallResult result = SkillsInstallResult.Failure("oops");
 
             StringAssert.Contains("Failed", result.ToString());
             StringAssert.Contains("oops", result.ToString());
@@ -375,7 +375,7 @@ namespace UnityCodeMcpServer.Tests.EditMode
         [Test]
         public void InstallResult_ToString_DescribesUpToDate()
         {
-            var result = new SkillsInstallResult { Success = true, FilesUpdated = 0 };
+            SkillsInstallResult result = new() { Success = true, FilesUpdated = 0 };
 
             StringAssert.Contains("up to date", result.ToString());
         }
@@ -383,7 +383,7 @@ namespace UnityCodeMcpServer.Tests.EditMode
         [Test]
         public void InstallResult_ToString_DescribesChanges()
         {
-            var result = new SkillsInstallResult
+            SkillsInstallResult result = new()
             {
                 Success = true,
                 SkillFoldersUpdated = 2,

@@ -1,7 +1,8 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Reflection;
 using UnityCodeMcpServer.Editor.Installer;
 using UnityCodeMcpServer.Helpers;
 using UnityEditor;
@@ -28,7 +29,7 @@ namespace UnityCodeMcpServer.Settings.Editor
 
         public override void OnInspectorGUI()
         {
-            var settings = (UnityCodeMcpServerSettings)target;
+            UnityCodeMcpServerSettings settings = (UnityCodeMcpServerSettings)target;
             serializedObject.Update();
 
             // Draw default properties
@@ -54,7 +55,7 @@ namespace UnityCodeMcpServer.Settings.Editor
             {
                 EditorGUI.indentLevel++;
                 GUI.enabled = false;
-                foreach (var assemblyName in UnityCodeMcpServerSettings.DefaultAssemblyNames)
+                foreach (string assemblyName in UnityCodeMcpServerSettings.DefaultAssemblyNames)
                 {
                     EditorGUILayout.LabelField("• " + assemblyName, EditorStyles.label);
                 }
@@ -80,7 +81,7 @@ namespace UnityCodeMcpServer.Settings.Editor
                     if (_availableAssemblyNames != null && _availableAssemblyNames.Length > 0 &&
                         _selectedAssemblyIndex >= 0 && _selectedAssemblyIndex < _availableAssemblyNames.Length)
                     {
-                        var assemblyName = _availableAssemblyNames[_selectedAssemblyIndex];
+                        string assemblyName = _availableAssemblyNames[_selectedAssemblyIndex];
                         if (settings.AddAssembly(assemblyName))
                         {
                             UnityCodeMcpServerLogger.Info($"{Protocol.McpProtocol.LogPrefix} Added assembly: {assemblyName}");
@@ -100,9 +101,9 @@ namespace UnityCodeMcpServer.Settings.Editor
                 // List of additional assemblies with remove buttons
                 if (settings.AdditionalAssemblyNames != null && settings.AdditionalAssemblyNames.Count > 0)
                 {
-                    var assembliesToRemove = new List<string>();
+                    List<string> assembliesToRemove = new();
 
-                    foreach (var assemblyName in settings.AdditionalAssemblyNames)
+                    foreach (string assemblyName in settings.AdditionalAssemblyNames)
                     {
                         EditorGUILayout.BeginHorizontal();
                         EditorGUILayout.LabelField("• " + assemblyName);
@@ -114,7 +115,7 @@ namespace UnityCodeMcpServer.Settings.Editor
                     }
 
                     // Remove marked assemblies
-                    foreach (var assemblyName in assembliesToRemove)
+                    foreach (string assemblyName in assembliesToRemove)
                     {
                         if (settings.RemoveAssembly(assemblyName))
                         {
@@ -142,7 +143,7 @@ namespace UnityCodeMcpServer.Settings.Editor
 
         private void DrawSkillsInstallerSection()
         {
-            var settings = (UnityCodeMcpServerSettings)target;
+            UnityCodeMcpServerSettings settings = (UnityCodeMcpServerSettings)target;
             settings.InitializeSkillsTarget();
 
             EditorGUILayout.LabelField("Skills", EditorStyles.boldLabel);
@@ -153,7 +154,7 @@ namespace UnityCodeMcpServer.Settings.Editor
 
             EditorGUILayout.Space(4);
 
-            var selectedTarget = (UnityCodeMcpServerSettings.SkillInstallTarget)EditorGUILayout.EnumPopup(
+            UnityCodeMcpServerSettings.SkillInstallTarget selectedTarget = (UnityCodeMcpServerSettings.SkillInstallTarget)EditorGUILayout.EnumPopup(
                 "Install Directory",
                 settings.SkillsInstallTarget);
             if (selectedTarget != settings.SkillsInstallTarget)
@@ -213,7 +214,7 @@ namespace UnityCodeMcpServer.Settings.Editor
             }
 
             IFileSystem fileSystem = new EditorFileSystem();
-            var installer = new SkillsInstaller(fileSystem);
+            SkillsInstaller installer = new(fileSystem);
             bool changed = installer.RelocateInstalledSkills(sourcePath, previousTargetPath, newTargetPath);
             if (changed)
             {
@@ -229,7 +230,7 @@ namespace UnityCodeMcpServer.Settings.Editor
         {
             const string relativePath = "Editor/Skills";
 
-            var packageInfo = UnityEditor.PackageManager.PackageInfo
+            UnityEditor.PackageManager.PackageInfo packageInfo = UnityEditor.PackageManager.PackageInfo
                 .FindForAssembly(typeof(UnityCodeMcpServerSettingsEditor).Assembly);
 
             if (packageInfo != null)
@@ -252,14 +253,14 @@ namespace UnityCodeMcpServer.Settings.Editor
         {
             try
             {
-                var loadedAssemblies = AppDomain.CurrentDomain.GetAssemblies();
-                var settings = (UnityCodeMcpServerSettings)target;
+                Assembly[] loadedAssemblies = AppDomain.CurrentDomain.GetAssemblies();
+                UnityCodeMcpServerSettings settings = (UnityCodeMcpServerSettings)target;
 
                 // Get assembly names that are not already in default or additional lists
-                var existingNames = new HashSet<string>(UnityCodeMcpServerSettings.DefaultAssemblyNames);
+                HashSet<string> existingNames = new(UnityCodeMcpServerSettings.DefaultAssemblyNames);
                 if (settings.AdditionalAssemblyNames != null)
                 {
-                    foreach (var name in settings.AdditionalAssemblyNames)
+                    foreach (string name in settings.AdditionalAssemblyNames)
                     {
                         existingNames.Add(name);
                     }

@@ -1,4 +1,4 @@
-using System.Text.Json;
+﻿using System.Text.Json;
 using System.Text.Json.Serialization;
 
 namespace UnityCodeMcpServer.Protocol
@@ -8,14 +8,14 @@ namespace UnityCodeMcpServer.Protocol
     /// </summary>
     public static class JsonHelper
     {
-        private static readonly JsonSerializerOptions _options = new JsonSerializerOptions
+        private static readonly JsonSerializerOptions _options = new()
         {
             PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
             DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
             WriteIndented = false
         };
 
-        private static readonly JsonSerializerOptions _indentedOptions = new JsonSerializerOptions
+        private static readonly JsonSerializerOptions _indentedOptions = new()
         {
             PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
             DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
@@ -63,7 +63,7 @@ namespace UnityCodeMcpServer.Protocol
         /// </summary>
         public static JsonElement ParseElement(string json)
         {
-            using var doc = JsonDocument.Parse(json);
+            using JsonDocument doc = JsonDocument.Parse(json);
             return doc.RootElement.Clone();
         }
 
@@ -86,7 +86,7 @@ namespace UnityCodeMcpServer.Protocol
         public static string GetStringOrDefault(this JsonElement element, string propertyName, string defaultValue = null)
         {
             if (element.ValueKind == JsonValueKind.Object &&
-                element.TryGetProperty(propertyName, out var prop) &&
+                element.TryGetProperty(propertyName, out JsonElement prop) &&
                 prop.ValueKind == JsonValueKind.String)
             {
                 return prop.GetString();
@@ -100,7 +100,7 @@ namespace UnityCodeMcpServer.Protocol
         public static int GetIntOrDefault(this JsonElement element, string propertyName, int defaultValue = 0)
         {
             if (element.ValueKind == JsonValueKind.Object &&
-                element.TryGetProperty(propertyName, out var prop) &&
+                element.TryGetProperty(propertyName, out JsonElement prop) &&
                 prop.ValueKind == JsonValueKind.Number)
             {
                 return prop.GetInt32();
@@ -137,7 +137,7 @@ namespace UnityCodeMcpServer.Protocol
             }
 
             // Fallback: serialize then deserialize
-            var serialized = JsonSerializer.Serialize(obj, _options);
+            string serialized = JsonSerializer.Serialize(obj, _options);
             return JsonSerializer.Deserialize<T>(serialized, _options);
         }
 

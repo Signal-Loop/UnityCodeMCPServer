@@ -45,7 +45,7 @@ namespace UnityCodeMcpServer.Tests.EditMode.StreamableHttp
         [Test]
         public void AcceptHeaderValue_ContainsJsonAndSse()
         {
-            var accept = McpHttpTransport.AcceptHeaderValue;
+            string accept = McpHttpTransport.AcceptHeaderValue;
 
             Assert.That(accept, Does.Contain(McpHttpTransport.ContentTypeJson));
             Assert.That(accept, Does.Contain(McpHttpTransport.ContentTypeSse));

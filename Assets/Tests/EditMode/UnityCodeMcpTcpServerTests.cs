@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.IO;
 using System.Net.Sockets;
 using System.Reflection;
@@ -13,15 +13,15 @@ namespace UnityCodeMcpServer.Tests.EditMode
         [Test]
         public void IsExpectedClientDisconnect_ReturnsTrueForConnectionAbortWrappedInIOException()
         {
-            var method = typeof(UnityCodeMcpTcpServer).GetMethod(
+            MethodInfo method = typeof(UnityCodeMcpTcpServer).GetMethod(
                 "IsExpectedClientDisconnect",
                 BindingFlags.NonPublic | BindingFlags.Static);
 
             Assert.That(method, Is.Not.Null);
 
-            var socketException = new SocketException((int)SocketError.ConnectionAborted);
-            var ioException = new IOException("transport aborted", socketException);
-            var result = (bool)method.Invoke(null, new object[] { ioException });
+            SocketException socketException = new((int)SocketError.ConnectionAborted);
+            IOException ioException = new("transport aborted", socketException);
+            bool result = (bool)method.Invoke(null, new object[] { ioException });
 
             Assert.That(result, Is.True);
         }
@@ -29,13 +29,13 @@ namespace UnityCodeMcpServer.Tests.EditMode
         [Test]
         public void IsExpectedClientDisconnect_ReturnsFalseForUnexpectedExceptions()
         {
-            var method = typeof(UnityCodeMcpTcpServer).GetMethod(
+            MethodInfo method = typeof(UnityCodeMcpTcpServer).GetMethod(
                 "IsExpectedClientDisconnect",
                 BindingFlags.NonPublic | BindingFlags.Static);
 
             Assert.That(method, Is.Not.Null);
 
-            var result = (bool)method.Invoke(null, new object[] { new InvalidOperationException("boom") });
+            bool result = (bool)method.Invoke(null, new object[] { new InvalidOperationException("boom") });
 
             Assert.That(result, Is.False);
         }
@@ -43,15 +43,15 @@ namespace UnityCodeMcpServer.Tests.EditMode
         [Test]
         public void IsExpectedClientDisconnect_ReturnsTrueForConnectionResetWrappedInIOException()
         {
-            var method = typeof(UnityCodeMcpTcpServer).GetMethod(
+            MethodInfo method = typeof(UnityCodeMcpTcpServer).GetMethod(
                 "IsExpectedClientDisconnect",
                 BindingFlags.NonPublic | BindingFlags.Static);
 
             Assert.That(method, Is.Not.Null);
 
-            var socketException = new SocketException((int)SocketError.ConnectionReset);
-            var ioException = new IOException("connection reset", socketException);
-            var result = (bool)method.Invoke(null, new object[] { ioException });
+            SocketException socketException = new((int)SocketError.ConnectionReset);
+            IOException ioException = new("connection reset", socketException);
+            bool result = (bool)method.Invoke(null, new object[] { ioException });
 
             Assert.That(result, Is.True);
         }
@@ -60,14 +60,14 @@ namespace UnityCodeMcpServer.Tests.EditMode
         public void ActiveClientCount_ExposedAsPublicProperty()
         {
             // ActiveClientCount should be accessible for diagnostics logging
-            var property = typeof(UnityCodeMcpTcpServer).GetProperty(
+            PropertyInfo property = typeof(UnityCodeMcpTcpServer).GetProperty(
                 "ActiveClientCount",
                 BindingFlags.Public | BindingFlags.Static);
 
             Assert.That(property, Is.Not.Null, "ActiveClientCount property should exist");
             Assert.That(property.PropertyType, Is.EqualTo(typeof(int)));
 
-            var value = (int)property.GetValue(null);
+            int value = (int)property.GetValue(null);
             Assert.That(value, Is.GreaterThanOrEqualTo(0), "ActiveClientCount should never be negative");
         }
 
@@ -75,7 +75,7 @@ namespace UnityCodeMcpServer.Tests.EditMode
         public void StopServer_AcceptsShutdownReasonParameter()
         {
             // StopServer(string) should exist for diagnostic logging
-            var method = typeof(UnityCodeMcpTcpServer).GetMethod(
+            MethodInfo method = typeof(UnityCodeMcpTcpServer).GetMethod(
                 "StopServer",
                 BindingFlags.Public | BindingFlags.Static,
                 null,

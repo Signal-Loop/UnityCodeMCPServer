@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Linq;
 using System.Security.Cryptography;
 using System.Text;
@@ -13,9 +13,9 @@ namespace UnityCodeMcpServer.Tests.EditMode
         // Mock class to simulate File System
         public class MockFileSystem : IFileSystem
         {
-            public HashSet<string> Directories = new HashSet<string>();
-            public Dictionary<string, string> Files = new Dictionary<string, string>(); // Path, Content
-            public List<string> CopiedFiles = new List<string>();
+            public HashSet<string> Directories = new();
+            public Dictionary<string, string> Files = new(); // Path, Content
+            public List<string> CopiedFiles = new();
 
             public bool DirectoryExists(string path) => Directories.Contains(path);
             public bool FileExists(string path) => Files.ContainsKey(path);
@@ -30,8 +30,8 @@ namespace UnityCodeMcpServer.Tests.EditMode
             {
                 if (!Files.ContainsKey(filePath)) return "";
 
-                var content = Files[filePath];
-                using (var sha256 = SHA256.Create())
+                string content = Files[filePath];
+                using (SHA256 sha256 = SHA256.Create())
                 {
                     byte[] hash = sha256.ComputeHash(Encoding.UTF8.GetBytes(content));
                     return string.Concat(hash.Select(b => b.ToString("x2")));
@@ -41,8 +41,8 @@ namespace UnityCodeMcpServer.Tests.EditMode
             public string[] GetFiles(string path)
             {
                 // Simple mock implementation for finding files in "path"
-                var list = new List<string>();
-                foreach (var k in Files.Keys) if (k.StartsWith(path) && !k.EndsWith(".meta")) list.Add(k);
+                List<string> list = new();
+                foreach (string k in Files.Keys) if (k.StartsWith(path) && !k.EndsWith(".meta")) list.Add(k);
                 return list.ToArray();
             }
 
@@ -53,7 +53,7 @@ namespace UnityCodeMcpServer.Tests.EditMode
         public void Install_CopiesSpecificFiles_WhenTargetDoesNotExist()
         {
             // Arrange
-            var mockFS = new MockFileSystem();
+            MockFileSystem mockFS = new();
             string source = "Packages/MyPkg/STDIO~";
             string target = "Assets/Plugins/MyPkg/STDIO~";
 
@@ -64,7 +64,7 @@ namespace UnityCodeMcpServer.Tests.EditMode
             mockFS.Files.Add(source + "/pyproject.toml", "toml content");
             mockFS.Files.Add(source + "/uv.lock", "lock content");
 
-            var installer = new PackageInstaller(mockFS);
+            PackageInstaller installer = new(mockFS);
 
             // Act
             bool result = installer.Install(source, target);
@@ -83,7 +83,7 @@ namespace UnityCodeMcpServer.Tests.EditMode
         public void Install_SkipsUnchangedFiles_WhenHashMatches()
         {
             // Arrange
-            var mockFS = new MockFileSystem();
+            MockFileSystem mockFS = new();
             string source = "Packages/MyPkg/STDIO~";
             string target = "Assets/Plugins/MyPkg/STDIO~";
 
@@ -104,7 +104,7 @@ namespace UnityCodeMcpServer.Tests.EditMode
             mockFS.Files.Add(target + "/pyproject.toml", "toml content");
             mockFS.Files.Add(target + "/uv.lock", "lock content");
 
-            var installer = new PackageInstaller(mockFS);
+            PackageInstaller installer = new(mockFS);
 
             // Act
             bool result = installer.Install(source, target);
@@ -118,7 +118,7 @@ namespace UnityCodeMcpServer.Tests.EditMode
         public void Install_CopiesOnlyChangedFiles_WhenHashDiffers()
         {
             // Arrange
-            var mockFS = new MockFileSystem();
+            MockFileSystem mockFS = new();
             string source = "Packages/MyPkg/STDIO~";
             string target = "Assets/Plugins/MyPkg/STDIO~";
 
@@ -139,7 +139,7 @@ namespace UnityCodeMcpServer.Tests.EditMode
             mockFS.Files.Add(target + "/pyproject.toml", "toml content"); // Same content
             mockFS.Files.Add(target + "/uv.lock", "OLD lock content");
 
-            var installer = new PackageInstaller(mockFS);
+            PackageInstaller installer = new(mockFS);
 
             // Act
             bool result = installer.Install(source, target);
@@ -158,11 +158,11 @@ namespace UnityCodeMcpServer.Tests.EditMode
         public void Install_ReturnsFalse_WhenSourceNotFound()
         {
             // Arrange
-            var mockFS = new MockFileSystem();
+            MockFileSystem mockFS = new();
             string source = "Packages/NonExistent";
             string target = "Assets/Plugins/MyPkg/STDIO~";
 
-            var installer = new PackageInstaller(mockFS);
+            PackageInstaller installer = new(mockFS);
 
             // Expect error log
             LogAssert.Expect(UnityEngine.LogType.Error, $"[ERROR] #UnityCodeMcpServer Source directory not found: {source}");

@@ -9,6 +9,7 @@ using UnityCodeMcpServer.Protocol;
 using UnityCodeMcpServer.Registry;
 using UnityCodeMcpServer.Services;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 using UnityEngine.TestTools;
 
 namespace UnityCodeMcpServer.Tests.EditMode
@@ -19,12 +20,12 @@ namespace UnityCodeMcpServer.Tests.EditMode
         [Test]
         public void BuildResult_ProducesCombinedTextAndFlags()
         {
-            var method = typeof(ExecuteCSharpScriptInUnityEditor).GetMethod(
+            MethodInfo method = typeof(ExecuteCSharpScriptInUnityEditor).GetMethod(
                 "CreateToolCallResult",
                 BindingFlags.Static | BindingFlags.NonPublic);
             Assert.That(method, Is.Not.Null, "CreateToolCallResult should exist and be non-public static");
 
-            var result = (ToolsCallResult)method.Invoke(
+            ToolsCallResult result = (ToolsCallResult)method.Invoke(
                 null,
                 new object[]
                 {
@@ -40,7 +41,7 @@ namespace UnityCodeMcpServer.Tests.EditMode
             Assert.That(result.IsError, Is.True);
             Assert.That(result.Content, Is.Not.Null);
             Assert.That(result.Content.Count, Is.EqualTo(1));
-            var text = result.Content[0].Text;
+            string text = result.Content[0].Text;
             Assert.That(text, Does.Contain("Status: compilation_error"));
             Assert.That(text, Does.Contain("### Result"));
             Assert.That(text, Does.Contain("42"));
@@ -55,7 +56,7 @@ namespace UnityCodeMcpServer.Tests.EditMode
         [Test]
         public void BuildCompilationBlockedResult_ReturnsCompilerErrorMessage()
         {
-            var result = ExecuteCSharpScriptInUnityEditor.BuildCompilationBlockedResult(isCompiling: false, hasCompileErrors: true);
+            ToolsCallResult result = ExecuteCSharpScriptInUnityEditor.BuildCompilationBlockedResult(isCompiling: false, hasCompileErrors: true);
 
             Assert.That(result.IsError, Is.True);
             Assert.That(result.Content[0].Text, Does.Contain("Cannot execute C# scripts while the project has compiler errors"));
@@ -64,7 +65,7 @@ namespace UnityCodeMcpServer.Tests.EditMode
         [Test]
         public void BuildCompilationBlockedResult_ReturnsCompilingMessage()
         {
-            var result = ExecuteCSharpScriptInUnityEditor.BuildCompilationBlockedResult(isCompiling: true, hasCompileErrors: false);
+            ToolsCallResult result = ExecuteCSharpScriptInUnityEditor.BuildCompilationBlockedResult(isCompiling: true, hasCompileErrors: false);
 
             Assert.That(result.IsError, Is.True);
             Assert.That(result.Content[0].Text, Does.Contain("Cannot execute C# scripts while the editor is compiling scripts"));
@@ -73,10 +74,10 @@ namespace UnityCodeMcpServer.Tests.EditMode
         [UnityTest]
         public IEnumerator ExecuteAsync_ReturnsSuccess_ForSimpleScript() => UniTask.ToCoroutine(async () =>
         {
-            var tool = new ExecuteCSharpScriptInUnityEditor();
-            var args = JsonHelper.ParseElement(@"{""script"": ""return 2 + 3;""}");
+            ExecuteCSharpScriptInUnityEditor tool = new();
+            JsonElement args = JsonHelper.ParseElement(@"{""script"": ""return 2 + 3;""}");
 
-            var result = await tool.ExecuteAsync(args);
+            ToolsCallResult result = await tool.ExecuteAsync(args);
 
             Assert.That(result.IsError, Is.False);
             Assert.That(result.Content, Is.Not.Empty);
@@ -88,15 +89,15 @@ namespace UnityCodeMcpServer.Tests.EditMode
         [UnityTest]
         public IEnumerator ExecuteAsync_MarksSceneDirty_AfterSuccessfulExecution() => UniTask.ToCoroutine(async () =>
         {
-            var scene = UnityEditor.SceneManagement.EditorSceneManager.NewScene(
+            Scene scene = UnityEditor.SceneManagement.EditorSceneManager.NewScene(
                 UnityEditor.SceneManagement.NewSceneSetup.EmptyScene,
                 UnityEditor.SceneManagement.NewSceneMode.Single);
             Assert.That(scene.isDirty, Is.False, "Scene should start clean");
 
-            var tool = new ExecuteCSharpScriptInUnityEditor();
-            var args = JsonHelper.ParseElement(@"{""script"": ""return 1;""}");
+            ExecuteCSharpScriptInUnityEditor tool = new();
+            JsonElement args = JsonHelper.ParseElement(@"{""script"": ""return 1;""}");
 
-            var result = await tool.ExecuteAsync(args);
+            ToolsCallResult result = await tool.ExecuteAsync(args);
 
             Assert.That(result.IsError, Is.False);
             Assert.That(scene.isDirty, Is.True, "Scene should be marked dirty after successful ExecuteAsync");
@@ -106,13 +107,13 @@ namespace UnityCodeMcpServer.Tests.EditMode
         public void MarkActiveSceneDirtyIfNeeded_MarksSceneDirty_WhenNotPlaying()
         {
             // Load a new temporary scene so we have a valid, clean scene to mark dirty
-            var scene = UnityEditor.SceneManagement.EditorSceneManager.NewScene(
+            Scene scene = UnityEditor.SceneManagement.EditorSceneManager.NewScene(
                 UnityEditor.SceneManagement.NewSceneSetup.EmptyScene,
                 UnityEditor.SceneManagement.NewSceneMode.Single);
 
             Assert.That(scene.isDirty, Is.False, "Fresh scene should not be dirty");
 
-            var service = new ScriptExecutionService();
+            ScriptExecutionService service = new();
             service.MarkActiveSceneDirtyIfNeeded();
 
             Assert.That(scene.isDirty, Is.True, "Scene should be marked dirty after calling MarkActiveSceneDirtyIfNeeded");
@@ -121,16 +122,16 @@ namespace UnityCodeMcpServer.Tests.EditMode
         [Test]
         public void MarkActiveSceneDirtyIfNeeded_DoesNotThrow_WhenSceneIsValid()
         {
-            var service = new ScriptExecutionService();
+            ScriptExecutionService service = new();
             Assert.DoesNotThrow(() => service.MarkActiveSceneDirtyIfNeeded());
         }
 
         [Test]
         public void ExecuteScript_ReturnsSuccess_ForSimpleScript()
         {
-            var service = new ScriptExecutionService();
+            ScriptExecutionService service = new();
 
-            var result = service.ExecuteScript("return 2 + 3;");
+            ScriptExecutionService.ExecutionResult result = service.ExecuteScript("return 2 + 3;");
 
             Assert.That(result.IsSuccess, Is.True);
             Assert.That(result.Status, Is.EqualTo("SUCCESS"));
@@ -140,10 +141,10 @@ namespace UnityCodeMcpServer.Tests.EditMode
         [Test]
         public void ExecuteScript_ReturnsCompilationError_ForInvalidScript()
         {
-            var service = new ScriptExecutionService();
+            ScriptExecutionService service = new();
 
             LogAssert.Expect(LogType.Error, new Regex("Script execution compilation error", RegexOptions.Singleline));
-            var result = service.ExecuteScript("this is not valid csharp");
+            ScriptExecutionService.ExecutionResult result = service.ExecuteScript("this is not valid csharp");
 
             Assert.That(result.IsSuccess, Is.False);
             Assert.That(result.Status, Is.EqualTo("COMPILATION_ERROR"));
@@ -153,13 +154,13 @@ namespace UnityCodeMcpServer.Tests.EditMode
         [UnityTest]
         public IEnumerator ExecuteAsync_ReturnsError_ForCompilationIssue() => UniTask.ToCoroutine(async () =>
         {
-            var tool = new ExecuteCSharpScriptInUnityEditor();
-            var args = JsonHelper.ParseElement(@"{""script"": ""this is not valid csharp""}");
+            ExecuteCSharpScriptInUnityEditor tool = new();
+            JsonElement args = JsonHelper.ParseElement(@"{""script"": ""this is not valid csharp""}");
 
             LogAssert.Expect(LogType.Error, new Regex("Script execution compilation error", RegexOptions.Singleline));
             LogAssert.Expect(LogType.Error, new Regex("ExecuteCSharpScriptInUnityEditor result", RegexOptions.Singleline));
 
-            var result = await tool.ExecuteAsync(args);
+            ToolsCallResult result = await tool.ExecuteAsync(args);
 
             Assert.That(result.IsError, Is.True);
             Assert.That(result.Content[0].Text, Does.Contain("COMPILATION_ERROR"));
@@ -168,18 +169,18 @@ namespace UnityCodeMcpServer.Tests.EditMode
         [UnityTest]
         public IEnumerator ExecuteAsync_CapturesLogsAndErrors_FromScriptLogs() => UniTask.ToCoroutine(async () =>
         {
-            var tool = new ExecuteCSharpScriptInUnityEditor();
-            var script = "Debug.Log(\"debug log\"); Debug.LogWarning(\"warning log\"); Debug.LogError(\"error log\"); return 7;";
-            var args = BuildScriptArguments(script);
+            ExecuteCSharpScriptInUnityEditor tool = new();
+            string script = "Debug.Log(\"debug log\"); Debug.LogWarning(\"warning log\"); Debug.LogError(\"error log\"); return 7;";
+            JsonElement args = BuildScriptArguments(script);
 
             LogAssert.Expect(LogType.Error, new Regex("error log", RegexOptions.Singleline));
 
             // You can now await normally inside this lambda
-            var result = await tool.ExecuteAsync(args);
+            ToolsCallResult result = await tool.ExecuteAsync(args);
 
             Assert.That(result.IsError, Is.False);
             Assert.That(result.Content, Is.Not.Empty);
-            var text = result.Content[0].Text;
+            string text = result.Content[0].Text;
 
             Assert.That(text, Does.Contain("Status: SUCCESS_WITH_ERRORS"));
             Assert.That(text, Does.Contain("Standard Log:"));
@@ -193,18 +194,18 @@ namespace UnityCodeMcpServer.Tests.EditMode
         [UnityTest]
         public IEnumerator ExecuteAsync_ReturnsError_ForRuntimeException() => UniTask.ToCoroutine(async () =>
         {
-            var tool = new ExecuteCSharpScriptInUnityEditor();
-            var script = "throw new System.InvalidOperationException(\"runtime boom\");";
-            var args = BuildScriptArguments(script);
+            ExecuteCSharpScriptInUnityEditor tool = new();
+            string script = "throw new System.InvalidOperationException(\"runtime boom\");";
+            JsonElement args = BuildScriptArguments(script);
 
             LogAssert.Expect(LogType.Error, new Regex("Script execution runtime error", RegexOptions.Singleline));
             LogAssert.Expect(LogType.Error, new Regex("ExecuteCSharpScriptInUnityEditor result", RegexOptions.Singleline));
 
-            var result = await tool.ExecuteAsync(args);
+            ToolsCallResult result = await tool.ExecuteAsync(args);
 
             Assert.That(result.IsError, Is.True);
             Assert.That(result.Content, Is.Not.Empty);
-            var text = result.Content[0].Text;
+            string text = result.Content[0].Text;
             Assert.That(text, Does.Contain("Status: EXECUTION_ERROR"));
             Assert.That(text, Does.Contain("InvalidOperationException"));
             Assert.That(text, Does.Contain("runtime boom"));
@@ -214,11 +215,11 @@ namespace UnityCodeMcpServer.Tests.EditMode
         [UnityTest]
         public IEnumerator Registry_CanExecuteScriptExecutionTool() => UniTask.ToCoroutine(async () =>
         {
-            var registry = new McpRegistry();
+            McpRegistry registry = new();
             registry.DiscoverAndRegisterAll();
 
-            var arguments = JsonHelper.ParseElement(@"{""script"": ""return 2 + 3;""}");
-            var result = await registry.ExecuteToolAsync("execute_csharp_script_in_unity_editor", arguments);
+            JsonElement arguments = JsonHelper.ParseElement(@"{""script"": ""return 2 + 3;""}");
+            ToolsCallResult result = await registry.ExecuteToolAsync("execute_csharp_script_in_unity_editor", arguments);
 
             Assert.That(result.IsError, Is.False);
             Assert.That(result.Content, Is.Not.Empty);
@@ -229,7 +230,7 @@ namespace UnityCodeMcpServer.Tests.EditMode
 
         private static JsonElement BuildScriptArguments(string script)
         {
-            var escaped = script.Replace("\\", "\\\\").Replace("\"", "\\\"");
+            string escaped = script.Replace("\\", "\\\\").Replace("\"", "\\\"");
             return JsonHelper.ParseElement($@"{{""script"": ""{escaped}""}}");
         }
     }

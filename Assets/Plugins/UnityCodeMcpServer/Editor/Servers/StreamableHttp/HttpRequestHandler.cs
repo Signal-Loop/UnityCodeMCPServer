@@ -29,10 +29,10 @@ namespace UnityCodeMcpServer.Servers.StreamableHttp
         }
 
         public static ValidationResult Success() =>
-            new ValidationResult(true, 200, null);
+            new(true, 200, null);
 
         public static ValidationResult Failure(int statusCode, string errorMessage) =>
-            new ValidationResult(false, statusCode, errorMessage);
+            new(false, statusCode, errorMessage);
     }
 
     /// <summary>
@@ -56,15 +56,15 @@ namespace UnityCodeMcpServer.Servers.StreamableHttp
         /// <param name="ct">Cancellation token</param>
         public async UniTask HandleRequestAsync(HttpListenerContext context, CancellationToken ct)
         {
-            var request = context.Request;
-            var response = context.Response;
+            HttpListenerRequest request = context.Request;
+            HttpListenerResponse response = context.Response;
 
             try
             {
                 UnityCodeMcpServerLogger.Trace($"[HTTP] {request.HttpMethod} {request.Url.PathAndQuery} from {request.RemoteEndPoint}");
 
                 // Validate Origin header for security
-                var originValidation = ValidateOrigin(request);
+                ValidationResult originValidation = ValidateOrigin(request);
                 if (!originValidation.IsValid)
                 {
                     await SendErrorResponseAsync(response, originValidation.StatusCode, originValidation.ErrorMessage, ct);
@@ -103,13 +103,13 @@ namespace UnityCodeMcpServer.Servers.StreamableHttp
         /// </summary>
         private async UniTask HandlePostAsync(HttpListenerContext context, CancellationToken ct)
         {
-            var request = context.Request;
-            var response = context.Response;
+            HttpListenerRequest request = context.Request;
+            HttpListenerResponse response = context.Response;
 
             // Check Accept header
-            var acceptHeader = request.Headers["Accept"] ?? "";
-            var acceptsJson = acceptHeader.Contains(McpHttpTransport.ContentTypeJson) || acceptHeader.Contains("*/*");
-            var acceptsSse = acceptHeader.Contains(McpHttpTransport.ContentTypeSse);
+            string acceptHeader = request.Headers["Accept"] ?? "";
+            bool acceptsJson = acceptHeader.Contains(McpHttpTransport.ContentTypeJson) || acceptHeader.Contains("*/*");
+            bool acceptsSse = acceptHeader.Contains(McpHttpTransport.ContentTypeSse);
 
             if (!acceptsJson && !acceptsSse)
             {
@@ -122,7 +122,7 @@ namespace UnityCodeMcpServer.Servers.StreamableHttp
             string requestBody;
             try
             {
-                using (var reader = new StreamReader(request.InputStream, Encoding.UTF8))
+                using (StreamReader reader = new(request.InputStream, Encoding.UTF8))
                 {
                     requestBody = await reader.ReadToEndAsync();
                 }
@@ -145,9 +145,9 @@ namespace UnityCodeMcpServer.Servers.StreamableHttp
             bool isNotification = false;
             try
             {
-                using (var doc = JsonDocument.Parse(requestBody))
+                using (JsonDocument doc = JsonDocument.Parse(requestBody))
                 {
-                    var root = doc.RootElement;
+                    JsonElement root = doc.RootElement;
                     isNotification = !root.TryGetProperty("id", out _);
                 }
             }
@@ -158,7 +158,7 @@ namespace UnityCodeMcpServer.Servers.StreamableHttp
 
             // Process message on main thread for Unity API access
             await UniTask.SwitchToMainThread();
-            var responseJson = await _messageHandler.ProcessMessageAsync(requestBody);
+            string responseJson = await _messageHandler.ProcessMessageAsync(requestBody);
 
             // Handle notifications - return 202 Accepted with no body
             if (isNotification || responseJson == null)
@@ -178,7 +178,7 @@ namespace UnityCodeMcpServer.Servers.StreamableHttp
         /// </summary>
         private ValidationResult ValidateOrigin(HttpListenerRequest request)
         {
-            var origin = request.Headers["Origin"];
+            string origin = request.Headers["Origin"];
 
             // If no Origin header, allow (same-origin requests)
             if (string.IsNullOrEmpty(origin))
@@ -206,7 +206,7 @@ namespace UnityCodeMcpServer.Servers.StreamableHttp
             response.StatusCode = 200;
             response.ContentType = McpHttpTransport.ContentTypeJson;
             response.Headers.Add("Access-Control-Allow-Origin", "*");
-            var bytes = _utf8NoBom.GetBytes(json);
+            byte[] bytes = _utf8NoBom.GetBytes(json);
             response.ContentLength64 = bytes.Length;
 
             await response.OutputStream.WriteAsync(bytes, 0, bytes.Length, ct);
@@ -223,7 +223,7 @@ namespace UnityCodeMcpServer.Servers.StreamableHttp
             response.StatusCode = statusCode;
             response.ContentType = "text/plain";
 
-            var bytes = _utf8NoBom.GetBytes(message);
+            byte[] bytes = _utf8NoBom.GetBytes(message);
             response.ContentLength64 = bytes.Length;
 
             try

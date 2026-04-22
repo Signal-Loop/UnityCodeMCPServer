@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Net;
 using System.Threading;
@@ -69,7 +70,7 @@ namespace UnityCodeMcpServer.Servers.StreamableHttp
 
         private static void StartServer(string reason)
         {
-            var settings = UnityCodeMcpServerSettings.Instance;
+            UnityCodeMcpServerSettings settings = UnityCodeMcpServerSettings.Instance;
 
             if (settings.StartupServer != UnityCodeMcpServerSettings.ServerStartupMode.Http)
             {
@@ -83,7 +84,7 @@ namespace UnityCodeMcpServer.Servers.StreamableHttp
                 return;
             }
 
-            var prefix = $"http://127.0.0.1:{settings.HttpPort}/mcp/";
+            string prefix = $"http://127.0.0.1:{settings.HttpPort}/mcp/";
 
             try
             {
@@ -207,7 +208,7 @@ namespace UnityCodeMcpServer.Servers.StreamableHttp
             {
                 try
                 {
-                    var context = await _listener.GetContextAsync();
+                    HttpListenerContext context = await _listener.GetContextAsync();
 
                     // Handle request in background (don't await)
                     HandleRequestAsync(context, ct).Forget();
@@ -282,9 +283,9 @@ namespace UnityCodeMcpServer.Servers.StreamableHttp
         [MenuItem("Tools/UnityCodeMcpServer/HTTP/Log Server Status")]
         public static void LogServerStatus()
         {
-            var settings = UnityCodeMcpServerSettings.Instance;
+            UnityCodeMcpServerSettings settings = UnityCodeMcpServerSettings.Instance;
 
-            var status = _listener != null && _listener.IsListening ? "Running" : "Stopped";
+            string status = _listener != null && _listener.IsListening ? "Running" : "Stopped";
 
             UnityCodeMcpServerLogger.Info($"[UnityCodeMcpHttpServer] Server Status:\n" +
                 $"  Status: {status}\n" +
@@ -298,7 +299,7 @@ namespace UnityCodeMcpServer.Servers.StreamableHttp
         [MenuItem("Tools/UnityCodeMcpServer/HTTP/Print MCP configuration to console")]
         public static void LogMcpConfiguration()
         {
-            var settings = UnityCodeMcpServerSettings.Instance;
+            UnityCodeMcpServerSettings settings = UnityCodeMcpServerSettings.Instance;
 
             // Configuration for direct HTTP connection (no proxy needed)
             string template = $@"{{
@@ -357,9 +358,9 @@ namespace UnityCodeMcpServer.Servers.StreamableHttp
                 return "Tools: 0\nPrompts: 0\nResources: 0";
             }
 
-            var toolNames = _registry.SyncTools.Keys.Concat(_registry.AsyncTools.Keys).OrderBy(name => name).ToList();
-            var promptNames = _registry.Prompts.Keys.OrderBy(name => name).ToList();
-            var resourceNames = _registry.Resources.Keys.OrderBy(name => name).ToList();
+            List<string> toolNames = _registry.SyncTools.Keys.Concat(_registry.AsyncTools.Keys).OrderBy(name => name).ToList();
+            List<string> promptNames = _registry.Prompts.Keys.OrderBy(name => name).ToList();
+            List<string> resourceNames = _registry.Resources.Keys.OrderBy(name => name).ToList();
 
             return $"Tools: {toolNames.Count} ({string.Join(", ", toolNames)})\n" +
                    $"Prompts: {promptNames.Count} ({string.Join(", ", promptNames)})\n" +

@@ -1,4 +1,4 @@
-using System.Text.Json;
+﻿using System.Text.Json;
 using NUnit.Framework;
 using UnityCodeMcpServer.Protocol;
 
@@ -10,7 +10,7 @@ namespace UnityCodeMcpServer.Tests.EditMode
         [Test]
         public void ResourceTextContent_CreatesResourceTypeWithText()
         {
-            var contentItem = ContentItem.ResourceTextContent("resource://test-file", "text/plain", "hello world");
+            ContentItem contentItem = ContentItem.ResourceTextContent("resource://test-file", "text/plain", "hello world");
 
             Assert.That(contentItem.Type, Is.EqualTo(McpContentTypes.Resource));
             Assert.That(contentItem.Resource, Is.Not.Null);
@@ -22,11 +22,11 @@ namespace UnityCodeMcpServer.Tests.EditMode
         [Test]
         public void ResourceTextContent_Serializes_And_DoesNotContainBlob()
         {
-            var contentItem = ContentItem.ResourceTextContent("resource://test-file", "text/plain", "hello world");
-            var json = JsonHelper.Serialize(contentItem);
+            ContentItem contentItem = ContentItem.ResourceTextContent("resource://test-file", "text/plain", "hello world");
+            string json = JsonHelper.Serialize(contentItem);
 
-            using var document = JsonDocument.Parse(json);
-            var resource = document.RootElement.GetProperty("resource");
+            using JsonDocument document = JsonDocument.Parse(json);
+            JsonElement resource = document.RootElement.GetProperty("resource");
 
             Assert.That(resource.GetProperty("uri").GetString(), Is.EqualTo("resource://test-file"));
             Assert.That(resource.GetProperty("mimeType").GetString(), Is.EqualTo("text/plain"));

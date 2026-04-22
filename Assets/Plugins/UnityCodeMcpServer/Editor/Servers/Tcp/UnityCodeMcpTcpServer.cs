@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Net;
@@ -36,9 +37,9 @@ namespace UnityCodeMcpServer.Servers.Tcp
         public static int ActiveClientCount => _activeClientCount;
 
         // Pre-compiled regex for fast ping detection without JSON parsing or main-thread switch.
-        private static readonly Regex PingMethodRegex = new Regex(
+        private static readonly Regex PingMethodRegex = new(
             @"""method""\s*:\s*""ping""", RegexOptions.Compiled);
-        private static readonly Regex IdRegex = new Regex(
+        private static readonly Regex IdRegex = new(
             @"""id""\s*:\s*(""[^""]*""|\d+|null)", RegexOptions.Compiled);
 
         static UnityCodeMcpTcpServer()
@@ -61,7 +62,7 @@ namespace UnityCodeMcpServer.Servers.Tcp
 
         public static void StartServer()
         {
-            var settings = UnityCodeMcpServerSettings.Instance;
+            UnityCodeMcpServerSettings settings = UnityCodeMcpServerSettings.Instance;
 
             if (_isRunning)
             {
@@ -119,7 +120,7 @@ namespace UnityCodeMcpServer.Servers.Tcp
             if (!_isRunning)
                 return;
 
-            var clientCount = _activeClientCount;
+            int clientCount = _activeClientCount;
             UnityCodeMcpServerLogger.Info($"[STDIO] Stopping server reason={reason} active_clients={clientCount}");
 
             _serverCts?.Cancel();
@@ -163,7 +164,7 @@ namespace UnityCodeMcpServer.Servers.Tcp
         private static async UniTaskVoid AcceptClientsAsync(CancellationToken ct)
         {
             // Capture settings on main thread before switching to thread pool.
-            var settings = UnityCodeMcpServerSettings.Instance;
+            UnityCodeMcpServerSettings settings = UnityCodeMcpServerSettings.Instance;
 
             // Run accept loop on the thread pool so that connection handling
             // (especially health-probe pings) is not blocked when the Unity
@@ -172,14 +173,14 @@ namespace UnityCodeMcpServer.Servers.Tcp
 
             while (!ct.IsCancellationRequested)
             {
-                var listener = _listener;
+                TcpListener listener = _listener;
                 if (listener == null) break;
 
                 try
                 {
-                    var client = await listener.AcceptTcpClientAsync();
-                    var endpoint = client.Client.RemoteEndPoint;
-                    var clientCount = Interlocked.Increment(ref _activeClientCount);
+                    TcpClient client = await listener.AcceptTcpClientAsync();
+                    EndPoint endpoint = client.Client.RemoteEndPoint;
+                    int clientCount = Interlocked.Increment(ref _activeClientCount);
 
                     UnityCodeMcpServerLogger.Info($"[STDIO] Client connected from {endpoint} active_clients={clientCount}");
 
@@ -210,7 +211,7 @@ namespace UnityCodeMcpServer.Servers.Tcp
         {
             // This method runs entirely on the thread pool (from AcceptClientsAsync).
             // Only non-ping message processing switches to the main thread.
-            var connectionTimer = System.Diagnostics.Stopwatch.StartNew();
+            System.Diagnostics.Stopwatch connectionTimer = System.Diagnostics.Stopwatch.StartNew();
 
             try
             {
@@ -219,20 +220,20 @@ namespace UnityCodeMcpServer.Servers.Tcp
                     client.ReceiveTimeout = settings.ReadTimeoutMs;
                     client.SendTimeout = settings.WriteTimeoutMs;
 
-                    var stream = client.GetStream();
-                    var buffer = new byte[4];
+                    NetworkStream stream = client.GetStream();
+                    byte[] buffer = new byte[4];
 
                     while (!ct.IsCancellationRequested && client.Connected)
                     {
                         // Read length prefix (4 bytes, big-endian)
-                        var bytesRead = await ReadExactAsync(stream, buffer, 0, 4, ct);
+                        int bytesRead = await ReadExactAsync(stream, buffer, 0, 4, ct);
                         if (bytesRead < 4)
                         {
                             // Client disconnected
                             break;
                         }
 
-                        var messageLength = (buffer[0] << 24) | (buffer[1] << 16) | (buffer[2] << 8) | buffer[3];
+                        int messageLength = (buffer[0] << 24) | (buffer[1] << 16) | (buffer[2] << 8) | buffer[3];
 
                         if (messageLength <= 0 || messageLength > 10 * 1024 * 1024) // Max 10MB
                         {
@@ -241,7 +242,7 @@ namespace UnityCodeMcpServer.Servers.Tcp
                         }
 
                         // Read message body
-                        var messageBuffer = new byte[messageLength];
+                        byte[] messageBuffer = new byte[messageLength];
                         bytesRead = await ReadExactAsync(stream, messageBuffer, 0, messageLength, ct);
                         if (bytesRead < messageLength)
                         {
@@ -249,7 +250,7 @@ namespace UnityCodeMcpServer.Servers.Tcp
                             break;
                         }
 
-                        var message = Encoding.UTF8.GetString(messageBuffer);
+                        string message = Encoding.UTF8.GetString(messageBuffer);
 
                         UnityCodeMcpServerLogger.Trace($"[STDIO] Received: {message}");
 
@@ -257,7 +258,7 @@ namespace UnityCodeMcpServer.Servers.Tcp
                         // dependency). All other messages require the main thread for
                         // Unity API access.
                         string response;
-                        if (TryBuildPingResponse(message, out var pingResponse))
+                        if (TryBuildPingResponse(message, out string pingResponse))
                         {
                             response = pingResponse;
                         }
@@ -273,8 +274,8 @@ namespace UnityCodeMcpServer.Servers.Tcp
                         if (response != null)
                         {
                             // Send response with length prefix
-                            var responseBytes = Encoding.UTF8.GetBytes(response);
-                            var lengthPrefix = new byte[4];
+                            byte[] responseBytes = Encoding.UTF8.GetBytes(response);
+                            byte[] lengthPrefix = new byte[4];
                             lengthPrefix[0] = (byte)((responseBytes.Length >> 24) & 0xFF);
                             lengthPrefix[1] = (byte)((responseBytes.Length >> 16) & 0xFF);
                             lengthPrefix[2] = (byte)((responseBytes.Length >> 8) & 0xFF);
@@ -310,14 +311,14 @@ namespace UnityCodeMcpServer.Servers.Tcp
             finally
             {
                 connectionTimer.Stop();
-                var remainingClients = Interlocked.Decrement(ref _activeClientCount);
+                int remainingClients = Interlocked.Decrement(ref _activeClientCount);
                 UnityCodeMcpServerLogger.Info($"[STDIO] Client disconnected duration_ms={connectionTimer.ElapsedMilliseconds} active_clients={remainingClients}");
             }
         }
 
         private static bool IsExpectedClientDisconnect(Exception exception)
         {
-            for (var current = exception; current != null; current = current.InnerException)
+            for (Exception current = exception; current != null; current = current.InnerException)
             {
                 if (current is ObjectDisposedException)
                 {
@@ -348,10 +349,10 @@ namespace UnityCodeMcpServer.Servers.Tcp
 
         private static async UniTask<int> ReadExactAsync(NetworkStream stream, byte[] buffer, int offset, int count, CancellationToken ct)
         {
-            var totalRead = 0;
+            int totalRead = 0;
             while (totalRead < count)
             {
-                var bytesRead = await stream.ReadAsync(buffer, offset + totalRead, count - totalRead, ct);
+                int bytesRead = await stream.ReadAsync(buffer, offset + totalRead, count - totalRead, ct);
                 if (bytesRead == 0)
                 {
                     // Connection closed
@@ -374,8 +375,8 @@ namespace UnityCodeMcpServer.Servers.Tcp
             if (!PingMethodRegex.IsMatch(message))
                 return false;
 
-            var idMatch = IdRegex.Match(message);
-            var idValue = idMatch.Success ? idMatch.Groups[1].Value : "null";
+            Match idMatch = IdRegex.Match(message);
+            string idValue = idMatch.Success ? idMatch.Groups[1].Value : "null";
 
             response = $"{{\"jsonrpc\":\"2.0\",\"id\":{idValue},\"result\":{{}}}}";
             return true;
@@ -445,9 +446,9 @@ namespace UnityCodeMcpServer.Servers.Tcp
                 return "Tools: 0\nPrompts: 0\nResources: 0";
             }
 
-            var toolNames = _registry.SyncTools.Keys.Concat(_registry.AsyncTools.Keys).OrderBy(name => name).ToList();
-            var promptNames = _registry.Prompts.Keys.OrderBy(name => name).ToList();
-            var resourceNames = _registry.Resources.Keys.OrderBy(name => name).ToList();
+            List<string> toolNames = _registry.SyncTools.Keys.Concat(_registry.AsyncTools.Keys).OrderBy(name => name).ToList();
+            List<string> promptNames = _registry.Prompts.Keys.OrderBy(name => name).ToList();
+            List<string> resourceNames = _registry.Resources.Keys.OrderBy(name => name).ToList();
 
             return $"Tools: {toolNames.Count} ({string.Join(", ", toolNames)})\n" +
                    $"Prompts: {promptNames.Count} ({string.Join(", ", promptNames)})\n" +

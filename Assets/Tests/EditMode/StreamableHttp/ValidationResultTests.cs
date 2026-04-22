@@ -11,7 +11,7 @@ namespace UnityCodeMcpServer.Tests.EditMode.StreamableHttp
         [Test]
         public void Success_ReturnsValidResult()
         {
-            var result = ValidationResult.Success();
+            ValidationResult result = ValidationResult.Success();
 
             Assert.That(result.IsValid, Is.True);
             Assert.That(result.StatusCode, Is.EqualTo(200));
@@ -25,7 +25,7 @@ namespace UnityCodeMcpServer.Tests.EditMode.StreamableHttp
         [Test]
         public void Failure_ReturnsInvalidResult()
         {
-            var result = ValidationResult.Failure(400, "Bad Request");
+            ValidationResult result = ValidationResult.Failure(400, "Bad Request");
 
             Assert.That(result.IsValid, Is.False);
             Assert.That(result.StatusCode, Is.EqualTo(400));
@@ -35,7 +35,7 @@ namespace UnityCodeMcpServer.Tests.EditMode.StreamableHttp
         [Test]
         public void Failure_404NotFound_ReturnsCorrectStatus()
         {
-            var result = ValidationResult.Failure(404, "Not Found");
+            ValidationResult result = ValidationResult.Failure(404, "Not Found");
 
             Assert.That(result.StatusCode, Is.EqualTo(404));
             Assert.That(result.ErrorMessage, Is.EqualTo("Not Found"));
@@ -44,7 +44,7 @@ namespace UnityCodeMcpServer.Tests.EditMode.StreamableHttp
         [Test]
         public void Failure_500ServerError_ReturnsCorrectStatus()
         {
-            var result = ValidationResult.Failure(500, "Internal Server Error");
+            ValidationResult result = ValidationResult.Failure(500, "Internal Server Error");
 
             Assert.That(result.StatusCode, Is.EqualTo(500));
             Assert.That(result.ErrorMessage, Is.EqualTo("Internal Server Error"));
@@ -57,7 +57,7 @@ namespace UnityCodeMcpServer.Tests.EditMode.StreamableHttp
         [Test]
         public void ValidationResult_IsValueType()
         {
-            var result = ValidationResult.Success();
+            ValidationResult result = ValidationResult.Success();
 
             Assert.That(result, Is.TypeOf<ValidationResult>());
             Assert.That(typeof(ValidationResult).IsValueType, Is.True);
@@ -67,7 +67,7 @@ namespace UnityCodeMcpServer.Tests.EditMode.StreamableHttp
         public void ValidationResult_DefaultValue_IsInvalid()
         {
             // Default struct should have IsValid = false (default bool)
-            var result = default(ValidationResult);
+            ValidationResult result = default(ValidationResult);
 
             Assert.That(result.IsValid, Is.False);
             Assert.That(result.StatusCode, Is.EqualTo(0));

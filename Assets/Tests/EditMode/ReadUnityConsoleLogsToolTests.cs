@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Text.Json;
 using NUnit.Framework;
@@ -14,7 +14,7 @@ namespace UnityCodeMcpServer.Tests.EditMode
         [Test]
         public void Tool_Metadata_IsPresent()
         {
-            var tool = new ReadUnityConsoleLogsTool();
+            ReadUnityConsoleLogsTool tool = new();
 
             Assert.AreEqual("read_unity_console_logs", tool.Name);
             Assert.IsNotEmpty(tool.Description);
@@ -23,11 +23,11 @@ namespace UnityCodeMcpServer.Tests.EditMode
         [Test]
         public void InputSchema_DefinesMaxEntries()
         {
-            var schema = new ReadUnityConsoleLogsTool().InputSchema;
+            JsonElement schema = new ReadUnityConsoleLogsTool().InputSchema;
 
             Assert.AreEqual(JsonValueKind.Object, schema.ValueKind);
-            Assert.IsTrue(schema.TryGetProperty("properties", out var properties));
-            Assert.IsTrue(properties.TryGetProperty("max_entries", out var maxEntries));
+            Assert.IsTrue(schema.TryGetProperty("properties", out JsonElement properties));
+            Assert.IsTrue(properties.TryGetProperty("max_entries", out JsonElement maxEntries));
             Assert.AreEqual(JsonValueKind.Object, maxEntries.ValueKind);
         }
 
@@ -35,13 +35,13 @@ namespace UnityCodeMcpServer.Tests.EditMode
         public void Execute_UsesDefaultLimit_WhenNotProvided()
         {
             int capturedLimit = -1;
-            var tool = new ReadUnityConsoleLogsTool(limit =>
+            ReadUnityConsoleLogsTool tool = new(limit =>
             {
                 capturedLimit = limit;
                 return ("stub log", false);
             });
 
-            var result = tool.Execute(JsonHelper.ParseElement("{}"));
+            ToolsCallResult result = tool.Execute(JsonHelper.ParseElement("{}"));
 
             Assert.AreEqual(200, capturedLimit);
             Assert.IsFalse(result.IsError);
@@ -52,13 +52,13 @@ namespace UnityCodeMcpServer.Tests.EditMode
         public void Execute_ClampsLimit_ToUpperBound()
         {
             int capturedLimit = -1;
-            var tool = new ReadUnityConsoleLogsTool(limit =>
+            ReadUnityConsoleLogsTool tool = new(limit =>
             {
                 capturedLimit = limit;
                 return ("ok", false);
             });
 
-            var args = JsonHelper.ParseElement("{\"max_entries\": 5000}");
+            JsonElement args = JsonHelper.ParseElement("{\"max_entries\": 5000}");
             tool.Execute(args);
 
             Assert.AreEqual(1000, capturedLimit);
@@ -68,13 +68,13 @@ namespace UnityCodeMcpServer.Tests.EditMode
         public void Execute_DefaultsLimit_WhenNegativeProvided()
         {
             int capturedLimit = -1;
-            var tool = new ReadUnityConsoleLogsTool(limit =>
+            ReadUnityConsoleLogsTool tool = new(limit =>
             {
                 capturedLimit = limit;
                 return ("ok", false);
             });
 
-            var args = JsonHelper.ParseElement("{\"max_entries\": -5}");
+            JsonElement args = JsonHelper.ParseElement("{\"max_entries\": -5}");
             tool.Execute(args);
 
             Assert.AreEqual(200, capturedLimit);
@@ -83,9 +83,9 @@ namespace UnityCodeMcpServer.Tests.EditMode
         [Test]
         public void Execute_PropagatesReaderError()
         {
-            var tool = new ReadUnityConsoleLogsTool(_ => ("reader failure", true));
+            ReadUnityConsoleLogsTool tool = new(_ => ("reader failure", true));
 
-            var result = tool.Execute(JsonHelper.ParseElement("{}"));
+            ToolsCallResult result = tool.Execute(JsonHelper.ParseElement("{}"));
 
             Assert.IsTrue(result.IsError);
             StringAssert.Contains("reader failure", result.Content[0].Text);
@@ -94,11 +94,11 @@ namespace UnityCodeMcpServer.Tests.EditMode
         [Test]
         public void Execute_ReadsUnityLogs_AndReturnsContent()
         {
-            var tool = new ReadUnityConsoleLogsTool();
+            ReadUnityConsoleLogsTool tool = new();
             string uniqueMessage = "ConsoleLog_" + Guid.NewGuid();
             Debug.Log(uniqueMessage);
 
-            var result = tool.Execute(JsonHelper.ParseElement("{}"));
+            ToolsCallResult result = tool.Execute(JsonHelper.ParseElement("{}"));
 
             Assert.IsFalse(result.IsError);
             Assert.IsNotEmpty(result.Content);
@@ -109,13 +109,13 @@ namespace UnityCodeMcpServer.Tests.EditMode
         public void Execute_EmitsTruncationHeader_WhenReaderIndicatesTruncation()
         {
             int capturedLimit = -1;
-            var tool = new ReadUnityConsoleLogsTool(limit =>
+            ReadUnityConsoleLogsTool tool = new(limit =>
             {
                 capturedLimit = limit;
                 return ($"--- Showing last {limit} logs (Total: {limit + 1}) ---\nold\nnew", false);
             });
 
-            var result = tool.Execute(JsonHelper.ParseElement("{\"max_entries\": 1}"));
+            ToolsCallResult result = tool.Execute(JsonHelper.ParseElement("{\"max_entries\": 1}"));
 
             Assert.AreEqual(1, capturedLimit);
             Assert.IsFalse(result.IsError);
@@ -125,9 +125,9 @@ namespace UnityCodeMcpServer.Tests.EditMode
         [Test]
         public void Execute_Replaces_EmptyReaderText_WithPlaceholder()
         {
-            var tool = new ReadUnityConsoleLogsTool(_ => ("   ", false));
+            ReadUnityConsoleLogsTool tool = new(_ => ("   ", false));
 
-            var result = tool.Execute(JsonHelper.ParseElement("{}"));
+            ToolsCallResult result = tool.Execute(JsonHelper.ParseElement("{}"));
 
             Assert.IsFalse(result.IsError);
             StringAssert.Contains("(No console logs available)", result.Content[0].Text);

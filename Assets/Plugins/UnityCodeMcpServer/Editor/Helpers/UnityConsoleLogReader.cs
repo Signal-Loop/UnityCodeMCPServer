@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Reflection;
 using System.Text;
@@ -28,7 +28,7 @@ namespace UnityCodeMcpServer.Helpers
         public static (string text, bool isError) ReadTail(int maxEntries)
         {
             int effectiveLimit = NormalizeMaxEntries(maxEntries);
-            if (!TryCreateAccessor(out var accessor, out string errorText))
+            if (!TryCreateAccessor(out ReflectionAccessor accessor, out string errorText))
             {
                 return (errorText, true);
             }
@@ -66,7 +66,7 @@ namespace UnityCodeMcpServer.Helpers
 
             int effectiveLimit = NormalizeMaxEntries(maxEntries);
             int startIndex = Math.Max(0, entries.Count - effectiveLimit);
-            var tailEntries = new List<UnityConsoleLogEntry>(entries.Count - startIndex);
+            List<UnityConsoleLogEntry> tailEntries = new(entries.Count - startIndex);
             for (int i = startIndex; i < entries.Count; i++)
             {
                 tailEntries.Add(entries[i]);
@@ -83,7 +83,7 @@ namespace UnityCodeMcpServer.Helpers
             }
 
             int effectiveLimit = NormalizeMaxEntries(maxEntries);
-            var sb = new StringBuilder();
+            StringBuilder sb = new();
 
             if (totalCount > effectiveLimit)
             {
@@ -108,7 +108,7 @@ namespace UnityCodeMcpServer.Helpers
         private static IReadOnlyList<UnityConsoleLogEntry> ReadTailEntries(ReflectionAccessor accessor, int totalCount, int maxEntries)
         {
             int startIndex = Math.Max(0, totalCount - maxEntries);
-            var entries = new List<UnityConsoleLogEntry>(totalCount - startIndex);
+            List<UnityConsoleLogEntry> entries = new(totalCount - startIndex);
 
             for (int i = startIndex; i < totalCount; i++)
             {

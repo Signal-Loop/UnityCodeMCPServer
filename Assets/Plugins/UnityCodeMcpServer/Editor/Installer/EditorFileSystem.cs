@@ -1,4 +1,4 @@
-using System.IO;
+﻿using System.IO;
 using System.Linq;
 using System.Security.Cryptography;
 using System.Text;
@@ -36,7 +36,7 @@ namespace UnityCodeMcpServer.Editor.Installer
         public string ComputeFileHash(string filePath)
         {
             string text = File.ReadAllText(filePath);
-            using (var sha256 = SHA256.Create())
+            using (SHA256 sha256 = SHA256.Create())
             {
                 byte[] hash = sha256.ComputeHash(Encoding.UTF8.GetBytes(text));
                 return string.Concat(hash.Select(b => b.ToString("x2")));

@@ -40,7 +40,7 @@ namespace UnityCodeMcpServer.Servers.StreamableHttp
         /// <summary>
         /// Lock object for thread-safe SSE stream access
         /// </summary>
-        private readonly object _streamLock = new object();
+        private readonly object _streamLock = new();
 
         /// <summary>
         /// Cancellation token source for session-scoped operations
@@ -163,8 +163,8 @@ namespace UnityCodeMcpServer.Servers.StreamableHttp
         /// <returns>The new session ID</returns>
         public string CreateSession()
         {
-            var sessionId = GenerateSessionId();
-            var session = new SessionState(sessionId);
+            string sessionId = GenerateSessionId();
+            SessionState session = new(sessionId);
 
             if (!_sessions.TryAdd(sessionId, session))
             {
@@ -188,13 +188,13 @@ namespace UnityCodeMcpServer.Servers.StreamableHttp
             if (string.IsNullOrEmpty(sessionId))
                 return false;
 
-            if (!_sessions.TryGetValue(sessionId, out var session))
+            if (!_sessions.TryGetValue(sessionId, out SessionState session))
                 return false;
 
             // Check if expired
             if (_sessionTimeoutSeconds > 0)
             {
-                var elapsed = DateTime.UtcNow - session.LastActivityUtc;
+                TimeSpan elapsed = DateTime.UtcNow - session.LastActivityUtc;
                 if (elapsed.TotalSeconds > _sessionTimeoutSeconds)
                 {
                     TerminateSession(sessionId);
@@ -215,7 +215,7 @@ namespace UnityCodeMcpServer.Servers.StreamableHttp
             if (string.IsNullOrEmpty(sessionId))
                 return null;
 
-            _sessions.TryGetValue(sessionId, out var session);
+            _sessions.TryGetValue(sessionId, out SessionState session);
             return session;
         }
 
@@ -225,7 +225,7 @@ namespace UnityCodeMcpServer.Servers.StreamableHttp
         /// <param name="sessionId">The session ID</param>
         public void TouchSession(string sessionId)
         {
-            if (_sessions.TryGetValue(sessionId, out var session))
+            if (_sessions.TryGetValue(sessionId, out SessionState session))
             {
                 session.Touch();
             }
@@ -241,7 +241,7 @@ namespace UnityCodeMcpServer.Servers.StreamableHttp
             if (string.IsNullOrEmpty(sessionId))
                 return false;
 
-            if (_sessions.TryRemove(sessionId, out var session))
+            if (_sessions.TryRemove(sessionId, out SessionState session))
             {
                 UnityCodeMcpServerLogger.Debug($"[HTTP] Session terminated: {sessionId}");
 
@@ -258,9 +258,9 @@ namespace UnityCodeMcpServer.Servers.StreamableHttp
         /// </summary>
         public void TerminateAllSessions()
         {
-            var sessionIds = new List<string>(_sessions.Keys);
+            List<string> sessionIds = new(_sessions.Keys);
 
-            foreach (var sessionId in sessionIds)
+            foreach (string sessionId in sessionIds)
             {
                 TerminateSession(sessionId);
             }
@@ -322,19 +322,19 @@ namespace UnityCodeMcpServer.Servers.StreamableHttp
             if (_sessionTimeoutSeconds <= 0)
                 return;
 
-            var now = DateTime.UtcNow;
-            var expiredSessions = new List<string>();
+            DateTime now = DateTime.UtcNow;
+            List<string> expiredSessions = new();
 
-            foreach (var kvp in _sessions)
+            foreach (KeyValuePair<string, SessionState> kvp in _sessions)
             {
-                var elapsed = now - kvp.Value.LastActivityUtc;
+                TimeSpan elapsed = now - kvp.Value.LastActivityUtc;
                 if (elapsed.TotalSeconds > _sessionTimeoutSeconds)
                 {
                     expiredSessions.Add(kvp.Key);
                 }
             }
 
-            foreach (var sessionId in expiredSessions)
+            foreach (string sessionId in expiredSessions)
             {
                 UnityCodeMcpServerLogger.Debug($"[HTTP] Session expired: {sessionId}");
                 TerminateSession(sessionId);

@@ -17,7 +17,8 @@ namespace UnityCodeMcpServer.Editor.Installer
         public bool AnyChanges => FilesUpdated > 0;
 
         public static SkillsInstallResult Failure(string errorMessage) =>
-            new SkillsInstallResult { Success = false, ErrorMessage = errorMessage };
+            new()
+            { Success = false, ErrorMessage = errorMessage };
 
         public override string ToString()
         {
@@ -61,7 +62,7 @@ namespace UnityCodeMcpServer.Editor.Installer
 
             try
             {
-                var result = new SkillsInstallResult { Success = true };
+                SkillsInstallResult result = new() { Success = true };
 
                 string[] skillFolders = _fileSystem.GetDirectories(sourcePath);
 

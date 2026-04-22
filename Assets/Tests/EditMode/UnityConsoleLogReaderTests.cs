@@ -1,3 +1,4 @@
+﻿using System.Collections.Generic;
 using NUnit.Framework;
 using UnityCodeMcpServer.Helpers;
 
@@ -8,7 +9,7 @@ namespace UnityCodeMcpServer.Tests.EditMode
         [Test]
         public void SelectTail_ReturnsAllEntries_WhenLimitExceedsCount()
         {
-            var tail = UnityConsoleLogReader.SelectTail(
+            IReadOnlyList<UnityConsoleLogEntry> tail = UnityConsoleLogReader.SelectTail(
                 new[]
                 {
                     new UnityConsoleLogEntry("first", null),
@@ -24,7 +25,7 @@ namespace UnityCodeMcpServer.Tests.EditMode
         [Test]
         public void SelectTail_ReturnsNewestEntries_InOriginalOrder()
         {
-            var tail = UnityConsoleLogReader.SelectTail(
+            IReadOnlyList<UnityConsoleLogEntry> tail = UnityConsoleLogReader.SelectTail(
                 new[]
                 {
                     new UnityConsoleLogEntry("one", null),

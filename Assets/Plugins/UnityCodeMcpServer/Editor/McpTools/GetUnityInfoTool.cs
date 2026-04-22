@@ -1,4 +1,4 @@
-using System.Text;
+﻿using System.Text;
 using System.Text.Json;
 using UnityCodeMcpServer.Interfaces;
 using UnityCodeMcpServer.Protocol;
@@ -30,11 +30,11 @@ namespace UnityCodeMcpServer.McpTools
 
         public ToolsCallResult Execute(JsonElement arguments)
         {
-            var settings = UnityCodeMcpServerSettings.Instance;
+            UnityCodeMcpServerSettings settings = UnityCodeMcpServerSettings.Instance;
             string projectPath = System.IO.Path.GetFullPath(
                 System.IO.Path.Combine(Application.dataPath, ".."));
 
-            var sb = new StringBuilder();
+            StringBuilder sb = new();
             sb.AppendLine("## Unity Project Info");
             sb.AppendLine();
             sb.AppendLine($"**Project Path:** {projectPath}");
@@ -58,7 +58,7 @@ namespace UnityCodeMcpServer.McpTools
             sb.AppendLine();
             sb.AppendLine("### Script Execution Assemblies");
             sb.AppendLine("**Default Assemblies:**");
-            foreach (var assembly in UnityCodeMcpServerSettings.DefaultAssemblyNames)
+            foreach (string assembly in UnityCodeMcpServerSettings.DefaultAssemblyNames)
             {
                 sb.AppendLine($"  - {assembly}");
             }
@@ -70,7 +70,7 @@ namespace UnityCodeMcpServer.McpTools
             }
             else
             {
-                foreach (var assembly in settings.AdditionalAssemblyNames)
+                foreach (string assembly in settings.AdditionalAssemblyNames)
                 {
                     sb.AppendLine($"  - {assembly}");
                 }

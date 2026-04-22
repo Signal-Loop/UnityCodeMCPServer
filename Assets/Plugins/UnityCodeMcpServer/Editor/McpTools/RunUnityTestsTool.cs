@@ -1,6 +1,7 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text;
 using System.Text.Json;
 using Cysharp.Threading.Tasks;
 using UnityCodeMcpServer.Helpers;
@@ -56,9 +57,9 @@ Returns pass/fail status, total execution time, and detailed stack traces for an
 
         public async UniTask<ToolsCallResult> ExecuteAsync(JsonElement arguments)
         {
-            var options = ParseArguments(arguments);
+            TestOptions options = ParseArguments(arguments);
 
-            var compilationBlockResult = GetCompilationBlockedResult();
+            ToolsCallResult compilationBlockResult = GetCompilationBlockedResult();
             if (compilationBlockResult != null)
             {
                 return compilationBlockResult;
@@ -71,9 +72,9 @@ Returns pass/fail status, total execution time, and detailed stack traces for an
 
             // Save dirty scenes and capture current scene state before running tests
             EditorSceneStateRestorer.SaveDirtyScenes();
-            var sceneState = EditorSceneStateRestorer.CaptureCurrentSceneState();
+            List<string> sceneState = EditorSceneStateRestorer.CaptureCurrentSceneState();
 
-            var api = ScriptableObject.CreateInstance<TestRunnerApi>();
+            TestRunnerApi api = ScriptableObject.CreateInstance<TestRunnerApi>();
 
             try
             {
@@ -86,7 +87,7 @@ Returns pass/fail status, total execution time, and detailed stack traces for an
                         return compilationBlockResult;
                     }
 
-                    var editResult = await RunModeAsync(api, TestMode.EditMode, options.TestNames);
+                    ITestResultAdaptor editResult = await RunModeAsync(api, TestMode.EditMode, options.TestNames);
 
                     compilationBlockResult = GetCompilationBlockedResult();
                     if (compilationBlockResult != null)
@@ -94,7 +95,7 @@ Returns pass/fail status, total execution time, and detailed stack traces for an
                         return compilationBlockResult;
                     }
 
-                    var playResult = await RunModeAsync(api, TestMode.PlayMode, options.TestNames);
+                    ITestResultAdaptor playResult = await RunModeAsync(api, TestMode.PlayMode, options.TestNames);
                     return BuildCombinedResult(editResult, playResult);
                 }
                 else
@@ -105,7 +106,7 @@ Returns pass/fail status, total execution time, and detailed stack traces for an
                         return compilationBlockResult;
                     }
 
-                    var result = await RunModeAsync(api, options.Mode, options.TestNames);
+                    ITestResultAdaptor result = await RunModeAsync(api, options.Mode, options.TestNames);
                     return BuildResult(result);
                 }
             }
@@ -122,10 +123,10 @@ Returns pass/fail status, total execution time, and detailed stack traces for an
 
         private async UniTask<ITestResultAdaptor> RunModeAsync(TestRunnerApi api, TestMode mode, string[] testNames)
         {
-            var callbacks = new TestCallbacks();
+            TestCallbacks callbacks = new();
             api.RegisterCallbacks(callbacks);
 
-            var filter = new Filter()
+            Filter filter = new()
             {
                 testMode = mode
             };
@@ -168,7 +169,7 @@ Returns pass/fail status, total execution time, and detailed stack traces for an
 
         public static ToolsCallResult BuildCompilationBlockedResult()
         {
-            if (!EditorCompilationGate.TryGetBlockedMessage("run Unity tests", out var message))
+            if (!EditorCompilationGate.TryGetBlockedMessage("run Unity tests", out string message))
             {
                 return null;
             }
@@ -183,7 +184,7 @@ Returns pass/fail status, total execution time, and detailed stack traces for an
 
         private static ToolsCallResult GetCompilationBlockedResult()
         {
-            if (!EditorCompilationGate.TryGetBlockedMessage("run Unity tests", out var message))
+            if (!EditorCompilationGate.TryGetBlockedMessage("run Unity tests", out string message))
             {
                 return null;
             }
@@ -194,7 +195,7 @@ Returns pass/fail status, total execution time, and detailed stack traces for an
         public static TestOptions ParseArguments(JsonElement arguments)
         {
             List<string> testNames = null;
-            if (arguments.TryGetProperty("tests", out var testsElement) && testsElement.ValueKind == JsonValueKind.Array)
+            if (arguments.TryGetProperty("tests", out JsonElement testsElement) && testsElement.ValueKind == JsonValueKind.Array)
             {
                 testNames = testsElement.EnumerateArray()
                     .Select(x => x.GetString())
@@ -204,7 +205,7 @@ Returns pass/fail status, total execution time, and detailed stack traces for an
 
             string testModeStr = arguments.GetStringOrDefault("test_mode", "EditMode");
             TestMode testMode = TestMode.EditMode;
-            if (Enum.TryParse<TestMode>(testModeStr, true, out var parsedMode))
+            if (Enum.TryParse<TestMode>(testModeStr, true, out TestMode parsedMode))
             {
                 testMode = parsedMode;
             }
@@ -222,14 +223,14 @@ Returns pass/fail status, total execution time, and detailed stack traces for an
 
         public static ToolsCallResult BuildResult(ITestResultAdaptor result)
         {
-            var totalTests = result.PassCount + result.FailCount + result.InconclusiveCount + result.SkipCount;
+            int totalTests = result.PassCount + result.FailCount + result.InconclusiveCount + result.SkipCount;
 
             if (totalTests == 0)
             {
                 return ToolsCallResult.ErrorResult("No tests found matching the provided criteria. Please check if the test names are correct (fully qualified like 'Namespace.ClassName.MethodName') and if the test mode (EditMode/PlayMode) is correct.");
             }
 
-            var sb = new System.Text.StringBuilder();
+            StringBuilder sb = new();
             string mode = EditorApplication.isPlaying ? "Play Mode" : "Edit Mode";
             sb.AppendLine($"**Unity Editor is in {mode}**");
             sb.AppendLine();
@@ -248,7 +249,7 @@ Returns pass/fail status, total execution time, and detailed stack traces for an
 
         private static ToolsCallResult BuildCombinedResult(ITestResultAdaptor editResult, ITestResultAdaptor playResult)
         {
-            var totalTests = editResult.PassCount + editResult.FailCount + editResult.InconclusiveCount + editResult.SkipCount +
+            int totalTests = editResult.PassCount + editResult.FailCount + editResult.InconclusiveCount + editResult.SkipCount +
                             playResult.PassCount + playResult.FailCount + playResult.InconclusiveCount + playResult.SkipCount;
 
             if (totalTests == 0)
@@ -256,7 +257,7 @@ Returns pass/fail status, total execution time, and detailed stack traces for an
                 return ToolsCallResult.ErrorResult("No tests found matching the provided criteria in either EditMode or PlayMode.");
             }
 
-            var sb = new System.Text.StringBuilder();
+            StringBuilder sb = new();
             string mode = EditorApplication.isPlaying ? "Play Mode" : "Edit Mode";
             sb.AppendLine($"**Unity Editor is in {mode}**");
             sb.AppendLine();
@@ -295,7 +296,7 @@ Returns pass/fail status, total execution time, and detailed stack traces for an
                 }
                 else
                 {
-                    foreach (var child in result.Children)
+                    foreach (ITestResultAdaptor child in result.Children)
                     {
                         AppendFailedTests(sb, child);
                     }
@@ -311,7 +312,7 @@ Returns pass/fail status, total execution time, and detailed stack traces for an
 
         private class TestCallbacks : ICallbacks
         {
-            private readonly UniTaskCompletionSource<ITestResultAdaptor> _completionSource = new UniTaskCompletionSource<ITestResultAdaptor>();
+            private readonly UniTaskCompletionSource<ITestResultAdaptor> _completionSource = new();
 
             public UniTask<ITestResultAdaptor> ResultTask => _completionSource.Task;
 

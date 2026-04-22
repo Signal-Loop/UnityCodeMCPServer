@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
 using Cysharp.Threading.Tasks;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Scripting;
@@ -9,6 +10,7 @@ using UnityCodeMcpServer.Handlers;
 using UnityCodeMcpServer.Helpers;
 using UnityCodeMcpServer.Settings;
 using UnityEditor;
+using UnityEngine.SceneManagement;
 
 namespace UnityCodeMcpServer.Services
 {
@@ -52,11 +54,11 @@ namespace UnityCodeMcpServer.Services
             // Strip accidental markdown formatting if present
             script = StripMarkdownFormatting(script);
 
-            var assemblies = ResolveAssemblies();
-            var options = CreateScriptOptions(assemblies);
-            var assembliesDisplay = GetLoadedAssembliesDisplay(assemblies);
+            Assembly[] assemblies = ResolveAssemblies();
+            ScriptOptions options = CreateScriptOptions(assemblies);
+            string[] assembliesDisplay = GetLoadedAssembliesDisplay(assemblies);
 
-            var logCapture = new LogCapture();
+            LogCapture logCapture = new();
             string errorDetails;
 
             try
@@ -114,11 +116,11 @@ namespace UnityCodeMcpServer.Services
 
             script = StripMarkdownFormatting(script);
 
-            var assemblies = ResolveAssemblies();
-            var options = CreateScriptOptions(assemblies);
-            var assembliesDisplay = GetLoadedAssembliesDisplay(assemblies);
+            Assembly[] assemblies = ResolveAssemblies();
+            ScriptOptions options = CreateScriptOptions(assemblies);
+            string[] assembliesDisplay = GetLoadedAssembliesDisplay(assemblies);
 
-            var logCapture = new LogCapture();
+            LogCapture logCapture = new();
             string errorDetails;
 
             try
@@ -161,10 +163,10 @@ namespace UnityCodeMcpServer.Services
         /// <returns>Array of loaded assemblies</returns>
         public System.Reflection.Assembly[] ResolveAssemblies()
         {
-            var settings = UnityCodeMcpServerSettings.Instance;
-            var assemblyNames = settings.GetAllAssemblyNames();
+            UnityCodeMcpServerSettings settings = UnityCodeMcpServerSettings.Instance;
+            string[] assemblyNames = settings.GetAllAssemblyNames();
 
-            var loaded = AppDomain.CurrentDomain.GetAssemblies();
+            Assembly[] loaded = AppDomain.CurrentDomain.GetAssemblies();
             return assemblyNames
                 .Select(name => loaded.FirstOrDefault(a => string.Equals(a.GetName().Name, name, StringComparison.Ordinal)))
                 .Where(a => a != null)
@@ -206,7 +208,7 @@ namespace UnityCodeMcpServer.Services
         {
             if (!EditorApplication.isPlaying)
             {
-                var sceneToMakeDirty = UnityEngine.SceneManagement.SceneManager.GetActiveScene();
+                Scene sceneToMakeDirty = UnityEngine.SceneManagement.SceneManager.GetActiveScene();
                 if (sceneToMakeDirty.IsValid())
                 {
                     UnityEditor.SceneManagement.EditorSceneManager.MarkSceneDirty(sceneToMakeDirty);
@@ -226,9 +228,9 @@ namespace UnityCodeMcpServer.Services
 
         private ExecutionResult CreateSuccessResult(object executionResult, LogCapture logCapture, string[] assembliesDisplay)
         {
-            var hasLoggedErrors = logCapture.HasErrors;
-            var statusLabel = hasLoggedErrors ? "SUCCESS_WITH_ERRORS" : "SUCCESS";
-            var errorsText = hasLoggedErrors ? logCapture.ErrorLog : null;
+            bool hasLoggedErrors = logCapture.HasErrors;
+            string statusLabel = hasLoggedErrors ? "SUCCESS_WITH_ERRORS" : "SUCCESS";
+            string errorsText = hasLoggedErrors ? logCapture.ErrorLog : null;
 
             return new ExecutionResult
             {
@@ -266,17 +268,17 @@ namespace UnityCodeMcpServer.Services
                 return Array.Empty<MetadataReference>();
             }
 
-            var references = new List<MetadataReference>(assemblies.Length);
-            foreach (var assembly in assemblies)
+            List<MetadataReference> references = new(assemblies.Length);
+            foreach (Assembly assembly in assemblies)
             {
                 if (assembly == null || assembly.IsDynamic) continue;
 
-                var location = assembly.Location;
+                string location = assembly.Location;
                 if (string.IsNullOrWhiteSpace(location)) continue;
 
                 try
                 {
-                    var image = System.IO.File.ReadAllBytes(location);
+                    byte[] image = System.IO.File.ReadAllBytes(location);
                     references.Add(MetadataReference.CreateFromImage(image));
                 }
                 catch (Exception ex)
@@ -300,7 +302,7 @@ namespace UnityCodeMcpServer.Services
                 return script;
             }
 
-            var lines = script.Split('\n').ToList();
+            List<string> lines = script.Split('\n').ToList();
             if (lines.Count > 0 && lines[0].StartsWith("```"))
                 lines.RemoveAt(0);
             if (lines.Count > 0 && lines.Last().Trim() == "```")

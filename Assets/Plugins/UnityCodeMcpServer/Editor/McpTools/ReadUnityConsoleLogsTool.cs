@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Text.Json;
 using UnityCodeMcpServer.Helpers;
 using UnityCodeMcpServer.Interfaces;
@@ -30,7 +30,7 @@ namespace UnityCodeMcpServer.McpTools
         public string Name => "read_unity_console_logs";
 
         public string Description =>
-            @"Retrieves recent log entries from the Unity Editor Console. 
+            @"Retrieves recent log entries from the Unity Editor Console.
 
 **WHEN TO USE:**
 - To debug compilation errors, runtime exceptions, or Unity Editor issues.
@@ -60,7 +60,7 @@ namespace UnityCodeMcpServer.McpTools
             int requested = arguments.GetIntOrDefault("max_entries", DefaultMaxEntries);
             int maxEntries = NormalizeMaxEntries(requested);
 
-            var (text, isError) = _logReader(maxEntries);
+            (string text, bool isError) = _logReader(maxEntries);
             if (string.IsNullOrWhiteSpace(text))
             {
                 text = "(No console logs available)";

@@ -64,7 +64,7 @@ namespace UnityCodeMcpServer.Editor.Installer
         {
             bool anyFilesCopied = false;
 
-            foreach (var relativeFilePath in FilesToCopy)
+            foreach (string relativeFilePath in FilesToCopy)
             {
                 string sourcePath = NormalizePath(Path.Combine(sourceDir, relativeFilePath));
                 string destPath = NormalizePath(Path.Combine(targetDir, relativeFilePath));

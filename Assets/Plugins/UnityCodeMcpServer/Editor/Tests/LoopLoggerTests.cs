@@ -1,4 +1,4 @@
-using System.IO;
+﻿using System.IO;
 using NUnit.Framework;
 using UnityCodeMcpServer.Helpers;
 using UnityCodeMcpServer.Settings;
@@ -18,7 +18,7 @@ namespace UnityCodeMcpServer.Tests.Editor
             _test_log_path = Path.Combine(Path.GetDirectoryName(UnityEngine.Application.dataPath), "UnityCodeMcpServerLog.log");
 
             // Store original LogToFile setting
-            var settings = UnityCodeMcpServerSettings.Instance;
+            UnityCodeMcpServerSettings settings = UnityCodeMcpServerSettings.Instance;
             _original_log_to_file = settings.LogToFile;
 
             // Enable logging to file for tests
@@ -37,7 +37,7 @@ namespace UnityCodeMcpServer.Tests.Editor
         public void Teardown()
         {
             // Restore original LogToFile setting
-            var settings = UnityCodeMcpServerSettings.Instance;
+            UnityCodeMcpServerSettings settings = UnityCodeMcpServerSettings.Instance;
             settings.LogToFile = _original_log_to_file;
             UnityEditor.EditorUtility.SetDirty(settings);
             UnityEditor.AssetDatabase.SaveAssets();
@@ -96,7 +96,7 @@ namespace UnityCodeMcpServer.Tests.Editor
         public void LogToFile_WhenDisabled_DoesNotCreateFile()
         {
             // Arrange
-            var settings = UnityCodeMcpServerSettings.Instance;
+            UnityCodeMcpServerSettings settings = UnityCodeMcpServerSettings.Instance;
             settings.LogToFile = false;
             UnityEditor.EditorUtility.SetDirty(settings);
             UnityEditor.AssetDatabase.SaveAssets();
@@ -128,7 +128,7 @@ namespace UnityCodeMcpServer.Tests.Editor
             string content = File.ReadAllText(_test_log_path);
             string[] lines = content.Split(System.Environment.NewLine);
             int message_count = 0;
-            foreach (var line in lines)
+            foreach (string line in lines)
             {
                 if (line.Contains("Message"))
                     message_count++;

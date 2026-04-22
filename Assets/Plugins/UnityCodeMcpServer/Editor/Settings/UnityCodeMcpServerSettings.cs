@@ -111,7 +111,7 @@ namespace UnityCodeMcpServer.Settings
 
         [Header("Script Execution Assemblies")]
         [Tooltip("Additional assemblies to load for C# script execution (beyond default assemblies)")]
-        public List<string> AdditionalAssemblyNames = new List<string>();
+        public List<string> AdditionalAssemblyNames = new();
 
         [Header("Skills Installer")]
         [HideInInspector]
@@ -135,8 +135,8 @@ namespace UnityCodeMcpServer.Settings
                 return DefaultAssemblyNames;
             }
 
-            var allAssemblies = new List<string>(DefaultAssemblyNames);
-            foreach (var assemblyName in AdditionalAssemblyNames)
+            List<string> allAssemblies = new(DefaultAssemblyNames);
+            foreach (string assemblyName in AdditionalAssemblyNames)
             {
                 if (!string.IsNullOrWhiteSpace(assemblyName) && !allAssemblies.Contains(assemblyName))
                 {
@@ -285,7 +285,7 @@ namespace UnityCodeMcpServer.Settings
                 return false;
             }
 
-            var removed = AdditionalAssemblyNames.Remove(assemblyName);
+            bool removed = AdditionalAssemblyNames.Remove(assemblyName);
             if (removed)
             {
                 EditorUtility.SetDirty(this);
@@ -350,9 +350,9 @@ namespace UnityCodeMcpServer.Settings
 
         private void OnValidate()
         {
-            var shouldRestartStdio = ShouldRestartStdioForPortChange();
-            var shouldRestartHttp = ShouldRestartHttpForPortChange();
-            var shouldApplyStartupSelection = ShouldApplyStartupSelectionChange();
+            bool shouldRestartStdio = ShouldRestartStdioForPortChange();
+            bool shouldRestartHttp = ShouldRestartHttpForPortChange();
+            bool shouldApplyStartupSelection = ShouldApplyStartupSelectionChange();
 
             if (!shouldRestartStdio && !shouldRestartHttp && !shouldApplyStartupSelection)
             {
@@ -435,11 +435,11 @@ namespace UnityCodeMcpServer.Settings
         [MenuItem("Tools/UnityCodeMcpServer/Show or Create Settings")]
         public static void ShowSettings()
         {
-            var guids = AssetDatabase.FindAssets($"t:{typeof(UnityCodeMcpServerSettings).Name}");
+            string[] guids = AssetDatabase.FindAssets($"t:{typeof(UnityCodeMcpServerSettings).Name}");
             UnityCodeMcpServerSettings settings;
             if (guids.Length > 0)
             {
-                var assetPath = AssetDatabase.GUIDToAssetPath(guids[0]);
+                string assetPath = AssetDatabase.GUIDToAssetPath(guids[0]);
                 settings = AssetDatabase.LoadAssetAtPath<UnityCodeMcpServerSettings>(assetPath);
             }
             else
@@ -457,7 +457,7 @@ namespace UnityCodeMcpServer.Settings
         public static UnityCodeMcpServerSettings GetOrCreateSettingsAsset()
         {
             // Check if asset file already exists
-            var settingsAsset = LoadSettingsAsset(_settingsAssetPath);
+            UnityCodeMcpServerSettings settingsAsset = LoadSettingsAsset(_settingsAssetPath);
             if (settingsAsset != null)
             {
                 settingsAsset.InitializeSkillsTarget();
@@ -478,7 +478,7 @@ namespace UnityCodeMcpServer.Settings
                 return null;
             }
 
-            var settings = AssetDatabase.LoadAssetAtPath<UnityCodeMcpServerSettings>(settingsAssetPath);
+            UnityCodeMcpServerSettings settings = AssetDatabase.LoadAssetAtPath<UnityCodeMcpServerSettings>(settingsAssetPath);
             if (settings != null)
             {
                 settings.InitializeSkillsTarget();

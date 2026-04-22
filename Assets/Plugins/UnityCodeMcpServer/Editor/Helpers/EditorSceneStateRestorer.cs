@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using UnityEditor;
 using UnityEditor.SceneManagement;
@@ -8,17 +8,17 @@ namespace UnityCodeMcpServer.Helpers
 {
     public static class EditorSceneStateRestorer
     {
-        private static readonly Queue<List<string>> PendingSceneRestores = new Queue<List<string>>();
+        private static readonly Queue<List<string>> PendingSceneRestores = new();
         private static bool _scene_restore_hook_registered;
 
         public static void SaveDirtyScenes()
         {
-            var sceneCount = SceneManager.sceneCount;
-            var dirtyScenes = new List<Scene>();
+            int sceneCount = SceneManager.sceneCount;
+            List<Scene> dirtyScenes = new();
 
             for (int i = 0; i < sceneCount; i++)
             {
-                var scene = SceneManager.GetSceneAt(i);
+                Scene scene = SceneManager.GetSceneAt(i);
                 if (scene.isDirty)
                 {
                     dirtyScenes.Add(scene);
@@ -33,11 +33,11 @@ namespace UnityCodeMcpServer.Helpers
 
         public static List<string> CaptureCurrentSceneState()
         {
-            var sceneState = new List<string>();
-            var sceneCount = SceneManager.sceneCount;
+            List<string> sceneState = new();
+            int sceneCount = SceneManager.sceneCount;
             for (int i = 0; i < sceneCount; i++)
             {
-                var scene = SceneManager.GetSceneAt(i);
+                Scene scene = SceneManager.GetSceneAt(i);
                 if (!string.IsNullOrEmpty(scene.path))
                 {
                     sceneState.Add(scene.path);
@@ -68,9 +68,9 @@ namespace UnityCodeMcpServer.Helpers
         {
             try
             {
-                var currentScenes = GetOpenScenesByPath();
+                Dictionary<string, Scene> currentScenes = GetOpenScenesByPath();
 
-                foreach (var scenePath in originalScenePaths)
+                foreach (string scenePath in originalScenePaths)
                 {
                     if (!currentScenes.ContainsKey(scenePath))
                     {
@@ -80,7 +80,7 @@ namespace UnityCodeMcpServer.Helpers
 
                 currentScenes = GetOpenScenesByPath();
 
-                foreach (var kvp in currentScenes)
+                foreach (KeyValuePair<string, Scene> kvp in currentScenes)
                 {
                     if (!originalScenePaths.Contains(kvp.Key))
                     {
@@ -138,11 +138,11 @@ namespace UnityCodeMcpServer.Helpers
 
         private static Dictionary<string, Scene> GetOpenScenesByPath()
         {
-            var scenes = new Dictionary<string, Scene>();
-            var sceneCount = SceneManager.sceneCount;
+            Dictionary<string, Scene> scenes = new();
+            int sceneCount = SceneManager.sceneCount;
             for (int i = 0; i < sceneCount; i++)
             {
-                var scene = SceneManager.GetSceneAt(i);
+                Scene scene = SceneManager.GetSceneAt(i);
                 if (!string.IsNullOrEmpty(scene.path))
                 {
                     scenes[scene.path] = scene;

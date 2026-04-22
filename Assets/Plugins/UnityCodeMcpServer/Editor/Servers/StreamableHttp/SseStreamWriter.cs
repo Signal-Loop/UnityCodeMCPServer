@@ -17,7 +17,7 @@ namespace UnityCodeMcpServer.Servers.StreamableHttp
     {
         private readonly Stream _outputStream;
         private readonly HttpListenerResponse _response;
-        private readonly object _disposeLock = new object();
+        private readonly object _disposeLock = new();
         private readonly Encoding _utf8NoBom = new UTF8Encoding(false);
         private long _eventCounter;
         private bool _disposed;
@@ -74,7 +74,7 @@ namespace UnityCodeMcpServer.Servers.StreamableHttp
             if (string.IsNullOrEmpty(data))
                 throw new ArgumentNullException(nameof(data));
 
-            var sb = new StringBuilder();
+            StringBuilder sb = new();
 
             // Event type (optional, defaults to "message" on client side)
             if (!string.IsNullOrEmpty(eventType))
@@ -89,7 +89,7 @@ namespace UnityCodeMcpServer.Servers.StreamableHttp
             }
 
             // Data - handle multi-line by prefixing each line with "data: "
-            foreach (var line in data.Split('\n'))
+            foreach (string line in data.Split('\n'))
             {
                 sb.Append("data: ").Append(line).Append('\n');
             }
@@ -178,7 +178,7 @@ namespace UnityCodeMcpServer.Servers.StreamableHttp
             if (_disposed)
                 throw new ObjectDisposedException(nameof(SseStreamWriter));
 
-            var bytes = _utf8NoBom.GetBytes(text);
+            byte[] bytes = _utf8NoBom.GetBytes(text);
 
             try
             {

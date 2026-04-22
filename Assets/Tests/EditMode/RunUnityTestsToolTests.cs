@@ -2,6 +2,7 @@
 using System.Text.Json;
 using NUnit.Framework;
 using UnityCodeMcpServer.McpTools;
+using UnityCodeMcpServer.Protocol;
 using UnityEditor.TestTools.TestRunner.Api;
 
 namespace UnityCodeMcpServer.Tests.EditMode
@@ -11,7 +12,7 @@ namespace UnityCodeMcpServer.Tests.EditMode
         [Test]
         public void Tool_Instantiation_Success()
         {
-            var tool = new RunUnityTestsTool();
+            RunUnityTestsTool tool = new();
             Assert.IsNotNull(tool);
             Assert.AreEqual("run_unity_tests", tool.Name);
             Assert.IsNotEmpty(tool.Description);
@@ -20,17 +21,17 @@ namespace UnityCodeMcpServer.Tests.EditMode
         [Test]
         public void InputSchema_IsValidJson()
         {
-            var tool = new RunUnityTestsTool();
-            var schema = tool.InputSchema;
+            RunUnityTestsTool tool = new();
+            JsonElement schema = tool.InputSchema;
             Assert.AreEqual(JsonValueKind.Object, schema.ValueKind);
         }
 
         [Test]
         public void ParseArguments_Defaults_EditMode()
         {
-            var json = "{}";
-            var args = JsonDocument.Parse(json).RootElement;
-            var options = RunUnityTestsTool.ParseArguments(args);
+            string json = "{}";
+            JsonElement args = JsonDocument.Parse(json).RootElement;
+            RunUnityTestsTool.TestOptions options = RunUnityTestsTool.ParseArguments(args);
 
             Assert.AreEqual(TestMode.EditMode, options.Mode);
             Assert.IsEmpty(options.TestNames);
@@ -39,9 +40,9 @@ namespace UnityCodeMcpServer.Tests.EditMode
         [Test]
         public void ParseArguments_ValidTestMode()
         {
-            var json = @"{ ""test_mode"": ""PlayMode"" }";
-            var args = JsonDocument.Parse(json).RootElement;
-            var options = RunUnityTestsTool.ParseArguments(args);
+            string json = @"{ ""test_mode"": ""PlayMode"" }";
+            JsonElement args = JsonDocument.Parse(json).RootElement;
+            RunUnityTestsTool.TestOptions options = RunUnityTestsTool.ParseArguments(args);
 
             Assert.AreEqual(TestMode.PlayMode, options.Mode);
         }
@@ -49,9 +50,9 @@ namespace UnityCodeMcpServer.Tests.EditMode
         [Test]
         public void ParseArguments_BothMode()
         {
-            var json = @"{ ""test_mode"": ""Both"" }";
-            var args = JsonDocument.Parse(json).RootElement;
-            var options = RunUnityTestsTool.ParseArguments(args);
+            string json = @"{ ""test_mode"": ""Both"" }";
+            JsonElement args = JsonDocument.Parse(json).RootElement;
+            RunUnityTestsTool.TestOptions options = RunUnityTestsTool.ParseArguments(args);
 
             Assert.AreEqual(TestMode.EditMode | TestMode.PlayMode, options.Mode);
         }
@@ -59,9 +60,9 @@ namespace UnityCodeMcpServer.Tests.EditMode
         [Test]
         public void ParseArguments_InvalidMode_DefaultsToEditMode()
         {
-            var json = @"{ ""test_mode"": ""Invalid"" }";
-            var args = JsonDocument.Parse(json).RootElement;
-            var options = RunUnityTestsTool.ParseArguments(args);
+            string json = @"{ ""test_mode"": ""Invalid"" }";
+            JsonElement args = JsonDocument.Parse(json).RootElement;
+            RunUnityTestsTool.TestOptions options = RunUnityTestsTool.ParseArguments(args);
 
             Assert.AreEqual(TestMode.EditMode, options.Mode);
         }
@@ -69,9 +70,9 @@ namespace UnityCodeMcpServer.Tests.EditMode
         [Test]
         public void ParseArguments_TestsList()
         {
-            var json = @"{ ""tests"": [""Test1"", ""Test2""] }";
-            var args = JsonDocument.Parse(json).RootElement;
-            var options = RunUnityTestsTool.ParseArguments(args);
+            string json = @"{ ""tests"": [""Test1"", ""Test2""] }";
+            JsonElement args = JsonDocument.Parse(json).RootElement;
+            RunUnityTestsTool.TestOptions options = RunUnityTestsTool.ParseArguments(args);
 
             Assert.AreEqual(2, options.TestNames.Length);
             Assert.Contains("Test1", options.TestNames);
@@ -81,9 +82,9 @@ namespace UnityCodeMcpServer.Tests.EditMode
         [Test]
         public void ParseArguments_EmptyTestsList()
         {
-            var json = @"{ ""tests"": [] }";
-            var args = JsonDocument.Parse(json).RootElement;
-            var options = RunUnityTestsTool.ParseArguments(args);
+            string json = @"{ ""tests"": [] }";
+            JsonElement args = JsonDocument.Parse(json).RootElement;
+            RunUnityTestsTool.TestOptions options = RunUnityTestsTool.ParseArguments(args);
 
             Assert.IsEmpty(options.TestNames);
         }
@@ -91,7 +92,7 @@ namespace UnityCodeMcpServer.Tests.EditMode
         [Test]
         public void BuildResult_Passed()
         {
-            var mockResult = new MockTestResultAdaptor
+            MockTestResultAdaptor mockResult = new()
             {
                 TestStatus = TestStatus.Passed,
                 PassCount = 5,
@@ -99,11 +100,11 @@ namespace UnityCodeMcpServer.Tests.EditMode
                 Duration = 2.5
             };
 
-            var result = RunUnityTestsTool.BuildResult(mockResult);
+            ToolsCallResult result = RunUnityTestsTool.BuildResult(mockResult);
 
             Assert.IsFalse(result.IsError);
             Assert.IsNotEmpty(result.Content);
-            var text = result.Content[0].Text;
+            string text = result.Content[0].Text;
             Assert.That(text, Does.Contain("Status: Passed"));
             Assert.That(text, Does.Contain("Passed: 5"));
             Assert.That(text, Does.Contain("Duration:"));
@@ -112,7 +113,7 @@ namespace UnityCodeMcpServer.Tests.EditMode
         [Test]
         public void BuildResult_Failed()
         {
-            var failedChild = new MockTestResultAdaptor
+            MockTestResultAdaptor failedChild = new()
             {
                 TestStatus = TestStatus.Failed,
                 Name = "FailedTest",
@@ -121,7 +122,7 @@ namespace UnityCodeMcpServer.Tests.EditMode
                 HasChildren = false
             };
 
-            var mockResult = new MockTestResultAdaptor
+            MockTestResultAdaptor mockResult = new()
             {
                 TestStatus = TestStatus.Failed,
                 PassCount = 0,
@@ -131,10 +132,10 @@ namespace UnityCodeMcpServer.Tests.EditMode
                 Children = new List<ITestResultAdaptor> { failedChild }
             };
 
-            var result = RunUnityTestsTool.BuildResult(mockResult);
+            ToolsCallResult result = RunUnityTestsTool.BuildResult(mockResult);
 
             Assert.IsTrue(result.IsError);
-            var text = result.Content[0].Text;
+            string text = result.Content[0].Text;
             Assert.That(text, Does.Contain("Status: Failed"));
             Assert.That(text, Does.Contain("Failed: 1"));
             Assert.That(text, Does.Contain("- FailedTest: Assertion Failed"));
@@ -144,7 +145,7 @@ namespace UnityCodeMcpServer.Tests.EditMode
         [Test]
         public void BuildResult_NoTestsRun()
         {
-            var mockResult = new MockTestResultAdaptor
+            MockTestResultAdaptor mockResult = new()
             {
                 TestStatus = TestStatus.Passed,
                 PassCount = 0,
@@ -154,7 +155,7 @@ namespace UnityCodeMcpServer.Tests.EditMode
                 Duration = 0.1
             };
 
-            var result = RunUnityTestsTool.BuildResult(mockResult);
+            ToolsCallResult result = RunUnityTestsTool.BuildResult(mockResult);
 
             Assert.IsTrue(result.IsError, "Should be an error if no tests were found matching the criteria");
             Assert.That(result.Content[0].Text, Does.Contain("No tests found"));
@@ -163,28 +164,28 @@ namespace UnityCodeMcpServer.Tests.EditMode
         [Test]
         public void ShouldBlockEditMode_WhenPlaying_AndEditModeRequested()
         {
-            var shouldBlock = RunUnityTestsTool.ShouldBlockEditMode(TestMode.EditMode, true);
+            bool shouldBlock = RunUnityTestsTool.ShouldBlockEditMode(TestMode.EditMode, true);
             Assert.IsTrue(shouldBlock);
         }
 
         [Test]
         public void ShouldBlockEditMode_WhenPlaying_AndBothRequested()
         {
-            var shouldBlock = RunUnityTestsTool.ShouldBlockEditMode(TestMode.EditMode | TestMode.PlayMode, true);
+            bool shouldBlock = RunUnityTestsTool.ShouldBlockEditMode(TestMode.EditMode | TestMode.PlayMode, true);
             Assert.IsTrue(shouldBlock);
         }
 
         [Test]
         public void ShouldNotBlockEditMode_WhenPlaying_AndPlayModeOnly()
         {
-            var shouldBlock = RunUnityTestsTool.ShouldBlockEditMode(TestMode.PlayMode, true);
+            bool shouldBlock = RunUnityTestsTool.ShouldBlockEditMode(TestMode.PlayMode, true);
             Assert.IsFalse(shouldBlock);
         }
 
         [Test]
         public void BuildEditModeBlockedResult_ReturnsErrorMessage()
         {
-            var result = RunUnityTestsTool.BuildEditModeBlockedResult();
+            ToolsCallResult result = RunUnityTestsTool.BuildEditModeBlockedResult();
 
             Assert.IsTrue(result.IsError);
             Assert.That(result.Content[0].Text, Does.Contain("Cannot run EditMode tests while the editor is in Play Mode"));
@@ -193,7 +194,7 @@ namespace UnityCodeMcpServer.Tests.EditMode
         [Test]
         public void ShouldBlockForCompilationIssues_WhenEditorIsCompiling()
         {
-            var shouldBlock = RunUnityTestsTool.ShouldBlockForCompilationIssues(isCompiling: true, hasCompileErrors: false);
+            bool shouldBlock = RunUnityTestsTool.ShouldBlockForCompilationIssues(isCompiling: true, hasCompileErrors: false);
 
             Assert.IsTrue(shouldBlock);
         }
@@ -201,7 +202,7 @@ namespace UnityCodeMcpServer.Tests.EditMode
         [Test]
         public void ShouldBlockForCompilationIssues_WhenCompilerErrorsExist()
         {
-            var shouldBlock = RunUnityTestsTool.ShouldBlockForCompilationIssues(isCompiling: false, hasCompileErrors: true);
+            bool shouldBlock = RunUnityTestsTool.ShouldBlockForCompilationIssues(isCompiling: false, hasCompileErrors: true);
 
             Assert.IsTrue(shouldBlock);
         }
@@ -209,7 +210,7 @@ namespace UnityCodeMcpServer.Tests.EditMode
         [Test]
         public void ShouldNotBlockForCompilationIssues_WhenEditorIsReady()
         {
-            var shouldBlock = RunUnityTestsTool.ShouldBlockForCompilationIssues(isCompiling: false, hasCompileErrors: false);
+            bool shouldBlock = RunUnityTestsTool.ShouldBlockForCompilationIssues(isCompiling: false, hasCompileErrors: false);
 
             Assert.IsFalse(shouldBlock);
         }
@@ -217,7 +218,7 @@ namespace UnityCodeMcpServer.Tests.EditMode
         [Test]
         public void BuildCompilationBlockedResult_ReturnsCompilerErrorMessage()
         {
-            var result = RunUnityTestsTool.BuildCompilationBlockedResult(isCompiling: false, hasCompileErrors: true);
+            ToolsCallResult result = RunUnityTestsTool.BuildCompilationBlockedResult(isCompiling: false, hasCompileErrors: true);
 
             Assert.IsTrue(result.IsError);
             Assert.That(result.Content[0].Text, Does.Contain("Cannot run Unity tests while the project has compiler errors"));

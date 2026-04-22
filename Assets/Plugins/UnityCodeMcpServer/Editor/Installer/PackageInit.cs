@@ -27,7 +27,7 @@ namespace UnityCodeMcpServer.Editor.Installer
         {
             // Reliability: Find the package path dynamically.
             // This works even if the package is in PackageCache, Embedded, or Local.
-            var packageInfo = UnityEditor.PackageManager.PackageInfo.FindForAssembly(typeof(PackageInit).Assembly);
+            UnityEditor.PackageManager.PackageInfo packageInfo = UnityEditor.PackageManager.PackageInfo.FindForAssembly(typeof(PackageInit).Assembly);
 
             string packageRoot;
             if (packageInfo == null)
@@ -55,7 +55,7 @@ namespace UnityCodeMcpServer.Editor.Installer
 
             // Dependency Injection
             IFileSystem fileSystem = new EditorFileSystem();
-            PackageInstaller installer = new PackageInstaller(fileSystem);
+            PackageInstaller installer = new(fileSystem);
 
             UnityCodeMcpServerLogger.Debug($"[PackageInit] Installing from {sourcePath} to {targetPath}");
 
@@ -92,7 +92,7 @@ namespace UnityCodeMcpServer.Editor.Installer
                 return false;
             }
 
-            var settings = UnityCodeMcpServerSettings.Instance;
+            UnityCodeMcpServerSettings settings = UnityCodeMcpServerSettings.Instance;
             string targetPath = settings.GetEffectiveSkillsTargetPath();
             if (string.IsNullOrWhiteSpace(targetPath))
             {
@@ -100,7 +100,7 @@ namespace UnityCodeMcpServer.Editor.Installer
                 return false;
             }
 
-            var installer = new SkillsInstaller(fileSystem);
+            SkillsInstaller installer = new(fileSystem);
             SkillsInstallResult result = installer.Install(sourcePath, targetPath);
             return result.Success && result.AnyChanges;
         }

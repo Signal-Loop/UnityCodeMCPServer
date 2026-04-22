@@ -96,7 +96,7 @@ namespace UnityCodeMcpServer.Tests.EditMode
         [Test]
         public void UnityCodeMcpServerSettings_ApplySelection_InvokesCoordinator()
         {
-            var settings = ScriptableObject.CreateInstance<UnityCodeMcpServerSettings>();
+            UnityCodeMcpServerSettings settings = ScriptableObject.CreateInstance<UnityCodeMcpServerSettings>();
             try
             {
                 settings.StartupServer = UnityCodeMcpServerSettings.ServerStartupMode.Http;

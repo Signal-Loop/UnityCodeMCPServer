@@ -1,4 +1,4 @@
-using System.Collections;
+﻿using System.Collections;
 using System.Collections.Generic;
 using System.Text.Json;
 using Cysharp.Threading.Tasks;
@@ -16,7 +16,7 @@ namespace UnityCodeMcpServer.Tests.EditMode
         [Test]
         public void DiscoverAndRegisterAll_FindsTestTools()
         {
-            var registry = new McpRegistry();
+            McpRegistry registry = new();
             registry.DiscoverAndRegisterAll();
 
             // Should find the sample tools we created
@@ -27,7 +27,7 @@ namespace UnityCodeMcpServer.Tests.EditMode
         [Test]
         public void DiscoverAndRegisterAll_WithVerbose_FindsAllComponents()
         {
-            var registry = new McpRegistry();
+            McpRegistry registry = new();
             registry.DiscoverAndRegisterAll();
 
             Assert.That(registry.HasTool("test_sync_tool"), Is.True);
@@ -38,7 +38,7 @@ namespace UnityCodeMcpServer.Tests.EditMode
         [Test]
         public void DiscoverAndRegisterAll_FindsAsyncTestTool()
         {
-            var registry = new McpRegistry();
+            McpRegistry registry = new();
             registry.DiscoverAndRegisterAll();
 
             Assert.That(registry.HasTool("test_async_tool"), Is.True);
@@ -47,7 +47,7 @@ namespace UnityCodeMcpServer.Tests.EditMode
         [Test]
         public void DiscoverAndRegisterAll_FindsTestPrompts()
         {
-            var registry = new McpRegistry();
+            McpRegistry registry = new();
             registry.DiscoverAndRegisterAll();
 
             // Should find the sample prompt we created
@@ -57,7 +57,7 @@ namespace UnityCodeMcpServer.Tests.EditMode
         [Test]
         public void DiscoverAndRegisterAll_FindsTestResources()
         {
-            var registry = new McpRegistry();
+            McpRegistry registry = new();
             registry.DiscoverAndRegisterAll();
 
             // Should find the sample resources we created
@@ -67,10 +67,10 @@ namespace UnityCodeMcpServer.Tests.EditMode
         [Test]
         public void GetToolsList_ReturnsAllTools()
         {
-            var registry = new McpRegistry();
+            McpRegistry registry = new();
             registry.DiscoverAndRegisterAll();
 
-            var result = registry.GetToolsList();
+            ToolsListResult result = registry.GetToolsList();
 
             Assert.That(result.Tools, Is.Not.Empty);
             Assert.That(result.Tools.Exists(t => t.Name == "test_sync_tool"), Is.True);
@@ -80,11 +80,11 @@ namespace UnityCodeMcpServer.Tests.EditMode
         [Test]
         public void ExecuteToolAsync_SyncTool_ExecutesSuccessfully()
         {
-            var registry = new McpRegistry();
+            McpRegistry registry = new();
             registry.DiscoverAndRegisterAll();
 
-            var arguments = JsonHelper.ParseElement("{}");
-            var result = registry.ExecuteToolAsync("test_sync_tool", arguments).GetAwaiter().GetResult();
+            JsonElement arguments = JsonHelper.ParseElement("{}");
+            ToolsCallResult result = registry.ExecuteToolAsync("test_sync_tool", arguments).GetAwaiter().GetResult();
 
             Assert.That(result.IsError, Is.False);
             Assert.That(result.Content, Is.Not.Empty);
@@ -94,11 +94,11 @@ namespace UnityCodeMcpServer.Tests.EditMode
         [UnityTest]
         public IEnumerator ExecuteToolAsync_AsyncTool_ExecutesSuccessfully() => UniTask.ToCoroutine(async () =>
         {
-            var registry = new McpRegistry();
+            McpRegistry registry = new();
             registry.DiscoverAndRegisterAll();
 
-            var arguments = JsonHelper.ParseElement("{}");
-            var result = await registry.ExecuteToolAsync("test_async_tool", arguments);
+            JsonElement arguments = JsonHelper.ParseElement("{}");
+            ToolsCallResult result = await registry.ExecuteToolAsync("test_async_tool", arguments);
 
             Assert.That(result.IsError, Is.False);
             Assert.That(result.Content, Is.Not.Empty);
@@ -108,11 +108,11 @@ namespace UnityCodeMcpServer.Tests.EditMode
         [Test]
         public void ExecuteToolAsync_NonExistentTool_ReturnsError()
         {
-            var registry = new McpRegistry();
+            McpRegistry registry = new();
             registry.DiscoverAndRegisterAll();
 
-            var arguments = JsonHelper.ParseElement("{}");
-            var result = registry.ExecuteToolAsync("nonexistent", arguments).GetAwaiter().GetResult();
+            JsonElement arguments = JsonHelper.ParseElement("{}");
+            ToolsCallResult result = registry.ExecuteToolAsync("nonexistent", arguments).GetAwaiter().GetResult();
 
             Assert.That(result.IsError, Is.True);
             Assert.That(result.Content[0].Text, Does.Contain("not found"));
@@ -121,10 +121,10 @@ namespace UnityCodeMcpServer.Tests.EditMode
         [Test]
         public void GetPromptsList_ReturnsAllPrompts()
         {
-            var registry = new McpRegistry();
+            McpRegistry registry = new();
             registry.DiscoverAndRegisterAll();
 
-            var result = registry.GetPromptsList();
+            PromptsListResult result = registry.GetPromptsList();
 
             Assert.That(result.Prompts, Is.Not.Empty);
             Assert.That(result.Prompts.Exists(p => p.Name == "test_prompt"), Is.True);
@@ -133,11 +133,11 @@ namespace UnityCodeMcpServer.Tests.EditMode
         [Test]
         public void GetPromptMessages_ValidPrompt_ReturnsMessages()
         {
-            var registry = new McpRegistry();
+            McpRegistry registry = new();
             registry.DiscoverAndRegisterAll();
 
-            var arguments = new Dictionary<string, string>();
-            var result = registry.GetPromptMessages("test_prompt", arguments);
+            Dictionary<string, string> arguments = new();
+            PromptsGetResult result = registry.GetPromptMessages("test_prompt", arguments);
 
             Assert.That(result, Is.Not.Null);
             Assert.That(result.Messages, Is.Not.Empty);
@@ -147,10 +147,10 @@ namespace UnityCodeMcpServer.Tests.EditMode
         [Test]
         public void GetPromptMessages_NonExistentPrompt_ReturnsNull()
         {
-            var registry = new McpRegistry();
+            McpRegistry registry = new();
             registry.DiscoverAndRegisterAll();
 
-            var result = registry.GetPromptMessages("nonexistent", new Dictionary<string, string>());
+            PromptsGetResult result = registry.GetPromptMessages("nonexistent", new Dictionary<string, string>());
 
             Assert.That(result, Is.Null);
         }
@@ -158,10 +158,10 @@ namespace UnityCodeMcpServer.Tests.EditMode
         [Test]
         public void GetResourcesList_ReturnsAllResources()
         {
-            var registry = new McpRegistry();
+            McpRegistry registry = new();
             registry.DiscoverAndRegisterAll();
 
-            var result = registry.GetResourcesList();
+            ResourcesListResult result = registry.GetResourcesList();
 
             Assert.That(result.Resources, Is.Not.Empty);
             Assert.That(result.Resources.Exists(r => r.Uri == "test://resource"), Is.True);
@@ -170,10 +170,10 @@ namespace UnityCodeMcpServer.Tests.EditMode
         [Test]
         public void ReadResource_ValidResource_ReturnsContent()
         {
-            var registry = new McpRegistry();
+            McpRegistry registry = new();
             registry.DiscoverAndRegisterAll();
 
-            var result = registry.ReadResource("test://resource");
+            ResourcesReadResult result = registry.ReadResource("test://resource");
 
             Assert.That(result, Is.Not.Null);
             Assert.That(result.Contents, Is.Not.Empty);
@@ -183,10 +183,10 @@ namespace UnityCodeMcpServer.Tests.EditMode
         [Test]
         public void ReadResource_NonExistentResource_ReturnsNull()
         {
-            var registry = new McpRegistry();
+            McpRegistry registry = new();
             registry.DiscoverAndRegisterAll();
 
-            var result = registry.ReadResource("nonexistent://resource");
+            ResourcesReadResult result = registry.ReadResource("nonexistent://resource");
 
             Assert.That(result, Is.Null);
         }
@@ -222,7 +222,7 @@ namespace UnityCodeMcpServer.Tests.EditMode
     {
         public string Name => "test_prompt";
         public string Description => "A test prompt";
-        public List<PromptArgument> Arguments => new List<PromptArgument>();
+        public List<PromptArgument> Arguments => new();
 
         public PromptsGetResult GetMessages(Dictionary<string, string> arguments)
         {
@@ -231,8 +231,7 @@ namespace UnityCodeMcpServer.Tests.EditMode
                 Description = "Test prompt result",
                 Messages = new List<PromptMessage>
                 {
-                    new PromptMessage
-                    {
+                    new() {
                         Role = McpRoles.User,
                         Content = ContentItem.TextContent("Test message")
                     }
@@ -254,8 +253,7 @@ namespace UnityCodeMcpServer.Tests.EditMode
             {
                 Contents = new List<ResourceContent>
                 {
-                    new ResourceContent
-                    {
+                    new() {
                         Uri = Uri,
                         MimeType = MimeType,
                         Text = "Test resource content"

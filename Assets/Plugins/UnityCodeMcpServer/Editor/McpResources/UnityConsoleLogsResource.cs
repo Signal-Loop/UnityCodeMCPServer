@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using UnityCodeMcpServer.Helpers;
 using UnityCodeMcpServer.Interfaces;
@@ -8,7 +8,7 @@ namespace UnityCodeMcpServer.McpResources
 {
     /// <summary>
     /// Resource that exposes Unity Editor Console logs.
-    /// 
+    ///
     /// This resource uses reflection to accessUnity's internal LogEntries API,
     /// extracting console logs and providing them as text content. It implements
     /// protective measures including:
@@ -56,14 +56,14 @@ namespace UnityCodeMcpServer.McpResources
 
         /// <summary>
         /// Reads console logs from the Unity Editor.
-        /// 
+        ///
         /// Uses reflection to safely access internal LogEntries. Handles missing types/methods
         /// gracefully and implements proper error handling with resource cleanup.
         /// </summary>
         /// <returns>A ResourcesReadResult containing the log content or error message.</returns>
         public ResourcesReadResult Read()
         {
-            var (text, _) = _logReader(MaxLogEntries);
+            (string text, bool _) = _logReader(MaxLogEntries);
             return CreateSuccessResult(string.IsNullOrWhiteSpace(text) ? "(No console logs available)" : text);
         }
 
@@ -76,8 +76,7 @@ namespace UnityCodeMcpServer.McpResources
             {
                 Contents = new List<ResourceContent>
                 {
-                    new ResourceContent
-                    {
+                    new() {
                         Uri = Uri,
                         MimeType = MimeType,
                         Text = content
