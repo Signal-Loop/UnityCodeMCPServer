@@ -1,5 +1,9 @@
 ﻿using System;
 using System.Collections;
+using System.Collections.Generic;
+using System.IO;
+using System.Text;
+using System.Threading;
 using Cysharp.Threading.Tasks;
 using NUnit.Framework;
 using UnityCodeMcpServer.Handlers;
@@ -52,6 +56,72 @@ namespace UnityCodeMcpServer.Tests.EditMode.StreamableHttp
         {
             HttpRequestHandler handler = new(_messageHandler);
             Assert.That(handler, Is.Not.Null);
+        }
+
+        [Test]
+        public void HandleRequestAsync_LoopbackPingRequest_WritesJsonResponse()
+        {
+            string requestJson = "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"ping\"}";
+            MemoryStream outputStream = new();
+            LoopbackHttpContext context = new(
+                new LoopbackHttpRequest(
+                    "POST",
+                    "/mcp/",
+                    new Dictionary<string, string>
+                    {
+                        ["Accept"] = "application/json, text/event-stream"
+                    },
+                    new MemoryStream(Encoding.UTF8.GetBytes(requestJson))),
+                new LoopbackHttpResponse(outputStream));
+
+            _requestHandler.HandleRequestAsync(context, CancellationToken.None).GetAwaiter().GetResult();
+
+            Assert.That(context.Response.StatusCode, Is.EqualTo(200));
+            Assert.That(context.Response.ContentType, Is.EqualTo(McpHttpTransport.ContentTypeJson));
+            Assert.That(Encoding.UTF8.GetString(outputStream.ToArray()), Does.Contain("\"id\":1"));
+        }
+
+        [Test]
+        public void HandleRequestAsync_LoopbackNotification_ReturnsAccepted()
+        {
+            string requestJson = "{\"jsonrpc\":\"2.0\",\"method\":\"notifications/initialized\"}";
+            MemoryStream outputStream = new();
+            LoopbackHttpContext context = new(
+                new LoopbackHttpRequest(
+                    "POST",
+                    "/mcp/",
+                    new Dictionary<string, string>
+                    {
+                        ["Accept"] = "application/json"
+                    },
+                    new MemoryStream(Encoding.UTF8.GetBytes(requestJson))),
+                new LoopbackHttpResponse(outputStream));
+
+            _requestHandler.HandleRequestAsync(context, CancellationToken.None).GetAwaiter().GetResult();
+
+            Assert.That(context.Response.StatusCode, Is.EqualTo(202));
+            Assert.That(outputStream.Length, Is.EqualTo(0));
+        }
+
+        [Test]
+        public void HandleRequestAsync_LoopbackWrongPath_ReturnsNotFound()
+        {
+            string requestJson = "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"ping\"}";
+            MemoryStream outputStream = new();
+            LoopbackHttpContext context = new(
+                new LoopbackHttpRequest(
+                    "POST",
+                    "/wrong-path",
+                    new Dictionary<string, string>
+                    {
+                        ["Accept"] = "application/json"
+                    },
+                    new MemoryStream(Encoding.UTF8.GetBytes(requestJson))),
+                new LoopbackHttpResponse(outputStream));
+
+            _requestHandler.HandleRequestAsync(context, CancellationToken.None).GetAwaiter().GetResult();
+
+            Assert.That(context.Response.StatusCode, Is.EqualTo(404));
         }
 
         #endregion

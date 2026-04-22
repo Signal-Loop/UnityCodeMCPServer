@@ -1,7 +1,10 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Net;
+using System.Net.Sockets;
+using System.Text;
 using System.Threading;
 using Cysharp.Threading.Tasks;
 using UnityCodeMcpServer.Handlers;
@@ -22,7 +25,10 @@ namespace UnityCodeMcpServer.Servers.StreamableHttp
     [InitializeOnLoad]
     public static class UnityCodeMcpHttpServer
     {
-        private static HttpListener _listener;
+        private const int StartupRetryCount = 3;
+        private const int StartupRetryDelayMs = 50;
+
+        private static LoopbackHttpServerTransport _transport;
         private static CancellationTokenSource _serverCts;
         private static McpRegistry _registry;
         private static McpMessageHandler _messageHandler;
@@ -78,9 +84,9 @@ namespace UnityCodeMcpServer.Servers.StreamableHttp
                 return;
             }
 
-            if (_listener != null)
+            if (_transport != null)
             {
-                UnityCodeMcpServerLogger.Debug($"[UnityCodeMcpHttpServer] Start skipped because listener already exists reason={reason}");
+                UnityCodeMcpServerLogger.Debug($"[UnityCodeMcpHttpServer] Start skipped because transport already exists reason={reason}");
                 return;
             }
 
@@ -94,38 +100,15 @@ namespace UnityCodeMcpServer.Servers.StreamableHttp
                 _messageHandler = new McpMessageHandler(_registry);
                 _requestHandler = new HttpRequestHandler(_messageHandler);
 
-                // Configure and start HTTP listener
                 _serverCts = new CancellationTokenSource();
-                _listener = new HttpListener();
-
-                // Bind to localhost only (127.0.0.1) for security
-                // HttpListener with trailing slash handles both /mcp and /mcp/
-                _listener.Prefixes.Add(prefix);
-
-                _listener.Start();
+                _transport = StartTransportWithRetry(settings.HttpPort, settings.Backlog);
 
                 UnityCodeMcpServerLogger.Info($"[UnityCodeMcpHttpServer] Server started on {prefix}\n{BuildRegistrySummary()}");
-
-                // Start accepting requests
-                AcceptRequestsAsync(_serverCts.Token).Forget();
             }
-            catch (HttpListenerException ex) when (ex.ErrorCode == 5)
+            catch (SocketException ex) when (IsRetryableBindFailure(ex))
             {
-                // Access denied
-                UnityCodeMcpServerLogger.Error($"[UnityCodeMcpHttpServer] Access denied. Run as admin or add URL reservation:\n" +
-                    $"netsh http add urlacl url=http://127.0.0.1:{settings.HttpPort}{McpHttpTransport.EndpointPath} user=Everyone");
+                UnityCodeMcpServerLogger.Error($"[UnityCodeMcpHttpServer] Port {settings.HttpPort} is unavailable ({ex.SocketErrorCode}): {ex.Message}");
                 CleanupFailedStart();
-            }
-            catch (HttpListenerException ex) when (ex.ErrorCode == 183)
-            {
-                UnityCodeMcpServerLogger.Error($"[UnityCodeMcpHttpServer] Port {settings.HttpPort} is already in use");
-                CleanupFailedStart();
-            }
-            catch (HttpListenerException ex)
-            {
-                UnityCodeMcpServerLogger.Error($"[UnityCodeMcpHttpServer] Failed to start server: {prefix} {ex.Message}");
-                CleanupFailedStart();
-
             }
             catch (Exception ex)
             {
@@ -144,7 +127,7 @@ namespace UnityCodeMcpServer.Servers.StreamableHttp
 
         public static void StopServer(string reason)
         {
-            if (_listener == null && _serverCts == null)
+            if (_transport == null && _serverCts == null)
             {
                 return;
             }
@@ -154,31 +137,19 @@ namespace UnityCodeMcpServer.Servers.StreamableHttp
             // Cancel all pending operations
             _serverCts?.Cancel();
 
-            // Stop and close the listener
             try
             {
-                _listener?.Abort();
+                _transport?.Stop();
             }
             catch (Exception ex)
             {
-                UnityCodeMcpServerLogger.Warn($"[UnityCodeMcpHttpServer] Error aborting listener: {ex.Message}");
-            }
-
-            try
-            {
-                _listener?.Stop();
-                _listener?.Close();
-            }
-            catch (Exception ex)
-            {
-                UnityCodeMcpServerLogger.Warn($"[UnityCodeMcpHttpServer] Error during listener cleanup: {ex.Message}");
+                UnityCodeMcpServerLogger.Warn($"[UnityCodeMcpHttpServer] Error during transport cleanup: {ex.Message}");
             }
             finally
             {
-                _listener = null;
+                _transport = null;
             }
 
-            // Dispose cancellation token source
             try
             {
                 _serverCts?.Dispose();
@@ -199,58 +170,6 @@ namespace UnityCodeMcpServer.Servers.StreamableHttp
             UnityCodeMcpServerLogger.Debug($"[UnityCodeMcpHttpServer] Server stopped reason={reason}");
         }
 
-        /// <summary>
-        /// Main request accept loop
-        /// </summary>
-        private static async UniTaskVoid AcceptRequestsAsync(CancellationToken ct)
-        {
-            while (!ct.IsCancellationRequested && _listener != null && _listener.IsListening)
-            {
-                try
-                {
-                    HttpListenerContext context = await _listener.GetContextAsync();
-
-                    // Handle request in background (don't await)
-                    HandleRequestAsync(context, ct).Forget();
-                }
-                catch (HttpListenerException ex) when (ex.ErrorCode == 995)
-                {
-                    // The I/O operation was aborted - listener was stopped
-                    break;
-                }
-                catch (ObjectDisposedException)
-                {
-                    // Listener was disposed
-                    break;
-                }
-                catch (Exception ex)
-                {
-                    if (!ct.IsCancellationRequested)
-                    {
-                        UnityCodeMcpServerLogger.Error($"[UnityCodeMcpHttpServer] Error accepting request: {ex.Message}");
-                    }
-                }
-            }
-        }
-
-        /// <summary>
-        /// Handle a single HTTP request
-        /// </summary>
-        private static async UniTaskVoid HandleRequestAsync(HttpListenerContext context, CancellationToken ct)
-        {
-            try
-            {
-                await _requestHandler.HandleRequestAsync(context, ct);
-            }
-            catch (Exception ex)
-            {
-                if (!ct.IsCancellationRequested)
-                {
-                    UnityCodeMcpServerLogger.Error($"[UnityCodeMcpHttpServer] Unhandled request error: {ex}");
-                }
-            }
-        }
-
         #region Menu Items
 
         /// <summary>
@@ -269,7 +188,7 @@ namespace UnityCodeMcpServer.Servers.StreamableHttp
         [MenuItem("Tools/UnityCodeMcpServer/HTTP/Restart Server")]
         public static void RestartServer()
         {
-            if (_listener != null)
+            if (_transport != null)
             {
                 StopServer("restart-requested");
             }
@@ -285,7 +204,7 @@ namespace UnityCodeMcpServer.Servers.StreamableHttp
         {
             UnityCodeMcpServerSettings settings = UnityCodeMcpServerSettings.Instance;
 
-            string status = _listener != null && _listener.IsListening ? "Running" : "Stopped";
+            string status = _transport != null && _transport.IsListening ? "Running" : "Stopped";
 
             UnityCodeMcpServerLogger.Info($"[UnityCodeMcpHttpServer] Server Status:\n" +
                 $"  Status: {status}\n" +
@@ -322,7 +241,7 @@ namespace UnityCodeMcpServer.Servers.StreamableHttp
         {
             try
             {
-                _listener?.Close();
+                _transport?.Dispose();
             }
             catch
             {
@@ -330,7 +249,7 @@ namespace UnityCodeMcpServer.Servers.StreamableHttp
             }
             finally
             {
-                _listener = null;
+                _transport = null;
             }
 
             try
@@ -365,6 +284,99 @@ namespace UnityCodeMcpServer.Servers.StreamableHttp
             return $"Tools: {toolNames.Count} ({string.Join(", ", toolNames)})\n" +
                    $"Prompts: {promptNames.Count} ({string.Join(", ", promptNames)})\n" +
                    $"Resources: {resourceNames.Count} ({string.Join(", ", resourceNames)})";
+        }
+
+        private static LoopbackHttpServerTransport StartTransportWithRetry(int port, int backlog)
+        {
+            Exception lastException = null;
+
+            for (int attempt = 1; attempt <= StartupRetryCount; attempt++)
+            {
+                LoopbackHttpServerTransport transport = null;
+
+                try
+                {
+                    transport = new LoopbackHttpServerTransport(
+                        IPAddress.Loopback,
+                        port,
+                        HandleClientAsync,
+                        Math.Max(1, backlog));
+                    transport.Start();
+                    return transport;
+                }
+                catch (SocketException ex) when (IsRetryableBindFailure(ex))
+                {
+                    lastException = ex;
+                    transport?.Dispose();
+
+                    if (attempt < StartupRetryCount)
+                    {
+                        Thread.Sleep(StartupRetryDelayMs);
+                    }
+                }
+            }
+
+            throw lastException ?? new SocketException((int)SocketError.AddressAlreadyInUse);
+        }
+
+        private static bool IsRetryableBindFailure(SocketException ex)
+        {
+            return ex.SocketErrorCode == SocketError.AddressAlreadyInUse ||
+                   ex.SocketErrorCode == SocketError.AccessDenied;
+        }
+
+        private static async UniTask HandleClientAsync(TcpClient client, CancellationToken ct)
+        {
+            NetworkStream stream = client.GetStream();
+
+            try
+            {
+                LoopbackHttpRequest request = await LoopbackHttpProtocol.ReadRequestAsync(stream, client.Client.RemoteEndPoint, ct);
+                if (request == null)
+                {
+                    return;
+                }
+
+                MemoryStream responseBuffer = new();
+                LoopbackHttpContext context = new(
+                    request,
+                    new LoopbackHttpResponse(responseBuffer));
+
+                await _requestHandler.HandleRequestAsync(context, ct);
+                await LoopbackHttpProtocol.WriteResponseAsync(stream, context.Response, responseBuffer.ToArray(), ct);
+            }
+            catch (InvalidDataException ex)
+            {
+                await WritePlainTextResponseAsync(stream, 400, ex.Message, ct);
+            }
+            catch (Exception ex)
+            {
+                if (!ct.IsCancellationRequested)
+                {
+                    UnityCodeMcpServerLogger.Error($"[UnityCodeMcpHttpServer] Unhandled request error: {ex}");
+                }
+
+                try
+                {
+                    await WritePlainTextResponseAsync(stream, 500, "Internal Server Error", ct);
+                }
+                catch
+                {
+                    // Ignore response write errors after transport failure.
+                }
+            }
+        }
+
+        private static async UniTask WritePlainTextResponseAsync(NetworkStream stream, int statusCode, string message, CancellationToken ct)
+        {
+            byte[] bodyBytes = Encoding.UTF8.GetBytes(message ?? string.Empty);
+            LoopbackHttpResponse response = new(new MemoryStream())
+            {
+                StatusCode = statusCode,
+                ContentType = "text/plain"
+            };
+
+            await LoopbackHttpProtocol.WriteResponseAsync(stream, response, bodyBytes, ct);
         }
 
         #endregion

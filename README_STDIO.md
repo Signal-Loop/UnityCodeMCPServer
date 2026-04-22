@@ -59,6 +59,8 @@ unity-code-mcp-stdio
 
 > **Note:** The host is hardcoded to `localhost` and the port is read automatically from `UnityCodeMcpServerSettings.asset` inside the Unity project.
 
+> **Note:** For the Unity Streamable HTTP backend, Unity now prefers reclaiming the configured HTTP port across its own reloads instead of drifting to a different port. The bridge continues reading the configured port from project settings, so manual port changes should not be required for Unity-owned reload conflicts.
+
 ### Examples
 
 ```bash
