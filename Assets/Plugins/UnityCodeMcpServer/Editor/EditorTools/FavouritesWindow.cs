@@ -1,13 +1,13 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Text.Encodings.Web;
 using System.Text.Json;
 using System.Text.Json.Serialization;
-using System.Text.Encodings.Web;
-using UnityEditor;
-using UnityEngine;
 using UnityCodeMcpServer.Helpers;
 using UnityCodeMcpServer.Services;
+using UnityEditor;
+using UnityEngine;
 
 namespace UnityCodeMcpServer.Editor.EditorTools
 {
@@ -260,7 +260,7 @@ namespace UnityCodeMcpServer.Editor.EditorTools
                 }
                 catch (Exception ex)
                 {
-                    LoopLogger.Error($"Failed to load favourites: {ex.Message}");
+                    UnityCodeMcpServerLogger.Error($"Failed to load favourites: {ex.Message}");
                 }
             }
 
@@ -272,7 +272,7 @@ namespace UnityCodeMcpServer.Editor.EditorTools
         {
             if (string.IsNullOrWhiteSpace(_scriptName))
             {
-                LoopLogger.Warn("Script name is required to save a favourite.");
+                UnityCodeMcpServerLogger.Warn("Script name is required to save a favourite.");
                 return;
             }
 
@@ -296,7 +296,7 @@ namespace UnityCodeMcpServer.Editor.EditorTools
 
             _selectedScriptName = entry.Name;
             PersistFavourites();
-            LoopLogger.Debug($"Saved favourite '{entry.Name}'.");
+            UnityCodeMcpServerLogger.Debug($"Saved favourite '{entry.Name}'.");
             Repaint();
         }
 
@@ -304,20 +304,20 @@ namespace UnityCodeMcpServer.Editor.EditorTools
         {
             if (string.IsNullOrWhiteSpace(_scriptName))
             {
-                LoopLogger.Warn("No script name provided to delete.");
+                UnityCodeMcpServerLogger.Warn("No script name provided to delete.");
                 return;
             }
 
             int removed = _favourites.RemoveAll(f => string.Equals(f.Name, _scriptName, StringComparison.OrdinalIgnoreCase));
             if (removed == 0)
             {
-                LoopLogger.Warn($"Favourite '{_scriptName}' not found.");
+                UnityCodeMcpServerLogger.Warn($"Favourite '{_scriptName}' not found.");
                 return;
             }
 
             PersistFavourites();
             ReloadFavourites();
-            LoopLogger.Debug($"Deleted favourite '{_scriptName}'.");
+            UnityCodeMcpServerLogger.Debug($"Deleted favourite '{_scriptName}'.");
         }
 
         private void PersistFavourites()
@@ -348,7 +348,7 @@ namespace UnityCodeMcpServer.Editor.EditorTools
                 var result = await _scriptExecutionService.ExecuteScriptAsync(_scriptContent);
 
                 var output = FormatExecutionOutput(result);
-                LoopLogger.Info(output);
+                UnityCodeMcpServerLogger.Info(output);
             }
             catch (Exception ex)
             {

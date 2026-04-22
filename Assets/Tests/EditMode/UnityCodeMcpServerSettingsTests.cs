@@ -1,9 +1,9 @@
 using System.Collections;
-using System.Reflection;
-using System.Linq;
 using System.IO;
-using UnityCodeMcpServer.Settings;
+using System.Linq;
+using System.Reflection;
 using NUnit.Framework;
+using UnityCodeMcpServer.Settings;
 using UnityEditor;
 using UnityEngine;
 using UnityEngine.TestTools;
@@ -716,7 +716,7 @@ namespace UnityCodeMcpServer.Tests.EditMode
 
             try
             {
-                Assert.That(settings.MinLogLevel, Is.EqualTo(UnityCodeMcpServer.Helpers.LoopLogger.LogLevel.Info),
+                Assert.That(settings.MinLogLevel, Is.EqualTo(UnityCodeMcpServer.Helpers.UnityCodeMcpServerLogger.LogLevel.Info),
                     "Default MinLogLevel should be Info");
             }
             finally

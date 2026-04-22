@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Threading;
@@ -174,7 +174,7 @@ namespace UnityCodeMcpServer.Servers.StreamableHttp
                 throw new InvalidOperationException("Failed to create session - ID collision");
             }
 
-            LoopLogger.Debug($"{McpProtocol.LogPrefix} [HTTP] Session created: {sessionId}");
+            UnityCodeMcpServerLogger.Debug($"[HTTP] Session created: {sessionId}");
 
             return sessionId;
         }
@@ -244,7 +244,7 @@ namespace UnityCodeMcpServer.Servers.StreamableHttp
 
             if (_sessions.TryRemove(sessionId, out var session))
             {
-                LoopLogger.Debug($"{McpProtocol.LogPrefix} [HTTP] Session terminated: {sessionId}");
+                UnityCodeMcpServerLogger.Debug($"[HTTP] Session terminated: {sessionId}");
 
                 session.Dispose();
                 SessionTerminated?.Invoke(sessionId);
@@ -268,7 +268,7 @@ namespace UnityCodeMcpServer.Servers.StreamableHttp
 
             if (sessionIds.Count > 0)
             {
-                LoopLogger.Debug($"{McpProtocol.LogPrefix} [HTTP] All sessions terminated ({sessionIds.Count} total)");
+                UnityCodeMcpServerLogger.Debug($"[HTTP] All sessions terminated ({sessionIds.Count} total)");
             }
         }
 
@@ -310,7 +310,7 @@ namespace UnityCodeMcpServer.Servers.StreamableHttp
                 }
                 catch (Exception ex)
                 {
-                    LoopLogger.Warn($"{McpProtocol.LogPrefix} [HTTP] Session cleanup error: {ex.Message}");
+                    UnityCodeMcpServerLogger.Warn($"[HTTP] Session cleanup error: {ex.Message}");
                 }
             }
         }
@@ -337,7 +337,7 @@ namespace UnityCodeMcpServer.Servers.StreamableHttp
 
             foreach (var sessionId in expiredSessions)
             {
-                LoopLogger.Debug($"{McpProtocol.LogPrefix} [HTTP] Session expired: {sessionId}");
+                UnityCodeMcpServerLogger.Debug($"[HTTP] Session expired: {sessionId}");
                 TerminateSession(sessionId);
             }
         }

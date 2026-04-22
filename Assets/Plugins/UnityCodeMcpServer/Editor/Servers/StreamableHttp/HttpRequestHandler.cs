@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.IO;
 using System.Net;
 using System.Text;
@@ -61,7 +61,7 @@ namespace UnityCodeMcpServer.Servers.StreamableHttp
 
             try
             {
-                LoopLogger.Trace($"{McpProtocol.LogPrefix} [HTTP] {request.HttpMethod} {request.Url.PathAndQuery} from {request.RemoteEndPoint}");
+                UnityCodeMcpServerLogger.Trace($"[HTTP] {request.HttpMethod} {request.Url.PathAndQuery} from {request.RemoteEndPoint}");
 
                 // Validate Origin header for security
                 var originValidation = ValidateOrigin(request);
@@ -86,7 +86,7 @@ namespace UnityCodeMcpServer.Servers.StreamableHttp
             }
             catch (Exception ex)
             {
-                LoopLogger.Error($"{McpProtocol.LogPrefix} [HTTP] Request handler error: {ex}");
+                UnityCodeMcpServerLogger.Error($"[HTTP] Request handler error: {ex}");
                 try
                 {
                     await SendErrorResponseAsync(response, 500, "Internal Server Error", ct);
@@ -129,7 +129,7 @@ namespace UnityCodeMcpServer.Servers.StreamableHttp
             }
             catch (Exception ex)
             {
-                LoopLogger.Warn($"{McpProtocol.LogPrefix} [HTTP] Failed to read request body: {ex.Message}");
+                UnityCodeMcpServerLogger.Warn($"[HTTP] Failed to read request body: {ex.Message}");
                 await SendErrorResponseAsync(response, 400, "Failed to read request body", ct);
                 return;
             }
@@ -140,7 +140,7 @@ namespace UnityCodeMcpServer.Servers.StreamableHttp
                 return;
             }
 
-            LoopLogger.Trace($"{McpProtocol.LogPrefix} [HTTP] Received: {requestBody}");
+            UnityCodeMcpServerLogger.Trace($"[HTTP] Received: {requestBody}");
 
             bool isNotification = false;
             try
@@ -194,7 +194,7 @@ namespace UnityCodeMcpServer.Servers.StreamableHttp
             }
 
             // Block other origins
-            LoopLogger.Warn($"{McpProtocol.LogPrefix} [HTTP] Blocked request from origin: {origin}");
+            UnityCodeMcpServerLogger.Warn($"[HTTP] Blocked request from origin: {origin}");
             return ValidationResult.Failure(403, "Origin not allowed");
         }
 
@@ -212,7 +212,7 @@ namespace UnityCodeMcpServer.Servers.StreamableHttp
             await response.OutputStream.WriteAsync(bytes, 0, bytes.Length, ct);
             response.Close();
 
-            LoopLogger.Trace($"{McpProtocol.LogPrefix} [HTTP] Sent: {json}");
+            UnityCodeMcpServerLogger.Trace($"[HTTP] Sent: {json}");
         }
 
         /// <summary>

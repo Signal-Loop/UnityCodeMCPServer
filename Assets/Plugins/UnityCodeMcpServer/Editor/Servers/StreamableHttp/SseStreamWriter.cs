@@ -116,7 +116,7 @@ namespace UnityCodeMcpServer.Servers.StreamableHttp
 
             await WriteEventAsync(jsonRpcMessage, eventId, McpHttpTransport.SseEventMessage, ct);
 
-            LoopLogger.Trace($"{McpProtocol.LogPrefix} [HTTP] SSE sent: {jsonRpcMessage}");
+            UnityCodeMcpServerLogger.Trace($"[HTTP] SSE sent: {jsonRpcMessage}");
         }
 
         /// <summary>
@@ -131,7 +131,7 @@ namespace UnityCodeMcpServer.Servers.StreamableHttp
 
             await WriteRawAsync(": keepalive\n\n", ct);
 
-            LoopLogger.Trace($"{McpProtocol.LogPrefix} [HTTP] SSE keepalive sent");
+            UnityCodeMcpServerLogger.Trace($"[HTTP] SSE keepalive sent");
         }
 
         /// <summary>

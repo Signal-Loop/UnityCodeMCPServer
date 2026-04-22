@@ -1,5 +1,5 @@
-using NUnit.Framework;
 using System.IO;
+using NUnit.Framework;
 using UnityCodeMcpServer.Helpers;
 using UnityCodeMcpServer.Settings;
 using UnityEngine.TestTools;
@@ -47,7 +47,7 @@ namespace UnityCodeMcpServer.Tests.Editor
         public void LogToFile_WhenEnabled_CreatesLogFile()
         {
             // Act
-            LoopLogger.Info("Test message");
+            UnityCodeMcpServerLogger.Info("Test message");
             System.Threading.Thread.Sleep(100);
 
             // Assert
@@ -58,7 +58,7 @@ namespace UnityCodeMcpServer.Tests.Editor
         public void LogToFile_ContainsTimestamp()
         {
             // Act
-            LoopLogger.Info("Test message with timestamp");
+            UnityCodeMcpServerLogger.Info("Test message with timestamp");
             System.Threading.Thread.Sleep(100);
 
             // Assert
@@ -75,12 +75,12 @@ namespace UnityCodeMcpServer.Tests.Editor
         public void LogToFile_ContainsSeverityLevel()
         {
             // Act
-            LoopLogger.Debug("Debug message");
-            LoopLogger.Info("Info message");
-            LoopLogger.Warn("Warn message");
+            UnityCodeMcpServerLogger.Debug("Debug message");
+            UnityCodeMcpServerLogger.Info("Info message");
+            UnityCodeMcpServerLogger.Warn("Warn message");
 
             LogAssert.Expect(UnityEngine.LogType.Error, "[ERROR] Error message");
-            LoopLogger.Error("Error message");
+            UnityCodeMcpServerLogger.Error("Error message");
 
             System.Threading.Thread.Sleep(100);
 
@@ -107,7 +107,7 @@ namespace UnityCodeMcpServer.Tests.Editor
             }
 
             // Act
-            LoopLogger.Info("This should not be logged to file");
+            UnityCodeMcpServerLogger.Info("This should not be logged to file");
             System.Threading.Thread.Sleep(100);
 
             // Assert
@@ -120,7 +120,7 @@ namespace UnityCodeMcpServer.Tests.Editor
             // Act
             for (int i = 0; i < 5; i++)
             {
-                LoopLogger.Info($"Message {i}");
+                UnityCodeMcpServerLogger.Info($"Message {i}");
             }
             System.Threading.Thread.Sleep(100);
 
@@ -147,7 +147,7 @@ namespace UnityCodeMcpServer.Tests.Editor
             catch (System.Exception ex)
             {
                 LogAssert.Expect(UnityEngine.LogType.Exception, "InvalidOperationException: Test exception");
-                LoopLogger.Exception("Caught exception", ex);
+                UnityCodeMcpServerLogger.Exception("Caught exception", ex);
             }
             System.Threading.Thread.Sleep(100);
 
@@ -163,7 +163,7 @@ namespace UnityCodeMcpServer.Tests.Editor
         {
             // Act
             LogAssert.Expect(UnityEngine.LogType.Error, "[ERROR] Error with stack trace");
-            LoopLogger.Error("Error with stack trace");
+            UnityCodeMcpServerLogger.Error("Error with stack trace");
             System.Threading.Thread.Sleep(100);
 
             // Assert

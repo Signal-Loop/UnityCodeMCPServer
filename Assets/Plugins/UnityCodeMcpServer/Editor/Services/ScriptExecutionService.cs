@@ -1,14 +1,14 @@
-using System;
-using System.Linq;
+﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using Cysharp.Threading.Tasks;
-using UnityCodeMcpServer.Helpers;
-using UnityCodeMcpServer.Protocol;
-using UnityCodeMcpServer.Settings;
-using UnityCodeMcpServer.Handlers;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Scripting;
 using Microsoft.CodeAnalysis.Scripting;
+using UnityCodeMcpServer.Handlers;
+using UnityCodeMcpServer.Helpers;
+using UnityCodeMcpServer.Protocol;
+using UnityCodeMcpServer.Settings;
 using UnityEditor;
 
 namespace UnityCodeMcpServer.Services
@@ -78,7 +78,7 @@ namespace UnityCodeMcpServer.Services
             {
                 logCapture.Stop();
                 errorDetails = string.Join(Environment.NewLine, compilationError.Diagnostics);
-                LoopLogger.Error($"{McpProtocol.LogPrefix} Script execution compilation error:\n{errorDetails}");
+                UnityCodeMcpServerLogger.Error($"Script execution compilation error:\n{errorDetails}");
 
                 return CreateErrorResult("COMPILATION_ERROR", errorDetails, logCapture, assembliesDisplay);
             }
@@ -86,7 +86,7 @@ namespace UnityCodeMcpServer.Services
             {
                 logCapture.Stop();
                 errorDetails = ex.ToString();
-                LoopLogger.Error($"{McpProtocol.LogPrefix} Script execution runtime error:\n{errorDetails}");
+                UnityCodeMcpServerLogger.Error($"Script execution runtime error:\n{errorDetails}");
 
                 return CreateErrorResult("EXECUTION_ERROR", errorDetails, logCapture, assembliesDisplay);
             }
@@ -138,7 +138,7 @@ namespace UnityCodeMcpServer.Services
             {
                 logCapture.Stop();
                 errorDetails = string.Join(Environment.NewLine, compilationError.Diagnostics);
-                LoopLogger.Error($"{McpProtocol.LogPrefix} Script execution compilation error:\n{errorDetails}");
+                UnityCodeMcpServerLogger.Error($"Script execution compilation error:\n{errorDetails}");
 
                 return CreateErrorResult("COMPILATION_ERROR", errorDetails, logCapture, assembliesDisplay);
             }
@@ -146,7 +146,7 @@ namespace UnityCodeMcpServer.Services
             {
                 logCapture.Stop();
                 errorDetails = ex.ToString();
-                LoopLogger.Error($"{McpProtocol.LogPrefix} Script execution runtime error:\n{errorDetails}");
+                UnityCodeMcpServerLogger.Error($"Script execution runtime error:\n{errorDetails}");
 
                 return CreateErrorResult("EXECUTION_ERROR", errorDetails, logCapture, assembliesDisplay);
             }
@@ -282,7 +282,7 @@ namespace UnityCodeMcpServer.Services
                 }
                 catch (Exception ex)
                 {
-                    LoopLogger.Warn($"{McpProtocol.LogPrefix} Failed to load metadata for assembly '{assembly.GetName().Name}' at '{location}': {ex.Message}");
+                    UnityCodeMcpServerLogger.Warn($"Failed to load metadata for assembly '{assembly.GetName().Name}' at '{location}': {ex.Message}");
                 }
             }
 

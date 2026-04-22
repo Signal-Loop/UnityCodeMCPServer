@@ -1,8 +1,8 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using UnityEngine;
 using UnityEditor;
+using UnityEngine;
 
 namespace UnityCodeMcpServer.Settings
 {
@@ -62,7 +62,7 @@ namespace UnityCodeMcpServer.Settings
 
         [Header("Logging")]
         [Tooltip("Minimum log level. Messages below this level are suppressed.")]
-        public Helpers.LoopLogger.LogLevel MinLogLevel = Helpers.LoopLogger.LogLevel.Info;
+        public Helpers.UnityCodeMcpServerLogger.LogLevel MinLogLevel = Helpers.UnityCodeMcpServerLogger.LogLevel.Info;
 
         [Tooltip("Enable logging to file (UnityCodeMcpServerLog.log in project root)")]
         public bool LogToFile = false;

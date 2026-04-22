@@ -71,11 +71,11 @@ SIDE EFFECTS: Alters Time.timeScale, overrides active Input System states, and c
     {
         if (!TryParseArguments(arguments, out var options, out var errorMessage))
         {
-            LoopLogger.Warn($"#PlayUnityGameTool: invalid arguments: {errorMessage}");
+            UnityCodeMcpServerLogger.Warn($"#PlayUnityGameTool: invalid arguments: {errorMessage}");
             return ToolsCallResult.ErrorResult(errorMessage);
         }
 
-        LoopLogger.Debug($"#PlayUnityGameTool: duration={options.DurationMs}ms inputs={options.Inputs.Count}");
+        UnityCodeMcpServerLogger.Debug($"#PlayUnityGameTool: duration={options.DurationMs}ms inputs={options.Inputs.Count}");
 
         if (!EditorApplication.isPlaying)
         {
@@ -109,13 +109,13 @@ SIDE EFFECTS: Alters Time.timeScale, overrides active Input System states, and c
             {
                 if (!device.enabled)
                 {
-                    LoopLogger.Debug($"#PlayUnityGameTool: re-enabling disabled device: {device.name} (id={device.deviceId})");
+                    UnityCodeMcpServerLogger.Debug($"#PlayUnityGameTool: re-enabling disabled device: {device.name} (id={device.deviceId})");
                     InputSystem.EnableDevice(device);
                     reenabledCount++;
                 }
             }
             if (reenabledCount > 0)
-                LoopLogger.Debug($"#PlayUnityGameTool: re-enabled {reenabledCount} device(s).");
+                UnityCodeMcpServerLogger.Debug($"#PlayUnityGameTool: re-enabled {reenabledCount} device(s).");
 
             // Reset all input devices to clear residual state from previous invocations.
             // Without this, a key, button, or stick value left active (e.g., due to focus
@@ -131,7 +131,7 @@ SIDE EFFECTS: Alters Time.timeScale, overrides active Input System states, and c
                 return ToolsCallResult.ErrorResult($"Could not find InputActionAsset '{InputAssetName}' in Resources folder.");
             }
 
-            LoopLogger.Debug($"#PlayUnityGameTool: triggering {options.Inputs.Count} input(s). " +
+            UnityCodeMcpServerLogger.Debug($"#PlayUnityGameTool: triggering {options.Inputs.Count} input(s). " +
                 $"App.isFocused={Application.isFocused}, devices={InputSystem.devices.Count}");
 
             TriggerInputs(input_asset, options.Inputs, held_actions, actions_to_release);
@@ -139,13 +139,13 @@ SIDE EFFECTS: Alters Time.timeScale, overrides active Input System states, and c
             // Log post-trigger action states (events processed on next frame).
             foreach (var heldAction in held_actions)
             {
-                LoopLogger.Debug($"#PlayUnityGameTool: post-trigger action '{heldAction.name}' phase={heldAction.phase}, " +
+                UnityCodeMcpServerLogger.Debug($"#PlayUnityGameTool: post-trigger action '{heldAction.name}' phase={heldAction.phase}, " +
                     $"IsPressed={heldAction.IsPressed()}, triggered={heldAction.triggered}");
             }
 
             if (options.DurationMs > 0)
             {
-                LoopLogger.Debug($"#PlayUnityGameTool: running for {options.DurationMs}ms.");
+                UnityCodeMcpServerLogger.Debug($"#PlayUnityGameTool: running for {options.DurationMs}ms.");
 
                 if (held_actions.Count == 0)
                 {
@@ -162,11 +162,11 @@ SIDE EFFECTS: Alters Time.timeScale, overrides active Input System states, and c
                 }
             }
 
-            LoopLogger.Debug("#PlayUnityGameTool: capturing screenshot.");
+            UnityCodeMcpServerLogger.Debug("#PlayUnityGameTool: capturing screenshot.");
             var capture_result = await CaptureGameViewScreenshotAsync();
             if (capture_result.IsError)
             {
-                LoopLogger.Warn($"#PlayUnityGameTool: screenshot failed: {capture_result.ErrorMessage}");
+                UnityCodeMcpServerLogger.Warn($"#PlayUnityGameTool: screenshot failed: {capture_result.ErrorMessage}");
                 return ToolsCallResult.ErrorResult(capture_result.ErrorMessage ?? "Failed to capture Game View screenshot.");
             }
 
@@ -184,7 +184,7 @@ SIDE EFFECTS: Alters Time.timeScale, overrides active Input System states, and c
         catch (Exception ex)
         {
             logCapture.Stop();
-            LoopLogger.Error($"#PlayUnityGameTool: exception: {ex}");
+            UnityCodeMcpServerLogger.Error($"#PlayUnityGameTool: exception: {ex}");
             return ToolsCallResult.ErrorResult($"Failed to play Unity game: {ex.Message}\n\nLogs:\n{logCapture.GetLogs()}");
         }
         finally
@@ -217,18 +217,18 @@ SIDE EFFECTS: Alters Time.timeScale, overrides active Input System states, and c
             var action = asset.FindAction(input.ActionName, false);
             if (action == null)
             {
-                LoopLogger.Warn($"#PlayUnityGameTool: Action '{input.ActionName}' not found in asset.");
+                UnityCodeMcpServerLogger.Warn($"#PlayUnityGameTool: Action '{input.ActionName}' not found in asset.");
                 continue;
             }
 
             if (!action.enabled)
             {
                 action.Enable();
-                LoopLogger.Debug($"#PlayUnityGameTool: Enabled action '{action.name}'.");
+                UnityCodeMcpServerLogger.Debug($"#PlayUnityGameTool: Enabled action '{action.name}'.");
             }
 
             var control = action.controls.Count > 0 ? action.controls[0] : null;
-            LoopLogger.Debug($"#PlayUnityGameTool: Action '{action.name}' -> control={control?.path ?? "NONE"}, " +
+            UnityCodeMcpServerLogger.Debug($"#PlayUnityGameTool: Action '{action.name}' -> control={control?.path ?? "NONE"}, " +
                 $"device={control?.device?.name ?? "NONE"}, deviceEnabled={control?.device?.enabled}, " +
                 $"phase={action.phase}, type={input.Type}");
 
@@ -256,7 +256,7 @@ SIDE EFFECTS: Alters Time.timeScale, overrides active Input System states, and c
     {
         if (action == null || action.controls.Count == 0)
         {
-            LoopLogger.Warn($"#PlayUnityGameTool: TriggerAction skipped — action={action?.name ?? "null"}, controls={action?.controls.Count ?? 0}");
+            UnityCodeMcpServerLogger.Warn($"#PlayUnityGameTool: TriggerAction skipped — action={action?.name ?? "null"}, controls={action?.controls.Count ?? 0}");
             return;
         }
 
@@ -264,7 +264,7 @@ SIDE EFFECTS: Alters Time.timeScale, overrides active Input System states, and c
 
         if (control is KeyControl keyControl && keyControl.device is Keyboard keyboard)
         {
-            LoopLogger.Debug($"#PlayUnityGameTool: Queuing keyboard state for key={keyControl.keyCode}, " +
+            UnityCodeMcpServerLogger.Debug($"#PlayUnityGameTool: Queuing keyboard state for key={keyControl.keyCode}, " +
                 $"pressed={value > 0f}, device={keyboard.name}, deviceEnabled={keyboard.enabled}");
             QueueKeyboardStateEvent(keyboard, keyControl.keyCode, value > 0f);
             return;
@@ -278,14 +278,14 @@ SIDE EFFECTS: Alters Time.timeScale, overrides active Input System states, and c
                 InputSystem.QueueEvent(eventPtr);
             }
 
-            LoopLogger.Debug($"#PlayUnityGameTool: Queued button state event for {control.path} with value {(value > 0f ? "pressed" : "released")}.");
+            UnityCodeMcpServerLogger.Debug($"#PlayUnityGameTool: Queued button state event for {control.path} with value {(value > 0f ? "pressed" : "released")}.");
             return;
         }
 
         if (control is AxisControl axisControl)
         {
             InputSystem.QueueDeltaStateEvent(axisControl, value);
-            LoopLogger.Debug($"#PlayUnityGameTool: Queued axis event for {control.path} with value {value}.");
+            UnityCodeMcpServerLogger.Debug($"#PlayUnityGameTool: Queued axis event for {control.path} with value {value}.");
             return;
         }
 
@@ -293,7 +293,7 @@ SIDE EFFECTS: Alters Time.timeScale, overrides active Input System states, and c
         {
             control.WriteValueIntoEvent(value, eventPtr);
             InputSystem.QueueEvent(eventPtr);
-            LoopLogger.Debug($"#PlayUnityGameTool: Queued state event for {control.path} with value {value}.");
+            UnityCodeMcpServerLogger.Debug($"#PlayUnityGameTool: Queued state event for {control.path} with value {value}.");
         }
     }
 
@@ -318,7 +318,7 @@ SIDE EFFECTS: Alters Time.timeScale, overrides active Input System states, and c
         activeKeys.CopyTo(keysArray);
         var keyboardState = new KeyboardState(keysArray);
         InputSystem.QueueStateEvent(keyboard, keyboardState);
-        LoopLogger.Debug($"#PlayUnityGameTool: Queued keyboard event for {key} ({(isPressed ? "pressed" : "released")}). Active keys: {string.Join(", ", activeKeys)}");
+        UnityCodeMcpServerLogger.Debug($"#PlayUnityGameTool: Queued keyboard event for {key} ({(isPressed ? "pressed" : "released")}). Active keys: {string.Join(", ", activeKeys)}");
     }
 
     private void ReleaseActions(List<InputAction> actions)
@@ -349,7 +349,7 @@ SIDE EFFECTS: Alters Time.timeScale, overrides active Input System states, and c
             }
 
             InputSystem.ResetDevice(device);
-            LoopLogger.Debug($"#PlayUnityGameTool: Reset state for device {device.name} ({device.deviceId}).");
+            UnityCodeMcpServerLogger.Debug($"#PlayUnityGameTool: Reset state for device {device.name} ({device.deviceId}).");
         }
 
         _active_keys_by_keyboard.Clear();

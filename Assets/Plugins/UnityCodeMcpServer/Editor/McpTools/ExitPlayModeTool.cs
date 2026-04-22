@@ -1,4 +1,4 @@
-using System.Text.Json;
+﻿using System.Text.Json;
 using Cysharp.Threading.Tasks;
 using UnityCodeMcpServer.Helpers;
 using UnityCodeMcpServer.Interfaces;
@@ -29,7 +29,7 @@ public class ExitPlayModeTool : IToolAsync
             return ToolsCallResult.ErrorResult("Unity is not in Play Mode.");
         }
 
-        LoopLogger.Debug($"{McpProtocol.LogPrefix} ExitPlayModeTool: triggering exit play mode.");
+        UnityCodeMcpServerLogger.Debug($"ExitPlayModeTool: triggering exit play mode.");
 
         EditorApplication.isPlaying = false;
         await UniTask.Delay(1, DelayType.Realtime);

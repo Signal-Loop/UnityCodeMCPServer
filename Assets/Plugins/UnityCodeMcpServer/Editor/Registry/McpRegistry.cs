@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Reflection;
 using System.Text.Json;
@@ -44,15 +44,15 @@ namespace UnityCodeMcpServer.Registry
                 }
                 catch (ReflectionTypeLoadException ex)
                 {
-                    LoopLogger.Warn($"{McpProtocol.LogPrefix} Failed to load types from assembly {assembly.FullName}: {ex.Message}");
+                    UnityCodeMcpServerLogger.Warn($"[McpRegistry] Failed to load types from assembly {assembly.FullName}: {ex.Message}");
                 }
                 catch (Exception ex)
                 {
-                    LoopLogger.Warn($"{McpProtocol.LogPrefix} Error discovering types in assembly {assembly.FullName}: {ex.Message}");
+                    UnityCodeMcpServerLogger.Warn($"[McpRegistry] Error discovering types in assembly {assembly.FullName}: {ex.Message}");
                 }
             }
 
-            LoopLogger.Debug($"{McpProtocol.LogPrefix} Registry initialized: {_syncTools.Count} sync tools, {_asyncTools.Count} async tools, {_prompts.Count} prompts, {_resources.Count} resources");
+            UnityCodeMcpServerLogger.Debug($"[McpRegistry] Registry initialized: {_syncTools.Count} sync tools, {_asyncTools.Count} async tools, {_prompts.Count} prompts, {_resources.Count} resources");
         }
 
         private void DiscoverInAssembly(Assembly assembly)
@@ -88,7 +88,7 @@ namespace UnityCodeMcpServer.Registry
                 }
                 catch (Exception ex)
                 {
-                    LoopLogger.Warn($"{McpProtocol.LogPrefix} Failed to register type {type.FullName}: {ex.Message}");
+                    UnityCodeMcpServerLogger.Warn($"[McpRegistry] Failed to register type {type.FullName}: {ex.Message}");
                 }
             }
         }
@@ -98,11 +98,11 @@ namespace UnityCodeMcpServer.Registry
             var instance = (ITool)Activator.CreateInstance(type);
             if (_syncTools.ContainsKey(instance.Name))
             {
-                LoopLogger.Warn($"{McpProtocol.LogPrefix} Duplicate sync tool name: {instance.Name}");
+                UnityCodeMcpServerLogger.Warn($"[McpRegistry] Duplicate sync tool name: {instance.Name}");
                 return;
             }
             _syncTools[instance.Name] = instance;
-            LoopLogger.Trace($"{McpProtocol.LogPrefix} Registered sync tool: {instance.Name}");
+            UnityCodeMcpServerLogger.Trace($"[McpRegistry] Registered sync tool: {instance.Name}");
         }
 
         private void RegisterAsyncTool(Type type)
@@ -110,11 +110,11 @@ namespace UnityCodeMcpServer.Registry
             var instance = (IToolAsync)Activator.CreateInstance(type);
             if (_asyncTools.ContainsKey(instance.Name))
             {
-                LoopLogger.Warn($"{McpProtocol.LogPrefix} Duplicate async tool name: {instance.Name}");
+                UnityCodeMcpServerLogger.Warn($"[McpRegistry] Duplicate async tool name: {instance.Name}");
                 return;
             }
             _asyncTools[instance.Name] = instance;
-            LoopLogger.Trace($"{McpProtocol.LogPrefix} Registered async tool: {instance.Name}");
+            UnityCodeMcpServerLogger.Trace($"[McpRegistry] Registered async tool: {instance.Name}");
         }
 
         private void RegisterPrompt(Type type)
@@ -122,11 +122,11 @@ namespace UnityCodeMcpServer.Registry
             var instance = (IPrompt)Activator.CreateInstance(type);
             if (_prompts.ContainsKey(instance.Name))
             {
-                LoopLogger.Warn($"{McpProtocol.LogPrefix} Duplicate prompt name: {instance.Name}");
+                UnityCodeMcpServerLogger.Warn($"[McpRegistry] Duplicate prompt name: {instance.Name}");
                 return;
             }
             _prompts[instance.Name] = instance;
-            LoopLogger.Trace($"{McpProtocol.LogPrefix} Registered prompt: {instance.Name}");
+            UnityCodeMcpServerLogger.Trace($"[McpRegistry] Registered prompt: {instance.Name}");
         }
 
         private void RegisterResource(Type type)
@@ -134,11 +134,11 @@ namespace UnityCodeMcpServer.Registry
             var instance = (IResource)Activator.CreateInstance(type);
             if (_resources.ContainsKey(instance.Uri))
             {
-                LoopLogger.Warn($"{McpProtocol.LogPrefix} Duplicate resource URI: {instance.Uri}");
+                UnityCodeMcpServerLogger.Warn($"[McpRegistry] Duplicate resource URI: {instance.Uri}");
                 return;
             }
             _resources[instance.Uri] = instance;
-            LoopLogger.Trace($"{McpProtocol.LogPrefix} Registered resource: {instance.Uri}");
+            UnityCodeMcpServerLogger.Trace($"[McpRegistry] Registered resource: {instance.Uri}");
         }
 
         /// <summary>

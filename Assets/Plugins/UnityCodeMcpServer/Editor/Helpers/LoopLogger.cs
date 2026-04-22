@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.IO;
 using UnityCodeMcpServer.Settings;
 using UnityEngine;
@@ -11,7 +11,7 @@ namespace UnityCodeMcpServer.Helpers
     /// <see cref="UnityCodeMcpServerSettings.MinLogLevel"/>.
     /// Optionally writes logs to file with timestamp and severity.
     /// </summary>
-    public static class LoopLogger
+    public static class UnityCodeMcpServerLogger
     {
         /// <summary>
         /// Log levels ordered from most verbose to most severe.
@@ -30,6 +30,7 @@ namespace UnityCodeMcpServer.Helpers
         private static readonly string _log_file_path = Path.Combine(Path.GetDirectoryName(Application.dataPath), "UnityCodeMcpServerLog.log");
         private static readonly int _max_log_files = 5;
         private static readonly long _max_log_file_size = 10 * 1024 * 1024; // 10 MB
+        private static readonly string LogPrefix = "#UnityCodeMcpServer";
 
         private static LogLevel CurrentLevel =>
             UnityCodeMcpServerSettings.Instance != null
@@ -46,7 +47,7 @@ namespace UnityCodeMcpServer.Helpers
         /// <summary>Very detailed tracing (Trace level).</summary>
         public static void Trace(string message)
         {
-            message = $"[LoopLogger] {message}";
+            message = $"{LogPrefix} {message}";
             if (IsEnabled(LogLevel.Trace))
             {
                 UnityEngine.Debug.Log($"[TRACE] {message}");
@@ -57,7 +58,7 @@ namespace UnityCodeMcpServer.Helpers
         /// <summary>Diagnostic / verbose information (Debug level).</summary>
         public static void Debug(string message)
         {
-            message = $"[LoopLogger] {message}";
+            message = $"{LogPrefix} {message}";
             if (IsEnabled(LogLevel.Debug))
             {
                 UnityEngine.Debug.Log($"[DEBUG] {message}");
@@ -68,7 +69,7 @@ namespace UnityCodeMcpServer.Helpers
         /// <summary>Normal operational messages (Info level).</summary>
         public static void Info(string message)
         {
-            message = $"[LoopLogger] {message}";
+            message = $"{LogPrefix} {message}";
             if (IsEnabled(LogLevel.Info))
             {
                 UnityEngine.Debug.Log($"[INFO] {message}");
@@ -79,7 +80,7 @@ namespace UnityCodeMcpServer.Helpers
         /// <summary>Non-critical issues or unexpected conditions (Warn level).</summary>
         public static void Warn(string message)
         {
-            message = $"[LoopLogger] {message}";
+            message = $"{LogPrefix} {message}";
             if (IsEnabled(LogLevel.Warn))
             {
                 UnityEngine.Debug.LogWarning($"[WARN] {message}");
@@ -90,7 +91,7 @@ namespace UnityCodeMcpServer.Helpers
         /// <summary>Recoverable errors (Error level).</summary>
         public static void Error(string message)
         {
-            message = $"[LoopLogger] {message}";
+            message = $"{LogPrefix} {message}";
             if (IsEnabled(LogLevel.Error))
             {
                 UnityEngine.Debug.LogError($"[ERROR] {message}");
@@ -101,7 +102,7 @@ namespace UnityCodeMcpServer.Helpers
         /// <summary>Critical / unrecoverable errors (Fatal level).</summary>
         public static void Fatal(string message)
         {
-            message = $"[LoopLogger] {message}";
+            message = $"{LogPrefix} {message}";
             if (IsEnabled(LogLevel.Fatal))
             {
                 UnityEngine.Debug.LogError($"[FATAL] {message}");
@@ -112,7 +113,7 @@ namespace UnityCodeMcpServer.Helpers
         /// <summary>Log an exception with full stack trace (Error level).</summary>
         public static void Exception(string message, System.Exception ex)
         {
-            message = $"[LoopLogger] {message}";
+            message = $"{LogPrefix} {message}";
             if (IsEnabled(LogLevel.Error))
             {
                 UnityEngine.Debug.LogException(ex);
@@ -141,7 +142,7 @@ namespace UnityCodeMcpServer.Helpers
                     log_entry += $"\n{stack_trace}";
                 }
 
-                lock (typeof(LoopLogger))
+                lock (typeof(UnityCodeMcpServerLogger))
                 {
                     File.AppendAllText(_log_file_path, log_entry + Environment.NewLine);
                 }
@@ -149,7 +150,7 @@ namespace UnityCodeMcpServer.Helpers
             catch (System.Exception ex)
             {
                 // Prevent logging errors from crashing the application
-                UnityEngine.Debug.LogError($"[LoopLogger] Failed to write to log file: {ex.Message}");
+                UnityEngine.Debug.LogError($"{LogPrefix} Failed to write to log file: {ex.Message}");
             }
         }
 
@@ -169,7 +170,7 @@ namespace UnityCodeMcpServer.Helpers
             }
             catch (System.Exception ex)
             {
-                UnityEngine.Debug.LogError($"[LoopLogger] Failed to check log file size: {ex.Message}");
+                UnityEngine.Debug.LogError($"{LogPrefix} Failed to check log file size: {ex.Message}");
             }
         }
 
@@ -204,7 +205,7 @@ namespace UnityCodeMcpServer.Helpers
             }
             catch (System.Exception ex)
             {
-                UnityEngine.Debug.LogError($"[LoopLogger] Failed to rotate log files: {ex.Message}");
+                UnityEngine.Debug.LogError($"{LogPrefix} Failed to rotate log files: {ex.Message}");
             }
         }
     }

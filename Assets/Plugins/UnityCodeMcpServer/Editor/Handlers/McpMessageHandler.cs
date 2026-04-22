@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Text.Json;
 using Cysharp.Threading.Tasks;
@@ -46,7 +46,7 @@ namespace UnityCodeMcpServer.Handlers
             }
             catch (JsonException ex)
             {
-                LoopLogger.Warn($"{McpProtocol.LogPrefix} Parse error: {ex.Message}");
+                UnityCodeMcpServerLogger.Warn($"Parse error: {ex.Message}");
                 var parseError = JsonRpcResponse.Failure(null, JsonRpcErrorCodes.ParseError, "Parse error");
                 return JsonHelper.Serialize(parseError);
             }
@@ -70,22 +70,22 @@ namespace UnityCodeMcpServer.Handlers
 
         private void HandleNotification(JsonRpcRequest request)
         {
-            LoopLogger.Debug($"{McpProtocol.LogPrefix} Received notification: {request.Method}");
+            UnityCodeMcpServerLogger.Debug($"Received notification: {request.Method}");
 
             switch (request.Method)
             {
                 case McpMethods.Initialized:
-                    LoopLogger.Debug($"{McpProtocol.LogPrefix} Client initialized");
+                    UnityCodeMcpServerLogger.Debug($"Client initialized");
                     break;
                 default:
-                    LoopLogger.Debug($"{McpProtocol.LogPrefix} Unhandled notification: {request.Method}");
+                    UnityCodeMcpServerLogger.Debug($"Unhandled notification: {request.Method}");
                     break;
             }
         }
 
         private async UniTask<JsonRpcResponse> HandleRequestAsync(JsonRpcRequest request)
         {
-            LoopLogger.Debug($"{McpProtocol.LogPrefix} Handling request: {request.Method} (id: {request.Id})");
+            UnityCodeMcpServerLogger.Debug($"Handling request: {request.Method} (id: {request.Id})");
 
             if (_handlers.TryGetValue(request.Method, out var handler))
             {
@@ -95,12 +95,12 @@ namespace UnityCodeMcpServer.Handlers
                 }
                 catch (Exception ex)
                 {
-                    LoopLogger.Error($"{McpProtocol.LogPrefix} Handler error for {request.Method}: {ex}");
+                    UnityCodeMcpServerLogger.Error($"Handler error for {request.Method}: {ex}");
                     return JsonRpcResponse.Failure(request.Id, JsonRpcErrorCodes.InternalError, $"Internal error: {ex.Message}");
                 }
             }
 
-            LoopLogger.Warn($"{McpProtocol.LogPrefix} Method not found: {request.Method}");
+            UnityCodeMcpServerLogger.Warn($"Method not found: {request.Method}");
             return JsonRpcResponse.Failure(request.Id, JsonRpcErrorCodes.MethodNotFound, $"Method not found: {request.Method}");
         }
 
@@ -114,7 +114,7 @@ namespace UnityCodeMcpServer.Handlers
                 initParams = request.Params.Value.Deserialize<InitializeParams>();
             }
 
-            LoopLogger.Info($"{McpProtocol.LogPrefix} Initialize from {initParams?.ClientInfo?.Name ?? "unknown"} (protocol: {initParams?.ProtocolVersion ?? "unknown"})");
+            UnityCodeMcpServerLogger.Info($"Initialize from {initParams?.ClientInfo?.Name ?? "unknown"} (protocol: {initParams?.ProtocolVersion ?? "unknown"})");
 
             var result = new InitializeResult
             {
@@ -142,7 +142,7 @@ namespace UnityCodeMcpServer.Handlers
 
         private UniTask<JsonRpcResponse> HandleToolsList(JsonRpcRequest request)
         {
-            LoopLogger.Debug($"{McpProtocol.LogPrefix} tools/list request (id: {request.Id})");
+            UnityCodeMcpServerLogger.Debug($"tools/list request (id: {request.Id})");
             var result = _registry.GetToolsList();
             return UniTask.FromResult(JsonRpcResponse.Success(request.Id, result));
         }
@@ -174,7 +174,7 @@ namespace UnityCodeMcpServer.Handlers
 
         private UniTask<JsonRpcResponse> HandlePromptsList(JsonRpcRequest request)
         {
-            LoopLogger.Debug($"{McpProtocol.LogPrefix} prompts/list request (id: {request.Id})");
+            UnityCodeMcpServerLogger.Debug($"prompts/list request (id: {request.Id})");
             var result = _registry.GetPromptsList();
             return UniTask.FromResult(JsonRpcResponse.Success(request.Id, result));
         }
@@ -205,7 +205,7 @@ namespace UnityCodeMcpServer.Handlers
 
         private UniTask<JsonRpcResponse> HandleResourcesList(JsonRpcRequest request)
         {
-            LoopLogger.Debug($"{McpProtocol.LogPrefix} resources/list request (id: {request.Id})");
+            UnityCodeMcpServerLogger.Debug($"resources/list request (id: {request.Id})");
             var result = _registry.GetResourcesList();
             return UniTask.FromResult(JsonRpcResponse.Success(request.Id, result));
         }
@@ -244,7 +244,7 @@ namespace UnityCodeMcpServer.Handlers
         private void LogRequestSummary(string kind, string name, object id)
         {
             var displayName = string.IsNullOrEmpty(name) ? "<unknown>" : name;
-            LoopLogger.Debug($"{McpProtocol.LogPrefix} Received {kind} request: {displayName} (id: {id ?? "notification"})");
+            UnityCodeMcpServerLogger.Debug($"Received {kind} request: {displayName} (id: {id ?? "notification"})");
         }
 
         #endregion

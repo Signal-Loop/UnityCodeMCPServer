@@ -1,4 +1,4 @@
-using System.Text.Json;
+﻿using System.Text.Json;
 using UnityCodeMcpServer.Helpers;
 using UnityCodeMcpServer.Interfaces;
 using UnityCodeMcpServer.Protocol;
@@ -40,7 +40,7 @@ public class EnterPlayModeTool : ITool
             return ToolsCallResult.ErrorResult("Unity is compiling or updating. Try again once the Editor is idle.");
         }
 
-        LoopLogger.Debug($"{McpProtocol.LogPrefix} EnterPlayModeTool: triggering play mode.");
+        UnityCodeMcpServerLogger.Debug($"EnterPlayModeTool: triggering play mode.");
 
         // Set isPlaying directly. The property assignment is synchronous but the actual
         // play mode transition (and domain reload) happens on the next editor update.

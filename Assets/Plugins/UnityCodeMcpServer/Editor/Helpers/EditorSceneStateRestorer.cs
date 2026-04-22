@@ -90,7 +90,7 @@ namespace UnityCodeMcpServer.Helpers
             }
             catch (Exception ex)
             {
-                LoopLogger.Warn($"Failed to restore scene state: {ex.Message}");
+                UnityCodeMcpServerLogger.Warn($"Failed to restore scene state: {ex.Message}");
             }
         }
 

@@ -48,7 +48,7 @@ namespace UnityCodeMcpServer.Helpers
             }
             catch (Exception ex)
             {
-                LoopLogger.Error($"UnityConsoleLogReader: error reading logs: {ex.Message}");
+                UnityCodeMcpServerLogger.Error($"UnityConsoleLogReader: error reading logs: {ex.Message}");
                 return ($"Error reading logs: {ex.Message}", true);
             }
             finally
@@ -147,7 +147,7 @@ namespace UnityCodeMcpServer.Helpers
             }
             catch (Exception ex)
             {
-                LoopLogger.Debug($"UnityConsoleLogReader: could not read timestamp for row {row}: {ex.Message}");
+                UnityCodeMcpServerLogger.Debug($"UnityConsoleLogReader: could not read timestamp for row {row}: {ex.Message}");
                 return null;
             }
         }
@@ -214,7 +214,7 @@ namespace UnityCodeMcpServer.Helpers
             }
             catch (Exception ex)
             {
-                LoopLogger.Error($"UnityConsoleLogReader: error invoking {methodName}: {ex.Message}");
+                UnityCodeMcpServerLogger.Error($"UnityConsoleLogReader: error invoking {methodName}: {ex.Message}");
             }
         }
 
@@ -227,7 +227,7 @@ namespace UnityCodeMcpServer.Helpers
             }
             catch (Exception ex)
             {
-                LoopLogger.Error($"UnityConsoleLogReader: error getting log count: {ex.Message}");
+                UnityCodeMcpServerLogger.Error($"UnityConsoleLogReader: error getting log count: {ex.Message}");
                 return 0;
             }
         }

@@ -43,19 +43,19 @@ namespace UnityCodeMcpServer.Servers.StreamableHttp
 
         private static void OnEditorQuitting()
         {
-            LoopLogger.Debug($"{McpProtocol.LogPrefix} [HTTP] Editor quitting");
+            UnityCodeMcpServerLogger.Debug($"[UnityCodeMcpHttpServer] Editor quitting");
             StopServer("editor-quitting");
         }
 
         private static void OnBeforeAssemblyReload()
         {
-            LoopLogger.Debug($"{McpProtocol.LogPrefix} [HTTP] OnBeforeAssemblyReload event");
+            UnityCodeMcpServerLogger.Debug($"[UnityCodeMcpHttpServer] OnBeforeAssemblyReload event");
             StopServer("assembly-reload");
         }
 
         private static void OnAfterAssemblyReload()
         {
-            LoopLogger.Debug($"{McpProtocol.LogPrefix} [HTTP] UnityCodeMcpHttpServer Assembly reload completed");
+            UnityCodeMcpServerLogger.Debug($"[UnityCodeMcpHttpServer] Assembly reload completed");
             StartServer("assembly-reload");
         }
 
@@ -73,13 +73,13 @@ namespace UnityCodeMcpServer.Servers.StreamableHttp
 
             if (settings.StartupServer != UnityCodeMcpServerSettings.ServerStartupMode.Http)
             {
-                LoopLogger.Debug($"{McpProtocol.LogPrefix} [HTTP] Startup skipped because server selection is {settings.StartupServer}");
+                UnityCodeMcpServerLogger.Debug($"[UnityCodeMcpHttpServer] Startup skipped because server selection is {settings.StartupServer}");
                 return;
             }
 
             if (_listener != null)
             {
-                LoopLogger.Debug($"{McpProtocol.LogPrefix} [HTTP] Start skipped because listener already exists reason={reason}");
+                UnityCodeMcpServerLogger.Debug($"[UnityCodeMcpHttpServer] Start skipped because listener already exists reason={reason}");
                 return;
             }
 
@@ -103,7 +103,7 @@ namespace UnityCodeMcpServer.Servers.StreamableHttp
 
                 _listener.Start();
 
-                LoopLogger.Info($"{McpProtocol.LogPrefix} [HTTP] Server started on {prefix}\n{BuildRegistrySummary()}");
+                UnityCodeMcpServerLogger.Info($"[UnityCodeMcpHttpServer] Server started on {prefix}\n{BuildRegistrySummary()}");
 
                 // Start accepting requests
                 AcceptRequestsAsync(_serverCts.Token).Forget();
@@ -111,24 +111,24 @@ namespace UnityCodeMcpServer.Servers.StreamableHttp
             catch (HttpListenerException ex) when (ex.ErrorCode == 5)
             {
                 // Access denied
-                LoopLogger.Error($"{McpProtocol.LogPrefix} [HTTP] Access denied. Run as admin or add URL reservation:\n" +
+                UnityCodeMcpServerLogger.Error($"[UnityCodeMcpHttpServer] Access denied. Run as admin or add URL reservation:\n" +
                     $"netsh http add urlacl url=http://127.0.0.1:{settings.HttpPort}{McpHttpTransport.EndpointPath} user=Everyone");
                 CleanupFailedStart();
             }
             catch (HttpListenerException ex) when (ex.ErrorCode == 183)
             {
-                LoopLogger.Error($"{McpProtocol.LogPrefix} [HTTP] Port {settings.HttpPort} is already in use");
+                UnityCodeMcpServerLogger.Error($"[UnityCodeMcpHttpServer] Port {settings.HttpPort} is already in use");
                 CleanupFailedStart();
             }
             catch (HttpListenerException ex)
             {
-                LoopLogger.Error($"{McpProtocol.LogPrefix} [HTTP] Failed to start server: {prefix} {ex.Message}");
+                UnityCodeMcpServerLogger.Error($"[UnityCodeMcpHttpServer] Failed to start server: {prefix} {ex.Message}");
                 CleanupFailedStart();
 
             }
             catch (Exception ex)
             {
-                LoopLogger.Error($"{McpProtocol.LogPrefix} [HTTP] Failed to start server: {prefix} {ex.Message}");
+                UnityCodeMcpServerLogger.Error($"[UnityCodeMcpHttpServer] Failed to start server: {prefix} {ex.Message}");
                 CleanupFailedStart();
             }
         }
@@ -148,7 +148,7 @@ namespace UnityCodeMcpServer.Servers.StreamableHttp
                 return;
             }
 
-            LoopLogger.Debug($"{McpProtocol.LogPrefix} [HTTP] Stopping server reason={reason}");
+            UnityCodeMcpServerLogger.Debug($"[UnityCodeMcpHttpServer] Stopping server reason={reason}");
 
             // Cancel all pending operations
             _serverCts?.Cancel();
@@ -160,7 +160,7 @@ namespace UnityCodeMcpServer.Servers.StreamableHttp
             }
             catch (Exception ex)
             {
-                LoopLogger.Warn($"{McpProtocol.LogPrefix} [HTTP] Error aborting listener: {ex.Message}");
+                UnityCodeMcpServerLogger.Warn($"[UnityCodeMcpHttpServer] Error aborting listener: {ex.Message}");
             }
 
             try
@@ -170,7 +170,7 @@ namespace UnityCodeMcpServer.Servers.StreamableHttp
             }
             catch (Exception ex)
             {
-                LoopLogger.Warn($"{McpProtocol.LogPrefix} [HTTP] Error during listener cleanup: {ex.Message}");
+                UnityCodeMcpServerLogger.Warn($"[UnityCodeMcpHttpServer] Error during listener cleanup: {ex.Message}");
             }
             finally
             {
@@ -184,7 +184,7 @@ namespace UnityCodeMcpServer.Servers.StreamableHttp
             }
             catch (Exception ex)
             {
-                LoopLogger.Warn($"{McpProtocol.LogPrefix} [HTTP] Error disposing CTS: {ex.Message}");
+                UnityCodeMcpServerLogger.Warn($"[UnityCodeMcpHttpServer] Error disposing CTS: {ex.Message}");
             }
             finally
             {
@@ -195,7 +195,7 @@ namespace UnityCodeMcpServer.Servers.StreamableHttp
             _messageHandler = null;
             _registry = null;
 
-            LoopLogger.Debug($"{McpProtocol.LogPrefix} [HTTP] Server stopped reason={reason}");
+            UnityCodeMcpServerLogger.Debug($"[UnityCodeMcpHttpServer] Server stopped reason={reason}");
         }
 
         /// <summary>
@@ -226,7 +226,7 @@ namespace UnityCodeMcpServer.Servers.StreamableHttp
                 {
                     if (!ct.IsCancellationRequested)
                     {
-                        LoopLogger.Error($"{McpProtocol.LogPrefix} [HTTP] Error accepting request: {ex.Message}");
+                        UnityCodeMcpServerLogger.Error($"[UnityCodeMcpHttpServer] Error accepting request: {ex.Message}");
                     }
                 }
             }
@@ -245,7 +245,7 @@ namespace UnityCodeMcpServer.Servers.StreamableHttp
             {
                 if (!ct.IsCancellationRequested)
                 {
-                    LoopLogger.Error($"{McpProtocol.LogPrefix} [HTTP] Unhandled request error: {ex}");
+                    UnityCodeMcpServerLogger.Error($"[UnityCodeMcpHttpServer] Unhandled request error: {ex}");
                 }
             }
         }
@@ -259,7 +259,7 @@ namespace UnityCodeMcpServer.Servers.StreamableHttp
         public static void RefreshRegistry()
         {
             _registry?.DiscoverAndRegisterAll();
-            LoopLogger.Info($"{McpProtocol.LogPrefix} [HTTP] Registry refreshed");
+            UnityCodeMcpServerLogger.Info($"[UnityCodeMcpHttpServer] Registry refreshed");
         }
 
         /// <summary>
@@ -286,7 +286,7 @@ namespace UnityCodeMcpServer.Servers.StreamableHttp
 
             var status = _listener != null && _listener.IsListening ? "Running" : "Stopped";
 
-            LoopLogger.Info($"{McpProtocol.LogPrefix} [HTTP] Server Status:\n" +
+            UnityCodeMcpServerLogger.Info($"[UnityCodeMcpHttpServer] Server Status:\n" +
                 $"  Status: {status}\n" +
                 $"  Port: {settings.HttpPort}\n" +
                 $"  Startup Server: {settings.StartupServer}");
@@ -310,7 +310,7 @@ namespace UnityCodeMcpServer.Servers.StreamableHttp
   }}
 }}";
 
-            Debug.Log($"{McpProtocol.LogPrefix} [HTTP] MCP Configuration (Streamable HTTP):\n{template}");
+            Debug.Log($"[UnityCodeMcpHttpServer] MCP Configuration (Streamable HTTP):\n{template}");
         }
 
         #endregion

@@ -83,12 +83,12 @@ namespace UnityCodeMcpServer.Settings.Editor
                         var assemblyName = _availableAssemblyNames[_selectedAssemblyIndex];
                         if (settings.AddAssembly(assemblyName))
                         {
-                            LoopLogger.Info($"{Protocol.McpProtocol.LogPrefix} Added assembly: {assemblyName}");
+                            UnityCodeMcpServerLogger.Info($"{Protocol.McpProtocol.LogPrefix} Added assembly: {assemblyName}");
                             RefreshAvailableAssemblies();
                         }
                         else
                         {
-                            LoopLogger.Warn($"{Protocol.McpProtocol.LogPrefix} Assembly already added or is a default assembly: {assemblyName}");
+                            UnityCodeMcpServerLogger.Warn($"{Protocol.McpProtocol.LogPrefix} Assembly already added or is a default assembly: {assemblyName}");
                         }
                     }
                 }
@@ -118,7 +118,7 @@ namespace UnityCodeMcpServer.Settings.Editor
                     {
                         if (settings.RemoveAssembly(assemblyName))
                         {
-                            LoopLogger.Info($"{Protocol.McpProtocol.LogPrefix} Removed assembly: {assemblyName}");
+                            UnityCodeMcpServerLogger.Info($"{Protocol.McpProtocol.LogPrefix} Removed assembly: {assemblyName}");
                             RefreshAvailableAssemblies();
                         }
                     }
@@ -208,7 +208,7 @@ namespace UnityCodeMcpServer.Settings.Editor
             string sourcePath = ResolveSkillsSourcePath();
             if (string.IsNullOrEmpty(sourcePath))
             {
-                LoopLogger.Warn($"{Protocol.McpProtocol.LogPrefix} Could not locate the Skills source directory within the package. Skipping skill relocation.");
+                UnityCodeMcpServerLogger.Warn($"{Protocol.McpProtocol.LogPrefix} Could not locate the Skills source directory within the package. Skipping skill relocation.");
                 return;
             }
 
@@ -280,7 +280,7 @@ namespace UnityCodeMcpServer.Settings.Editor
             }
             catch (Exception ex)
             {
-                LoopLogger.Error($"{Protocol.McpProtocol.LogPrefix} Error refreshing assemblies: {ex.Message}");
+                UnityCodeMcpServerLogger.Error($"{Protocol.McpProtocol.LogPrefix} Error refreshing assemblies: {ex.Message}");
                 _availableAssemblyNames = new[] { "(Error loading assemblies)" };
                 _selectedAssemblyIndex = 0;
             }

@@ -1,4 +1,4 @@
-using System.Text;
+﻿using System.Text;
 using System.Text.Json;
 using Cysharp.Threading.Tasks;
 using UnityCodeMcpServer.Helpers;
@@ -179,11 +179,11 @@ Debug.Log($""Player position: {go.transform.position}"");
 
             if (result.IsError)
             {
-                LoopLogger.Error($"{McpProtocol.LogPrefix} ExecuteCSharpScriptInUnityEditor result:\n{text}");
+                UnityCodeMcpServerLogger.Error($"ExecuteCSharpScriptInUnityEditor result:\n{text}");
             }
             else
             {
-                LoopLogger.Debug($"{McpProtocol.LogPrefix} ExecuteCSharpScriptInUnityEditor result:\n{text}");
+                UnityCodeMcpServerLogger.Debug($"ExecuteCSharpScriptInUnityEditor result:\n{text}");
             }
         }
     }
