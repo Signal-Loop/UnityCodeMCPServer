@@ -1,4 +1,3 @@
-using System.Collections.Generic;
 using System.Text.Json;
 using UnityCodeMcpServer.Helpers;
 using UnityCodeMcpServer.Interfaces;

@@ -3,7 +3,6 @@ using System.Text.Json;
 using UnityCodeMcpServer.Interfaces;
 using UnityCodeMcpServer.Protocol;
 using UnityCodeMcpServer.Settings;
-using UnityEditor;
 using UnityEngine;
 
 namespace UnityCodeMcpServer.McpTools

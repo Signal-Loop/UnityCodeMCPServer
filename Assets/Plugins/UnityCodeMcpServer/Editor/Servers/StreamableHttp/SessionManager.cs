@@ -5,7 +5,6 @@ using System.Threading;
 using Cysharp.Threading.Tasks;
 using UnityCodeMcpServer.Helpers;
 using UnityCodeMcpServer.Protocol;
-using UnityCodeMcpServer.Settings;
 
 namespace UnityCodeMcpServer.Servers.StreamableHttp
 {

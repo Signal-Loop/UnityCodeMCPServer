@@ -9,7 +9,6 @@ using UnityCodeMcpServer.Handlers;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Scripting;
 using Microsoft.CodeAnalysis.Scripting;
-using UnityEngine;
 using UnityEditor;
 
 namespace UnityCodeMcpServer.Services

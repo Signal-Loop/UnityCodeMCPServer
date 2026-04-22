@@ -1,5 +1,3 @@
-using System;
-using System.Linq;
 using System.Text;
 using System.Text.Json;
 using Cysharp.Threading.Tasks;
@@ -7,7 +5,6 @@ using UnityCodeMcpServer.Helpers;
 using UnityCodeMcpServer.Interfaces;
 using UnityCodeMcpServer.Protocol;
 using UnityCodeMcpServer.Services;
-using UnityEngine;
 using UnityEditor;
 
 namespace UnityCodeMcpServer.McpTools
@@ -61,9 +58,9 @@ Executes a C# script in the Unity Editor context using Roslyn scripting. Use thi
 <intent>Find a player, handle null, and get position</intent>
 <script>
 var go = GameObject.Find(""Player"");
-if (go == null) { 
-    Debug.LogError(""Player not found""); 
-    return; 
+if (go == null) {
+    Debug.LogError(""Player not found"");
+    return;
 }
 Debug.Log($""Player position: {go.transform.position}"");
 </script>

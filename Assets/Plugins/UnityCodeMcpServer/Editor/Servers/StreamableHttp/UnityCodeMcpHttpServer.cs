@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Linq;
 using System.Net;
 using System.Threading;
@@ -41,6 +41,18 @@ namespace UnityCodeMcpServer.Servers.StreamableHttp
             AssemblyReloadEvents.afterAssemblyReload += OnAfterAssemblyReload;
         }
 
+        private static void OnEditorQuitting()
+        {
+            LoopLogger.Debug($"{McpProtocol.LogPrefix} [HTTP] Editor quitting");
+            StopServer("editor-quitting");
+        }
+
+        private static void OnBeforeAssemblyReload()
+        {
+            LoopLogger.Debug($"{McpProtocol.LogPrefix} [HTTP] OnBeforeAssemblyReload event");
+            StopServer("assembly-reload");
+        }
+
         private static void OnAfterAssemblyReload()
         {
             LoopLogger.Debug($"{McpProtocol.LogPrefix} [HTTP] UnityCodeMcpHttpServer Assembly reload completed");
@@ -66,9 +78,7 @@ namespace UnityCodeMcpServer.Servers.StreamableHttp
             }
 
             if (_listener != null)
-            if (_listener != null)
             {
-                LoopLogger.Debug($"{McpProtocol.LogPrefix} [HTTP] Start skipped because listener already exists reason={reason}");
                 LoopLogger.Debug($"{McpProtocol.LogPrefix} [HTTP] Start skipped because listener already exists reason={reason}");
                 return;
             }
@@ -105,17 +115,16 @@ namespace UnityCodeMcpServer.Servers.StreamableHttp
                     $"netsh http add urlacl url=http://127.0.0.1:{settings.HttpPort}{McpHttpTransport.EndpointPath} user=Everyone");
                 CleanupFailedStart();
             }
+            catch (HttpListenerException ex) when (ex.ErrorCode == 183)
+            {
+                LoopLogger.Error($"{McpProtocol.LogPrefix} [HTTP] Port {settings.HttpPort} is already in use");
+                CleanupFailedStart();
+            }
             catch (HttpListenerException ex)
             {
-                if (ex.ErrorCode == 183)
-                {
-                    LoopLogger.Error($"{McpProtocol.LogPrefix} [HTTP] Port {settings.HttpPort} is already in use");
-                }
-                else
-                {
-                    LoopLogger.Error($"{McpProtocol.LogPrefix} [HTTP] Failed to start server: {prefix} {ex.Message}");
-                }
+                LoopLogger.Error($"{McpProtocol.LogPrefix} [HTTP] Failed to start server: {prefix} {ex.Message}");
                 CleanupFailedStart();
+
             }
             catch (Exception ex)
             {
@@ -187,18 +196,6 @@ namespace UnityCodeMcpServer.Servers.StreamableHttp
             _registry = null;
 
             LoopLogger.Debug($"{McpProtocol.LogPrefix} [HTTP] Server stopped reason={reason}");
-        }
-
-        private static void OnEditorQuitting()
-        {
-            LoopLogger.Debug($"{McpProtocol.LogPrefix} [HTTP] Editor quitting");
-            StopServer("editor-quitting");
-        }
-
-        private static void OnBeforeAssemblyReload()
-        {
-            LoopLogger.Debug($"{McpProtocol.LogPrefix} [HTTP] OnBeforeAssemblyReload event");
-            StopServer("assembly-reload");
         }
 
         /// <summary>

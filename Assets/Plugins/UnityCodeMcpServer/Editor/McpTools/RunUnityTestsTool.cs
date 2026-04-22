@@ -7,10 +7,8 @@ using UnityCodeMcpServer.Helpers;
 using UnityCodeMcpServer.Interfaces;
 using UnityCodeMcpServer.Protocol;
 using UnityEditor;
-using UnityEditor.SceneManagement;
 using UnityEditor.TestTools.TestRunner.Api;
 using UnityEngine;
-using UnityEngine.SceneManagement;
 
 namespace UnityCodeMcpServer.McpTools
 {

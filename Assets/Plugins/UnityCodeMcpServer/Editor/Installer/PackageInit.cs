@@ -3,9 +3,6 @@ using System.IO;
 using UnityCodeMcpServer.Helpers;
 using UnityCodeMcpServer.Settings;
 using UnityCodeMcpServer.Settings.Editor;
-using UnityEditor.PackageManager;
-using System;
-using NUnit.Framework.Internal;
 
 namespace UnityCodeMcpServer.Editor.Installer
 {

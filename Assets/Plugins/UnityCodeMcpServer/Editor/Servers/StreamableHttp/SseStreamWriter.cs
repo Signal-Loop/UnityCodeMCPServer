@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.IO;
 using System.Net;
 using System.Text;
@@ -6,7 +6,6 @@ using System.Threading;
 using System.Threading.Tasks;
 using UnityCodeMcpServer.Helpers;
 using UnityCodeMcpServer.Protocol;
-using UnityCodeMcpServer.Settings;
 
 namespace UnityCodeMcpServer.Servers.StreamableHttp
 {

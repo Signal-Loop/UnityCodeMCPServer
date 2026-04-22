@@ -1,5 +1,3 @@
-using System;
-
 namespace UnityCodeMcpServer.Protocol
 {
     /// <summary>

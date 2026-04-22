@@ -1,4 +1,3 @@
-using System.Collections.Generic;
 using System.Text.Json;
 using Cysharp.Threading.Tasks;
 using UnityCodeMcpServer.Helpers;
