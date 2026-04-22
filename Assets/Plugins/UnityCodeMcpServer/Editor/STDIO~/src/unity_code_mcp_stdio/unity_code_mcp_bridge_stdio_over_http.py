@@ -164,14 +164,9 @@ class UnityHttpClient:
         trace_id: str,
         request_summary: str,
         attempt: int,
-        deadline: float,
         reason: str,
     ) -> None:
         if self.retry_time <= 0:
-            return
-
-        delay_seconds = min(self.retry_time, self._remaining_time(deadline))
-        if delay_seconds <= 0:
             return
 
         logger.info(
@@ -179,10 +174,10 @@ class UnityHttpClient:
             trace_id,
             attempt,
             reason,
-            delay_seconds,
+            self.retry_time,
             request_summary,
         )
-        await asyncio.sleep(delay_seconds)
+        await asyncio.sleep(self.retry_time)
 
     @staticmethod
     def _parse_sse_response(body: bytes) -> dict[str, Any] | None:
@@ -218,11 +213,10 @@ class UnityHttpClient:
         *,
         trace_id: str,
         request_summary: str,
-        deadline: float,
+        timeout_seconds: float,
     ) -> dict[str, Any] | None:
-        timeout_seconds = self._remaining_time(deadline)
         if timeout_seconds <= 0:
-            raise TimeoutError("request-deadline-exceeded")
+            raise TimeoutError("request-timeout-exceeded")
 
         body = json.dumps(request_payload).encode("utf-8")
         headers = self._build_headers()
@@ -298,11 +292,10 @@ class UnityHttpClient:
         )
 
         async with self._lock:
-            deadline = started_at + self.request_timeout
             last_failure = "Unity HTTP endpoint did not become ready before the retry window expired"
             attempt = 0
 
-            while self._remaining_time(deadline) > 0:
+            while attempt < self.retry_count:
                 try:
                     await self._refresh_port(trace_id, request_summary)
 
@@ -310,7 +303,7 @@ class UnityHttpClient:
                         request,
                         trace_id=trace_id,
                         request_summary=request_summary,
-                        deadline=deadline,
+                        timeout_seconds=self.request_timeout,
                     )
                     if response is None:
                         response = {
@@ -346,16 +339,12 @@ class UnityHttpClient:
                         type(exc).__name__,
                         exc,
                     )
-                    if (
-                        attempt >= self.retry_count
-                        or self._remaining_time(deadline) <= 0
-                    ):
+                    if attempt >= self.retry_count:
                         break
                     await self._sleep_before_retry(
                         trace_id=trace_id,
                         request_summary=request_summary,
                         attempt=attempt,
-                        deadline=deadline,
                         reason="transport-retry",
                     )
                 except Exception as exc:
@@ -515,14 +504,14 @@ def main() -> None:
     parser.add_argument(
         "--retry-count",
         type=int,
-        default=15,
+        default=5,
         help="Maximum number of HTTP retry attempts",
     )
     parser.add_argument(
         "--request-timeout",
         type=float,
         default=DEFAULT_REQUEST_TIMEOUT,
-        help="Seconds to wait for each Unity HTTP request before failing the request",
+        help="Seconds to wait for each Unity HTTP request attempt before retrying or failing",
     )
     parser.add_argument("--verbose", action="store_true", help="Enable verbose logging")
     parser.add_argument("--quiet", action="store_true", help="Suppress logging")

@@ -1,20 +1,20 @@
 {
-    "name": "com.signal-loop.unitycodemcpserver",
-    "version": "0.4.16-preview",
-    "displayName": "Unity Code MCP Server",
-    "description": "A powerful MCP server for the Unity Editor that gives AI Agents ability to perform any action using Unity Editor API. This includes scripts, scenes, prefabs and assets manipulation, configuration changes, and more.",
-    "unity": "2022.3",
-    "author": {
-        "name": "Signal Loop",
-        "url": "https://www.signal-loop.com"
-    },
-    "keywords": [
-        "mcp",
-        "ai"
-    ],
-    "license": "MIT",
-    "documentationUrl": "https://github.com/Signal-Loop/UnityCodeMCPServer",
-    "dependencies": {
-        "com.cysharp.unitask": "2.5.10"
-    }
+  "name": "com.signal-loop.unitycodemcpserver",
+  "version": "0.4.17-preview",
+  "displayName": "Unity Code MCP Server",
+  "description": "A powerful MCP server for the Unity Editor that gives AI Agents ability to perform any action using Unity Editor API. This includes scripts, scenes, prefabs and assets manipulation, configuration changes, and more.",
+  "unity": "2022.3",
+  "author": {
+    "name": "Signal Loop",
+    "url": "https://www.signal-loop.com"
+  },
+  "keywords": [
+    "mcp",
+    "ai"
+  ],
+  "license": "MIT",
+  "documentationUrl": "https://github.com/Signal-Loop/UnityCodeMCPServer",
+  "dependencies": {
+    "com.cysharp.unitask": "2.5.10"
+  }
 }
