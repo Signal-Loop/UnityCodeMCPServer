@@ -66,7 +66,7 @@ namespace UnityCodeMcpServer.Servers.Tcp
 
             if (_isRunning)
             {
-                UnityCodeMcpServerLogger.Trace($"[STDIO] Server already running");
+                UnityCodeMcpServerLogger.Trace($"[UnityCodeMcpTcpServer] Server already running");
                 return;
             }
 
@@ -75,7 +75,7 @@ namespace UnityCodeMcpServer.Servers.Tcp
 
                 if (settings.StartupServer != UnityCodeMcpServerSettings.ServerStartupMode.Stdio)
                 {
-                    UnityCodeMcpServerLogger.Trace($"[STDIO] Startup skipped because server selection is {settings.StartupServer}");
+                    UnityCodeMcpServerLogger.Trace($"[UnityCodeMcpTcpServer] Startup skipped because server selection is {settings.StartupServer}");
                     return;
                 }
 
@@ -93,14 +93,14 @@ namespace UnityCodeMcpServer.Servers.Tcp
                 _listener.Start(settings.Backlog);
                 _isRunning = true;
 
-                UnityCodeMcpServerLogger.Info($"[STDIO] Server started on port {settings.StdioPort}\n{BuildRegistrySummary()}");
+                UnityCodeMcpServerLogger.Info($"[UnityCodeMcpTcpServer] Server started on port {settings.StdioPort}\n{BuildRegistrySummary()}");
 
                 // Start accepting connections
                 AcceptClientsAsync(_serverCts.Token).Forget();
             }
             catch (Exception ex)
             {
-                UnityCodeMcpServerLogger.Error($"[STDIO] Failed to start server: {ex.Message}");
+                UnityCodeMcpServerLogger.Error($"[UnityCodeMcpTcpServer] Failed to start server: {ex.Message}");
                 _isRunning = false;
             }
         }
@@ -121,7 +121,7 @@ namespace UnityCodeMcpServer.Servers.Tcp
                 return;
 
             int clientCount = _activeClientCount;
-            UnityCodeMcpServerLogger.Info($"[STDIO] Stopping server reason={reason} active_clients={clientCount}");
+            UnityCodeMcpServerLogger.Info($"[UnityCodeMcpTcpServer] Stopping server reason={reason} active_clients={clientCount}");
 
             _serverCts?.Cancel();
             _serverCts?.Dispose();
@@ -139,7 +139,7 @@ namespace UnityCodeMcpServer.Servers.Tcp
             }
             catch (Exception ex)
             {
-                UnityCodeMcpServerLogger.Warn($"[STDIO] Error during listener cleanup: {ex.Message}");
+                UnityCodeMcpServerLogger.Warn($"[UnityCodeMcpTcpServer] Error during listener cleanup: {ex.Message}");
             }
             finally
             {
@@ -148,7 +148,7 @@ namespace UnityCodeMcpServer.Servers.Tcp
 
             _isRunning = false;
 
-            UnityCodeMcpServerLogger.Info($"[STDIO] Server stopped reason={reason}");
+            UnityCodeMcpServerLogger.Info($"[UnityCodeMcpTcpServer] Server stopped reason={reason}");
         }
 
         private static void OnEditorQuitting()
@@ -182,7 +182,7 @@ namespace UnityCodeMcpServer.Servers.Tcp
                     EndPoint endpoint = client.Client.RemoteEndPoint;
                     int clientCount = Interlocked.Increment(ref _activeClientCount);
 
-                    UnityCodeMcpServerLogger.Info($"[STDIO] Client connected from {endpoint} active_clients={clientCount}");
+                    UnityCodeMcpServerLogger.Info($"[UnityCodeMcpTcpServer] Client connected from {endpoint} active_clients={clientCount}");
 
                     HandleClientAsync(client, settings, ct).Forget();
                 }
@@ -200,7 +200,7 @@ namespace UnityCodeMcpServer.Servers.Tcp
                 {
                     if (!ct.IsCancellationRequested)
                     {
-                        UnityCodeMcpServerLogger.Error($"[STDIO] Error accepting client: {ex.Message}");
+                        UnityCodeMcpServerLogger.Error($"[UnityCodeMcpTcpServer] Error accepting client: {ex.Message}");
                     }
                 }
             }
@@ -237,7 +237,7 @@ namespace UnityCodeMcpServer.Servers.Tcp
 
                         if (messageLength <= 0 || messageLength > 10 * 1024 * 1024) // Max 10MB
                         {
-                            UnityCodeMcpServerLogger.Warn($"[STDIO] Invalid message length: {messageLength}");
+                            UnityCodeMcpServerLogger.Warn($"[UnityCodeMcpTcpServer] Invalid message length: {messageLength}");
                             break;
                         }
 
@@ -246,13 +246,13 @@ namespace UnityCodeMcpServer.Servers.Tcp
                         bytesRead = await ReadExactAsync(stream, messageBuffer, 0, messageLength, ct);
                         if (bytesRead < messageLength)
                         {
-                            UnityCodeMcpServerLogger.Warn($"[STDIO] Incomplete message received");
+                            UnityCodeMcpServerLogger.Warn($"[UnityCodeMcpTcpServer] Incomplete message received");
                             break;
                         }
 
                         string message = Encoding.UTF8.GetString(messageBuffer);
 
-                        UnityCodeMcpServerLogger.Trace($"[STDIO] Received: {message}");
+                        UnityCodeMcpServerLogger.Trace($"[UnityCodeMcpTcpServer] Received: {message}");
 
                         // Ping is handled entirely on thread pool (no main-thread
                         // dependency). All other messages require the main thread for
@@ -285,7 +285,7 @@ namespace UnityCodeMcpServer.Servers.Tcp
                             await stream.WriteAsync(responseBytes, 0, responseBytes.Length, ct);
                             await stream.FlushAsync(ct);
 
-                            UnityCodeMcpServerLogger.Trace($"[STDIO] Sent: {response}");
+                            UnityCodeMcpServerLogger.Trace($"[UnityCodeMcpTcpServer] Sent: {response}");
                         }
                     }
                 }
@@ -300,11 +300,11 @@ namespace UnityCodeMcpServer.Servers.Tcp
                 {
                     if (IsExpectedClientDisconnect(ex))
                     {
-                        UnityCodeMcpServerLogger.Trace($"[STDIO] Client handler disconnected: {ex.Message}");
+                        UnityCodeMcpServerLogger.Trace($"[UnityCodeMcpTcpServer] Client handler disconnected: {ex.Message}");
                     }
                     else
                     {
-                        UnityCodeMcpServerLogger.Error($"[STDIO] Client handler error: {ex.Message}");
+                        UnityCodeMcpServerLogger.Error($"[UnityCodeMcpTcpServer] Client handler error: {ex.Message}");
                     }
                 }
             }
@@ -312,7 +312,7 @@ namespace UnityCodeMcpServer.Servers.Tcp
             {
                 connectionTimer.Stop();
                 int remainingClients = Interlocked.Decrement(ref _activeClientCount);
-                UnityCodeMcpServerLogger.Info($"[STDIO] Client disconnected duration_ms={connectionTimer.ElapsedMilliseconds} active_clients={remainingClients}");
+                UnityCodeMcpServerLogger.Info($"[UnityCodeMcpTcpServer] Client disconnected duration_ms={connectionTimer.ElapsedMilliseconds} active_clients={remainingClients}");
             }
         }
 
@@ -389,7 +389,7 @@ namespace UnityCodeMcpServer.Servers.Tcp
         public static void RefreshRegistry()
         {
             _registry?.DiscoverAndRegisterAll();
-            UnityCodeMcpServerLogger.Info($"[STDIO] Registry refreshed");
+            UnityCodeMcpServerLogger.Info($"[UnityCodeMcpTcpServer] Registry refreshed");
         }
 
         /// <summary>
@@ -422,7 +422,7 @@ namespace UnityCodeMcpServer.Servers.Tcp
     }}
   }}
 }}";
-            Debug.Log($"[STDIO] MCP Configuration:\n{template}");
+            Debug.Log($"[UnityCodeMcpTcpServer] MCP Configuration:\n{template}");
         }
 
         private static async UniTaskVoid RestartServerAsync()
