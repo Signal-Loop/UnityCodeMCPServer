@@ -1,7 +1,5 @@
 ﻿using System.IO;
 using UnityCodeMcpServer.Helpers;
-using UnityCodeMcpServer.Settings;
-using UnityCodeMcpServer.Settings.Editor;
 using UnityEditor;
 
 namespace UnityCodeMcpServer.Editor.Installer
@@ -9,9 +7,6 @@ namespace UnityCodeMcpServer.Editor.Installer
     [InitializeOnLoad]
     public static class PackageInit
     {
-        private const string SOURCE_FOLDER = "Editor/STDIO~";
-        private const string TARGET_FOLDER = "Assets/Plugins/UnityCodeMcpServer/Editor/STDIO~";
-
         static PackageInit()
         {
             AssemblyReloadEvents.afterAssemblyReload += OnAfterAssemblyReload;
@@ -45,64 +40,22 @@ namespace UnityCodeMcpServer.Editor.Installer
                 packageRoot = packageInfo.resolvedPath;
             }
 
-            string sourcePath = Path.Combine(packageRoot, SOURCE_FOLDER);
-            string targetPath = Path.GetFullPath(TARGET_FOLDER);
-
-            bool skipPackageInstall = string.Equals(
-                Path.GetFullPath(sourcePath).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar),
-                Path.GetFullPath(targetPath).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar),
-                System.StringComparison.OrdinalIgnoreCase);
-
-            // Dependency Injection
             IFileSystem fileSystem = new EditorFileSystem();
-            PackageInstaller installer = new(fileSystem);
+            PackageInstaller packageInstaller = new(fileSystem);
+            SkillsInstaller skillsInstaller = new(fileSystem);
 
-            UnityCodeMcpServerLogger.Debug($"[PackageInit] Installing from {sourcePath} to {targetPath}");
+            bool anyChanges = RunInstallers(
+                () => packageInstaller.Install(packageRoot),
+                () => skillsInstaller.InstallConfiguredSkills());
 
-            RunInstallSteps(
-                skipPackageInstall,
-                () => installer.Install(sourcePath, targetPath),
-                () => InstallSkills(fileSystem));
-
-            UnityCodeMcpServerLogger.Debug($"[PackageInit] Package installation process completed.");
+            UnityCodeMcpServerLogger.Debug($"[PackageInit] Install steps completed. Changes applied: {anyChanges}");
         }
 
-        public static bool RunInstallSteps(bool skipPackageInstall, System.Func<bool> installPackageFiles, System.Func<bool> installSkills)
+        public static bool RunInstallers(System.Func<bool> installPackageFiles, System.Func<bool> installSkills)
         {
-            return PackageInstaller.InstallContent(
-                () =>
-                {
-                    if (skipPackageInstall)
-                    {
-                        UnityCodeMcpServerLogger.Debug($"[PackageInit] Source and target are the same, skipping STDIO installation.");
-                        return false;
-                    }
-
-                    return installPackageFiles != null && installPackageFiles();
-                },
-                installSkills);
-        }
-
-        private static bool InstallSkills(IFileSystem fileSystem)
-        {
-            string sourcePath = UnityCodeMcpServerSettingsEditor.ResolveSkillsSourcePath();
-            if (string.IsNullOrEmpty(sourcePath))
-            {
-                UnityCodeMcpServerLogger.Warn($"[PackageInit] Could not locate the Skills source directory within the package. Skipping skills install.");
-                return false;
-            }
-
-            UnityCodeMcpServerSettings settings = UnityCodeMcpServerSettings.Instance;
-            string targetPath = settings.GetEffectiveSkillsTargetPath();
-            if (string.IsNullOrWhiteSpace(targetPath))
-            {
-                UnityCodeMcpServerLogger.Warn($"[PackageInit] Skills target directory is empty. Skipping skills install.");
-                return false;
-            }
-
-            SkillsInstaller installer = new(fileSystem);
-            SkillsInstallResult result = installer.Install(sourcePath, targetPath);
-            return result.Success && result.AnyChanges;
+            bool packageFilesChanged = installPackageFiles != null && installPackageFiles();
+            bool skillsChanged = installSkills != null && installSkills();
+            return packageFilesChanged || skillsChanged;
         }
     }
 }

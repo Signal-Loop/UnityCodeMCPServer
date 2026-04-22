@@ -165,7 +165,7 @@ namespace UnityCodeMcpServer.Tests.EditMode
             PackageInstaller installer = new(mockFS);
 
             // Expect error log
-            LogAssert.Expect(UnityEngine.LogType.Error, $"[ERROR] #UnityCodeMcpServer Source directory not found: {source}");
+            LogAssert.Expect(UnityEngine.LogType.Error, $"[ERROR] #UnityCodeMcpServer [PackageInstaller] Source directory not found: {source}");
 
             // Act
             bool result = installer.Install(source, target);
@@ -176,12 +176,28 @@ namespace UnityCodeMcpServer.Tests.EditMode
         }
 
         [Test]
-        public void InstallContent_ReturnsTrue_WhenSkillsInstallerCopiesFiles()
+        public void Install_ReturnsFalse_WhenSourceAndTargetAreTheSame()
+        {
+            MockFileSystem mockFS = new();
+            string source = "Packages/MyPkg/STDIO~";
+
+            mockFS.Directories.Add(source);
+
+            PackageInstaller installer = new(mockFS);
+
+            bool result = installer.Install(source, source);
+
+            Assert.IsFalse(result);
+            Assert.AreEqual(0, mockFS.CopiedFiles.Count);
+        }
+
+        [Test]
+        public void RunInstallers_ReturnsTrue_WhenEitherInstallerChanges()
         {
             bool packageInstallerCalled = false;
             bool skillsInstallerCalled = false;
 
-            bool result = PackageInstaller.InstallContent(
+            bool result = PackageInit.RunInstallers(
                 installPackageFiles: () =>
                 {
                     packageInstallerCalled = true;
@@ -199,9 +215,9 @@ namespace UnityCodeMcpServer.Tests.EditMode
         }
 
         [Test]
-        public void InstallContent_ReturnsFalse_WhenNothingChanges()
+        public void RunInstallers_ReturnsFalse_WhenNothingChanges()
         {
-            bool result = PackageInstaller.InstallContent(
+            bool result = PackageInit.RunInstallers(
                 installPackageFiles: () => false,
                 installSkills: () => false);
 
@@ -209,26 +225,25 @@ namespace UnityCodeMcpServer.Tests.EditMode
         }
 
         [Test]
-        public void RunInstallSteps_RunsSkills_WhenPackageInstallIsSkipped()
+        public void RunInstallers_RunsSkills_WhenPackageInstallReportsNoChanges()
         {
             bool packageInstallerCalled = false;
             bool skillsInstallerCalled = false;
 
-            bool result = PackageInit.RunInstallSteps(
-                skipPackageInstall: true,
+            bool result = PackageInit.RunInstallers(
                 installPackageFiles: () =>
                 {
                     packageInstallerCalled = true;
-                    return true;
+                    return false;
                 },
                 installSkills: () =>
                 {
                     skillsInstallerCalled = true;
-                    return true;
+                    return false;
                 });
 
-            Assert.IsTrue(result);
-            Assert.IsFalse(packageInstallerCalled);
+            Assert.IsFalse(result);
+            Assert.IsTrue(packageInstallerCalled);
             Assert.IsTrue(skillsInstallerCalled);
         }
     }

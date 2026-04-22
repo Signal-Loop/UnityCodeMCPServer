@@ -139,7 +139,7 @@ namespace UnityCodeMcpServer.Tests.EditMode
             SkillsInstaller installer = new(fs);
 
             LogAssert.Expect(UnityEngine.LogType.Error,
-                $"[ERROR] #UnityCodeMcpServer Skills source directory not found: missing/path");
+                $"[ERROR] #UnityCodeMcpServer [SkillsInstaller] Skills source directory not found: missing/path");
 
             SkillsInstallResult result = installer.Install("missing/path", TargetRoot);
 
