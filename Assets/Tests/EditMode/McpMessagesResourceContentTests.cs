@@ -1,5 +1,5 @@
-using NUnit.Framework;
 using System.Text.Json;
+using NUnit.Framework;
 using UnityCodeMcpServer.Protocol;
 
 namespace UnityCodeMcpServer.Tests.EditMode

@@ -1,6 +1,5 @@
-using System.Reflection;
+﻿using NUnit.Framework;
 using UnityCodeMcpServer.Settings;
-using NUnit.Framework;
 using UnityEngine;
 
 namespace UnityCodeMcpServer.Tests.EditMode

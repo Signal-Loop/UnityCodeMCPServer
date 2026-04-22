@@ -2,10 +2,10 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Text.Json;
 using Cysharp.Threading.Tasks;
+using NUnit.Framework;
 using UnityCodeMcpServer.Interfaces;
 using UnityCodeMcpServer.Protocol;
 using UnityCodeMcpServer.Registry;
-using NUnit.Framework;
 using UnityEngine.TestTools;
 
 namespace UnityCodeMcpServer.Tests.EditMode

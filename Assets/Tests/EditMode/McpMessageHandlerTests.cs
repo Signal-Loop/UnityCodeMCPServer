@@ -1,8 +1,7 @@
-using System.Text.Json;
+﻿using NUnit.Framework;
 using UnityCodeMcpServer.Handlers;
 using UnityCodeMcpServer.Protocol;
 using UnityCodeMcpServer.Registry;
-using NUnit.Framework;
 
 namespace UnityCodeMcpServer.Tests.EditMode
 {

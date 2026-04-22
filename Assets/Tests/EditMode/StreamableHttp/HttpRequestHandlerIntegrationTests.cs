@@ -1,11 +1,11 @@
 using System;
 using System.Collections;
 using Cysharp.Threading.Tasks;
+using NUnit.Framework;
 using UnityCodeMcpServer.Handlers;
 using UnityCodeMcpServer.Protocol;
 using UnityCodeMcpServer.Registry;
 using UnityCodeMcpServer.Servers.StreamableHttp;
-using NUnit.Framework;
 using UnityEngine.TestTools;
 
 namespace UnityCodeMcpServer.Tests.EditMode.StreamableHttp

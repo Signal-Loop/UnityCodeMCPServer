@@ -1,6 +1,5 @@
-using System;
+﻿using NUnit.Framework;
 using UnityCodeMcpServer.Servers.StreamableHttp;
-using NUnit.Framework;
 
 namespace UnityCodeMcpServer.Tests.EditMode.StreamableHttp
 {

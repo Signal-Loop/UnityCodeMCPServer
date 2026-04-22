@@ -9,7 +9,6 @@ using System.Threading;
 using Cysharp.Threading.Tasks;
 using UnityCodeMcpServer.Handlers;
 using UnityCodeMcpServer.Helpers;
-using UnityCodeMcpServer.Protocol;
 using UnityCodeMcpServer.Registry;
 using UnityCodeMcpServer.Settings;
 using UnityEditor;

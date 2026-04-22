@@ -1,10 +1,10 @@
 using System;
 using System.Collections.Generic;
 using System.Text.Json;
-using UnityCodeMcpServer.Helpers;
-using UnityCodeMcpServer.Protocol;
-using UnityCodeMcpServer.McpTools;
 using NUnit.Framework;
+using UnityCodeMcpServer.Helpers;
+using UnityCodeMcpServer.McpTools;
+using UnityCodeMcpServer.Protocol;
 using UnityEngine;
 
 namespace UnityCodeMcpServer.Tests.EditMode

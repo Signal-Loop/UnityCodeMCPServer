@@ -7,7 +7,6 @@ using Microsoft.CodeAnalysis.CSharp.Scripting;
 using Microsoft.CodeAnalysis.Scripting;
 using UnityCodeMcpServer.Handlers;
 using UnityCodeMcpServer.Helpers;
-using UnityCodeMcpServer.Protocol;
 using UnityCodeMcpServer.Settings;
 using UnityEditor;
 

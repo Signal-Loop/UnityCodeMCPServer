@@ -2,9 +2,9 @@ using System;
 using System.Linq;
 using System.Text.Json;
 using Cysharp.Threading.Tasks;
-using UnityCodeMcpServer.Settings;
-using UnityCodeMcpServer.McpTools;
 using NUnit.Framework;
+using UnityCodeMcpServer.McpTools;
+using UnityCodeMcpServer.Settings;
 using UnityEngine;
 
 namespace UnityCodeMcpServer.Tests.EditMode
