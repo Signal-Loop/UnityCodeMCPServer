@@ -4,10 +4,10 @@ using UnityCodeMcpServer.Helpers;
 using UnityCodeMcpServer.Settings;
 using UnityEngine.TestTools;
 
-namespace UnityCodeMcpServer.Tests.Editor
+namespace UnityCodeMcpServer.Tests.EditMode
 {
     [TestFixture]
-    public class LoopLoggerTests
+    public class UnityCodeMcpServerLoggerTests
     {
         private string _test_log_path;
         private bool _original_log_to_file;
@@ -79,7 +79,7 @@ namespace UnityCodeMcpServer.Tests.Editor
             UnityCodeMcpServerLogger.Info("Info message");
             UnityCodeMcpServerLogger.Warn("Warn message");
 
-            LogAssert.Expect(UnityEngine.LogType.Error, "[ERROR] Error message");
+            LogAssert.Expect(UnityEngine.LogType.Error, "[ERROR] #UnityCodeMcpServer Error message");
             UnityCodeMcpServerLogger.Error("Error message");
 
             System.Threading.Thread.Sleep(100);
@@ -162,7 +162,7 @@ namespace UnityCodeMcpServer.Tests.Editor
         public void LogToFile_ErrorLevel_IncludesStackTrace()
         {
             // Act
-            LogAssert.Expect(UnityEngine.LogType.Error, "[ERROR] Error with stack trace");
+            LogAssert.Expect(UnityEngine.LogType.Error, "[ERROR] #UnityCodeMcpServer Error with stack trace");
             UnityCodeMcpServerLogger.Error("Error with stack trace");
             System.Threading.Thread.Sleep(100);
 
