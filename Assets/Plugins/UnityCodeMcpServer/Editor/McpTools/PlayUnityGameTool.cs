@@ -237,7 +237,7 @@ SIDE EFFECTS: Alters Time.timeScale, overrides active Input System states, and c
 
         if (control is KeyControl keyControl && keyControl.device is Keyboard keyboard)
         {
-            UnityCodeMcpServerLogger.Debug($"#PlayUnityGameTool: Queuing keyboard state for key={keyControl.keyCode}, " +
+            UnityCodeMcpServerLogger.Trace($"#PlayUnityGameTool: Queuing keyboard state for key={keyControl.keyCode}, " +
                 $"pressed={value > 0f}, device={keyboard.name}, deviceEnabled={keyboard.enabled}");
             QueueKeyboardStateEvent(keyboard, keyControl.keyCode, value > 0f);
             return;
@@ -251,14 +251,14 @@ SIDE EFFECTS: Alters Time.timeScale, overrides active Input System states, and c
                 InputSystem.QueueEvent(eventPtr);
             }
 
-            UnityCodeMcpServerLogger.Debug($"#PlayUnityGameTool: Queued button state event for {control.path} with value {(value > 0f ? "pressed" : "released")}.");
+            UnityCodeMcpServerLogger.Trace($"#PlayUnityGameTool: Queued button state event for {control.path} with value {(value > 0f ? "pressed" : "released")}.");
             return;
         }
 
         if (control is AxisControl axisControl)
         {
             InputSystem.QueueDeltaStateEvent(axisControl, value);
-            UnityCodeMcpServerLogger.Debug($"#PlayUnityGameTool: Queued axis event for {control.path} with value {value}.");
+            UnityCodeMcpServerLogger.Trace($"#PlayUnityGameTool: Queued axis event for {control.path} with value {value}.");
             return;
         }
 
@@ -266,7 +266,7 @@ SIDE EFFECTS: Alters Time.timeScale, overrides active Input System states, and c
         {
             control.WriteValueIntoEvent(value, eventPtr);
             InputSystem.QueueEvent(eventPtr);
-            UnityCodeMcpServerLogger.Debug($"#PlayUnityGameTool: Queued state event for {control.path} with value {value}.");
+            UnityCodeMcpServerLogger.Trace($"#PlayUnityGameTool: Queued state event for {control.path} with value {value}.");
         }
     }
 
@@ -291,7 +291,7 @@ SIDE EFFECTS: Alters Time.timeScale, overrides active Input System states, and c
         activeKeys.CopyTo(keysArray);
         KeyboardState keyboardState = new(keysArray);
         InputSystem.QueueStateEvent(keyboard, keyboardState);
-        UnityCodeMcpServerLogger.Debug($"#PlayUnityGameTool: Queued keyboard event for {key} ({(isPressed ? "pressed" : "released")}). Active keys: {string.Join(", ", activeKeys)}");
+        UnityCodeMcpServerLogger.Trace($"#PlayUnityGameTool: Queued keyboard event for {key} ({(isPressed ? "pressed" : "released")}). Active keys: {string.Join(", ", activeKeys)}");
     }
 
     private void ReleaseActions(List<InputAction> actions)
