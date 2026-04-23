@@ -263,7 +263,6 @@ public class GetUnityGameViewWindowScreenshotTool : IToolAsync
 
             if (source_texture.width == target_width && source_texture.height == target_height)
             {
-                // No scaling needed
                 return CaptureResult.Success(Convert.ToBase64String(source_bytes), DefaultMimeType);
             }
 
