@@ -19,57 +19,9 @@ namespace UnityCodeMcpServer.Tests.EditMode
             Assert.IsNull(errorMessage);
             Assert.AreEqual(1000, options.DurationMs);
             Assert.AreEqual(0, options.Inputs.Count);
-            Assert.AreEqual(640, options.MaxHeight);
-            Assert.AreEqual(50_000_000, options.MaxBase64Bytes);
         }
 
-        [Test]
-        public void TryParseArguments_WithMaxHeight_ParsesCorrectly()
-        {
-            JsonElement arguments = ParseArguments(@"{""duration"": 1000, ""max_height"": 321}");
 
-            bool result = PlayUnityGameTool.TryParseArguments(arguments, out PlayUnityGameTool.PlayOptions options, out string errorMessage);
-
-            Assert.IsTrue(result);
-            Assert.IsNull(errorMessage);
-            Assert.AreEqual(321, options.MaxHeight);
-        }
-
-        [Test]
-        public void TryParseArguments_WithInvalidMaxHeight_ReturnsFalse()
-        {
-            JsonElement arguments = ParseArguments(@"{""duration"": 1000, ""max_height"": 0}");
-
-            bool result = PlayUnityGameTool.TryParseArguments(arguments, out _, out string errorMessage);
-
-            Assert.IsFalse(result);
-            Assert.IsNotNull(errorMessage);
-            Assert.That(errorMessage, Does.Contain("max_height").IgnoreCase);
-        }
-
-        [Test]
-        public void TryParseArguments_WithMaxBase64Bytes_ParsesCorrectly()
-        {
-            JsonElement arguments = ParseArguments(@"{""duration"": 1000, ""max_base64_bytes"": 12345}");
-
-            bool result = PlayUnityGameTool.TryParseArguments(arguments, out PlayUnityGameTool.PlayOptions options, out string errorMessage);
-
-            Assert.IsTrue(result);
-            Assert.IsNull(errorMessage);
-            Assert.AreEqual(12345, options.MaxBase64Bytes);
-        }
-
-        [Test]
-        public void TryParseArguments_WithInvalidMaxBase64Bytes_ReturnsFalse()
-        {
-            JsonElement arguments = ParseArguments(@"{""duration"": 1000, ""max_base64_bytes"": 0}");
-
-            bool result = PlayUnityGameTool.TryParseArguments(arguments, out _, out string errorMessage);
-
-            Assert.IsFalse(result);
-            Assert.IsNotNull(errorMessage);
-            Assert.That(errorMessage, Does.Contain("max_base64_bytes").IgnoreCase);
-        }
 
         [Test]
         public void TryParseArguments_WithMissingDuration_ReturnsFalse()
@@ -182,8 +134,6 @@ namespace UnityCodeMcpServer.Tests.EditMode
             Assert.AreEqual(1000, options.DurationMs);
             Assert.AreEqual(1, options.Inputs.Count);
             Assert.AreEqual("Test", options.Inputs[0].ActionName);
-            Assert.AreEqual(640, options.MaxHeight);
-            Assert.AreEqual(50_000_000, options.MaxBase64Bytes);
         }
 
         [Test]
@@ -196,26 +146,7 @@ namespace UnityCodeMcpServer.Tests.EditMode
             Assert.AreEqual(0, options.Inputs.Count);
         }
 
-        [TestCase(1920, 1080, 640, 1137, 640)]
-        [TestCase(1280, 720, 640, 1137, 640)]
-        [TestCase(640, 480, 640, 640, 480)]
-        [TestCase(1024, 2048, 640, 320, 640)]
-        public void GetScaledDimensionsToMaxHeight_ReturnsExpectedValues(int width, int height, int maxHeight, int expectedWidth, int expectedHeight)
-        {
-            PlayUnityGameTool.GetScaledDimensionsToMaxHeight(width, height, maxHeight, out int resultWidth, out int resultHeight);
 
-            Assert.AreEqual(expectedWidth, resultWidth);
-            Assert.AreEqual(expectedHeight, resultHeight);
-        }
-
-        [Test]
-        public void GetScaledDimensionsToMaxHeight_WithInvalidDimensions_ReturnsOneByOne()
-        {
-            PlayUnityGameTool.GetScaledDimensionsToMaxHeight(0, 0, 640, out int resultWidth, out int resultHeight);
-
-            Assert.AreEqual(1, resultWidth);
-            Assert.AreEqual(1, resultHeight);
-        }
 
         [Test]
         public void InputRequest_Constructor_InitializesCorrectly()
@@ -226,27 +157,7 @@ namespace UnityCodeMcpServer.Tests.EditMode
             Assert.AreEqual(PlayUnityGameTool.InputType.Hold, request.Type);
         }
 
-        [Test]
-        public void CaptureResult_Success_CreatesCorrectResult()
-        {
-            PlayUnityGameTool.CaptureResult result = PlayUnityGameTool.CaptureResult.Success("base64data", "image/png");
 
-            Assert.IsFalse(result.IsError);
-            Assert.AreEqual("base64data", result.Base64Data);
-            Assert.AreEqual("image/png", result.MimeType);
-            Assert.IsNull(result.ErrorMessage);
-        }
-
-        [Test]
-        public void CaptureResult_Error_CreatesCorrectResult()
-        {
-            PlayUnityGameTool.CaptureResult result = PlayUnityGameTool.CaptureResult.Error("Test error");
-
-            Assert.IsTrue(result.IsError);
-            Assert.IsNull(result.Base64Data);
-            Assert.IsNull(result.MimeType);
-            Assert.AreEqual("Test error", result.ErrorMessage);
-        }
 
         [Test]
         public void TryParseArguments_WithInputNotArray_ReturnsFalse()

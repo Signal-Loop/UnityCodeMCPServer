@@ -19,18 +19,15 @@ using UnityEngine.InputSystem.LowLevel;
 /// </summary>
 public class PlayUnityGameTool : IToolAsync
 {
-    private const string DefaultMimeType = "image/png";
     private const string InputAssetName = "PongInputActions";
-    private static readonly TimeSpan ScreenshotTimeout = TimeSpan.FromSeconds(2);
-    private static readonly TimeSpan ScreenshotPollInterval = TimeSpan.FromMilliseconds(50);
     private readonly Dictionary<Keyboard, HashSet<Key>> _active_keys_by_keyboard = new();
 
     public string Name => "play_unity_game";
 
     public string Description =>
         @"Advances the Unity game state and simulates player input for a specified duration.
-WHAT IT DOES: Temporarily unpauses the game (timeScale=1), triggers specified Input System actions (press/hold), captures Game View screenshot, records console logs, and safely pauses the game (timeScale=0) upon completion.
-WHEN TO USE: Use to test gameplay mechanics over time, simulate character movement or UI interactions, and observe visual or log feedback during live gameplay.
+WHAT IT DOES: Temporarily unpauses the game (timeScale=1), triggers specified Input System actions (press/hold), records console logs, and safely pauses the game (timeScale=0) upon completion.
+WHEN TO USE: Use to test gameplay mechanics over time and simulate character movement or UI interactions.
 WHEN NOT TO USE: Do NOT use to edit scripts, modify scene architecture, or inspect static scene data.
 PREREQUISITES: Unity MUST already be in Play Mode (use the 'enter_play_mode' tool first).
 SIDE EFFECTS: Alters Time.timeScale, overrides active Input System states, and consumes in-game time.";
@@ -42,7 +39,7 @@ SIDE EFFECTS: Alters Time.timeScale, overrides active Input System states, and c
                 ""duration"": {
                     ""type"": ""integer"",
                     ""minimum"": 0,
-                    ""description"": ""Duration in milliseconds to run the game in Play Mode. Set to 0 for an instant screenshot, or higher (e.g., 1000 for 1 second) to simulate gameplay over time.""
+                    ""description"": ""Duration in milliseconds to run the game in Play Mode. Set to 0 for instant completion, or higher (e.g., 1000 for 1 second) to simulate gameplay over time.""
                 },
                 ""input"": {
                     ""type"": ""array"",
@@ -55,12 +52,6 @@ SIDE EFFECTS: Alters Time.timeScale, overrides active Input System states, and c
                         },
                         ""required"": [""action"", ""type""]
                     }
-                },
-                ""max_height"": {
-                    ""type"": ""integer"",
-                    ""minimum"": 1,
-                    ""description"": ""Maximum pixel height for the returned screenshots. Taller images are proportionally scaled down to save token context limits. Default: 640."",
-                    ""default"": 640
                 }
             },
             ""required"": [""duration""]
@@ -123,8 +114,6 @@ SIDE EFFECTS: Alters Time.timeScale, overrides active Input System states, and c
             // no input is specified for the current run.
             ResetAllInputDevices();
 
-            ToolsCallResult success_result = null;
-
             InputActionAsset input_asset = Resources.Load<InputActionAsset>(InputAssetName);
             if (input_asset == null)
             {
@@ -162,24 +151,8 @@ SIDE EFFECTS: Alters Time.timeScale, overrides active Input System states, and c
                 }
             }
 
-            UnityCodeMcpServerLogger.Debug("#PlayUnityGameTool: capturing screenshot.");
-            CaptureResult capture_result = await CaptureGameViewScreenshotAsync();
-            if (capture_result.IsError)
-            {
-                UnityCodeMcpServerLogger.Warn($"#PlayUnityGameTool: screenshot failed: {capture_result.ErrorMessage}");
-                return ToolsCallResult.ErrorResult(capture_result.ErrorMessage ?? "Failed to capture Game View screenshot.");
-            }
-
-            CaptureResult scaled_capture = ScaleCaptureToMaxHeight(capture_result, options.MaxHeight);
-            if (scaled_capture.IsError)
-            {
-                return ToolsCallResult.ErrorResult(scaled_capture.ErrorMessage ?? "Failed to scale screenshot.");
-            }
-
-            success_result = ToolsCallResult.ImageResult(scaled_capture.Base64Data, scaled_capture.MimeType ?? DefaultMimeType);
-            success_result.Content.Add(ContentItem.TextContent($"Logs captured during play:\n{logCapture.GetLogs()}"));
-
-            return success_result ?? ToolsCallResult.ErrorResult("Internal error: no result produced.");
+            string logs = logCapture.GetLogs();
+            return ToolsCallResult.TextResult($"Logs captured during play:\n{logs}");
         }
         catch (Exception ex)
         {
@@ -371,34 +344,12 @@ SIDE EFFECTS: Alters Time.timeScale, overrides active Input System states, and c
             return false;
         }
 
-        if (!TryGetOptionalInt(arguments, "max_height", 640, out int max_height, out errorMessage))
-        {
-            return false;
-        }
-
-        if (!TryGetOptionalInt(arguments, "max_base64_bytes", 50_000_000, out int max_base64_bytes, out errorMessage))
-        {
-            return false;
-        }
-
-        if (max_height <= 0)
-        {
-            errorMessage = "Parameter 'max_height' must be greater than 0.";
-            return false;
-        }
-
-        if (max_base64_bytes <= 0)
-        {
-            errorMessage = "Parameter 'max_base64_bytes' must be greater than 0.";
-            return false;
-        }
-
         if (!TryParseInputs(arguments, out List<InputRequest> inputs, out errorMessage))
         {
             return false;
         }
 
-        options = new PlayOptions(duration_ms, inputs, max_height, max_base64_bytes);
+        options = new PlayOptions(duration_ms, inputs);
         return true;
     }
 
@@ -549,116 +500,6 @@ SIDE EFFECTS: Alters Time.timeScale, overrides active Input System states, and c
 
 
 
-    /// <summary>
-    /// Calculates scaled dimensions to fit within max height while preserving aspect ratio.
-    /// </summary>
-    public static void GetScaledDimensionsToMaxHeight(int width, int height, int maxHeight, out int scaledWidth, out int scaledHeight)
-    {
-        if (width <= 0 || height <= 0)
-        {
-            scaledWidth = 1;
-            scaledHeight = 1;
-            return;
-        }
-
-        if (height <= maxHeight)
-        {
-            scaledWidth = width;
-            scaledHeight = height;
-            return;
-        }
-
-        double scale = (double)maxHeight / height;
-        scaledWidth = Math.Max(1, (int)Math.Floor(width * scale));
-        scaledHeight = maxHeight;
-    }
-
-    /// <summary>
-    /// Scales a PNG image to target dimensions.
-    /// </summary>
-    private static CaptureResult ScalePngImage(byte[] source_bytes, int target_width, int target_height)
-    {
-        if (source_bytes == null || source_bytes.Length == 0)
-        {
-            return CaptureResult.Error("Empty screenshot bytes.");
-        }
-
-        Texture2D source_texture = new(2, 2, TextureFormat.RGB24, false);
-        Texture2D scaled_texture = null;
-        RenderTexture temporary_render_texture = null;
-        RenderTexture previous_render_texture = RenderTexture.active;
-
-        try
-        {
-            if (!source_texture.LoadImage(source_bytes, false))
-            {
-                return CaptureResult.Error("Failed to decode screenshot image.");
-            }
-
-            if (source_texture.width == target_width && source_texture.height == target_height)
-            {
-                // No scaling needed
-                return CaptureResult.Success(Convert.ToBase64String(source_bytes), DefaultMimeType);
-            }
-
-            temporary_render_texture = RenderTexture.GetTemporary(target_width, target_height, 0, RenderTextureFormat.ARGB32);
-            Graphics.Blit(source_texture, temporary_render_texture);
-            RenderTexture.active = temporary_render_texture;
-
-            scaled_texture = new Texture2D(target_width, target_height, TextureFormat.RGB24, false);
-            scaled_texture.ReadPixels(new Rect(0, 0, target_width, target_height), 0, 0);
-            scaled_texture.Apply(false, false);
-
-            byte[] png_bytes = scaled_texture.EncodeToPNG();
-            if (png_bytes == null || png_bytes.Length == 0)
-            {
-                return CaptureResult.Error("Failed to encode screenshot to PNG.");
-            }
-
-            return CaptureResult.Success(Convert.ToBase64String(png_bytes), DefaultMimeType);
-        }
-        finally
-        {
-            RenderTexture.active = previous_render_texture;
-
-            if (temporary_render_texture != null)
-            {
-                RenderTexture.ReleaseTemporary(temporary_render_texture);
-            }
-
-            if (scaled_texture != null && !ReferenceEquals(scaled_texture, source_texture))
-            {
-                UnityEngine.Object.DestroyImmediate(scaled_texture);
-            }
-
-            UnityEngine.Object.DestroyImmediate(source_texture);
-        }
-    }
-
-    /// <summary>
-    /// Repaints the Game View to ensure fresh frames are rendered.
-    /// </summary>
-    private static void RepaintGameView()
-    {
-        try
-        {
-            Type game_view_type = Type.GetType("UnityEditor.GameView, UnityEditor");
-            if (game_view_type == null)
-            {
-                return;
-            }
-
-            EditorWindow game_view = EditorWindow.GetWindow(game_view_type);
-            if (game_view != null)
-            {
-                game_view.Repaint();
-            }
-        }
-        catch
-        {
-        }
-    }
-
 
 
     /// <summary>
@@ -672,109 +513,17 @@ SIDE EFFECTS: Alters Time.timeScale, overrides active Input System states, and c
         }
     }
 
-    private async UniTask<CaptureResult> CaptureGameViewScreenshotAsync()
-    {
-        string tempPath = null;
-        try
-        {
-            tempPath = CreateTempScreenshotPath();
-            RequestScreenshot(tempPath);
 
-            byte[] pngBytes = await ReadFileWhenReadyAsync(tempPath, ScreenshotTimeout, ScreenshotPollInterval);
-            if (pngBytes == null || pngBytes.Length == 0)
-            {
-                return CaptureResult.Error("Game View screenshot not ready. Ensure the Game View is visible and try again.");
-            }
-
-            string base64 = Convert.ToBase64String(pngBytes);
-            return CaptureResult.Success(base64, DefaultMimeType);
-        }
-        catch (Exception ex)
-        {
-            return CaptureResult.Error($"Failed to capture Game View screenshot: {ex.Message}");
-        }
-        finally
-        {
-            TryDeleteTempFile(tempPath);
-        }
-    }
-
-    private static string CreateTempScreenshotPath()
-    {
-        string tempDir = Path.Combine(Application.dataPath, "..", "Temp", "UnityGameViewScreenshots");
-        Directory.CreateDirectory(tempDir);
-        return Path.Combine(tempDir, $"game_view_{Guid.NewGuid():N}.png");
-    }
-
-    private static void RequestScreenshot(string path)
-    {
-        ScreenCapture.CaptureScreenshot(path, 1);
-    }
-
-    private static async UniTask<byte[]> ReadFileWhenReadyAsync(string path, TimeSpan timeout, TimeSpan pollInterval)
-    {
-        if (string.IsNullOrWhiteSpace(path))
-        {
-            return null;
-        }
-
-        DateTime start = DateTime.UtcNow;
-        while (DateTime.UtcNow - start < timeout)
-        {
-            if (File.Exists(path))
-            {
-                try
-                {
-                    byte[] bytes = File.ReadAllBytes(path);
-                    if (bytes != null && bytes.Length > 0)
-                    {
-                        return bytes;
-                    }
-                }
-                catch
-                {
-                }
-            }
-
-            await UniTask.Delay(pollInterval);
-        }
-
-        return null;
-    }
-
-    private static void TryDeleteTempFile(string path)
-    {
-        if (string.IsNullOrWhiteSpace(path))
-        {
-            return;
-        }
-
-        try
-        {
-            if (File.Exists(path))
-            {
-                File.Delete(path);
-            }
-        }
-        catch
-        {
-        }
-    }
 
     public readonly struct PlayOptions
     {
         public int DurationMs { get; }
         public IReadOnlyList<InputRequest> Inputs { get; }
-        public int MaxHeight { get; }
-        public int MaxBase64Bytes { get; }
 
-        public PlayOptions(int durationMs, IReadOnlyList<InputRequest> inputs,
-            int maxHeight = 640, int maxBase64Bytes = 50_000_000)
+        public PlayOptions(int durationMs, IReadOnlyList<InputRequest> inputs)
         {
             DurationMs = durationMs;
             Inputs = inputs ?? Array.Empty<InputRequest>();
-            MaxHeight = maxHeight;
-            MaxBase64Bytes = maxBase64Bytes;
         }
     }
 
@@ -796,80 +545,5 @@ SIDE EFFECTS: Alters Time.timeScale, overrides active Input System states, and c
         Hold
     }
 
-    public readonly struct CaptureResult
-    {
-        public bool IsError { get; }
-        public string Base64Data { get; }
-        public string MimeType { get; }
-        public string ErrorMessage { get; }
-
-        private CaptureResult(bool isError, string base64Data, string mimeType, string errorMessage)
-        {
-            IsError = isError;
-            Base64Data = base64Data;
-            MimeType = mimeType;
-            ErrorMessage = errorMessage;
-        }
-
-        public static CaptureResult Success(string base64Data, string mimeType)
-        {
-            return new CaptureResult(false, base64Data, mimeType, null);
-        }
-
-        public static CaptureResult Error(string message)
-        {
-            return new CaptureResult(true, null, null, message);
-        }
-    }
-
-    private static CaptureResult ScaleCaptureToMaxHeight(CaptureResult captureResult, int maxHeight)
-    {
-        if (captureResult.IsError)
-        {
-            return captureResult;
-        }
-
-        if (string.IsNullOrWhiteSpace(captureResult.Base64Data))
-        {
-            return CaptureResult.Error("Captured screenshot data was empty.");
-        }
-
-        byte[] png_bytes;
-        try
-        {
-            png_bytes = Convert.FromBase64String(captureResult.Base64Data);
-        }
-        catch (Exception ex)
-        {
-            return CaptureResult.Error($"Captured screenshot data was not valid base64: {ex.Message}");
-        }
-
-        Texture2D temp_texture = new(2, 2);
-        try
-        {
-            if (!temp_texture.LoadImage(png_bytes, false))
-            {
-                return CaptureResult.Error("Failed to decode screenshot image.");
-            }
-
-            GetScaledDimensionsToMaxHeight(temp_texture.width, temp_texture.height, maxHeight, out int scaled_width, out int scaled_height);
-
-            if (temp_texture.width == scaled_width && temp_texture.height == scaled_height)
-            {
-                return captureResult;
-            }
-
-            CaptureResult scaled_result = ScalePngImage(png_bytes, scaled_width, scaled_height);
-            if (scaled_result.IsError)
-            {
-                return scaled_result;
-            }
-
-            return CaptureResult.Success(scaled_result.Base64Data, captureResult.MimeType ?? DefaultMimeType);
-        }
-        finally
-        {
-            UnityEngine.Object.DestroyImmediate(temp_texture);
-        }
-    }
 }
+
