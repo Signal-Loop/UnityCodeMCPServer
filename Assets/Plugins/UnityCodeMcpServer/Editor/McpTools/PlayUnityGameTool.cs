@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.IO;
 using System.Text.Json;
 using Cysharp.Threading.Tasks;
 using UnityCodeMcpServer.Handlers;
@@ -19,7 +18,6 @@ using UnityEngine.InputSystem.LowLevel;
 /// </summary>
 public class PlayUnityGameTool : IToolAsync
 {
-    private const string InputAssetName = "PongInputActions";
     private readonly Dictionary<Keyboard, HashSet<Key>> _active_keys_by_keyboard = new();
 
     public string Name => "play_unity_game";
@@ -114,10 +112,15 @@ SIDE EFFECTS: Alters Time.timeScale, overrides active Input System states, and c
             // no input is specified for the current run.
             ResetAllInputDevices();
 
-            InputActionAsset input_asset = Resources.Load<InputActionAsset>(InputAssetName);
+            InputActionAsset input_asset = InputActionAssetResolver.LoadInputActionAsset(out string warningMessage);
+            if (!string.IsNullOrEmpty(warningMessage))
+            {
+                Debug.LogWarning($"{McpProtocol.LogPrefix} {warningMessage}");
+            }
+
             if (input_asset == null)
             {
-                return ToolsCallResult.ErrorResult($"Could not find InputActionAsset '{InputAssetName}' in Resources folder.");
+                return ToolsCallResult.ErrorResult("Could not find any InputActionAsset for play_unity_game.");
             }
 
             UnityCodeMcpServerLogger.Debug($"#PlayUnityGameTool: triggering {options.Inputs.Count} input(s). " +
@@ -327,7 +330,6 @@ SIDE EFFECTS: Alters Time.timeScale, overrides active Input System states, and c
 
         _active_keys_by_keyboard.Clear();
     }
-
     public static bool TryParseArguments(JsonElement arguments, out PlayOptions options, out string errorMessage)
     {
         options = default;
@@ -371,51 +373,6 @@ SIDE EFFECTS: Alters Time.timeScale, overrides active Input System states, and c
         }
 
         return true;
-    }
-
-    private static bool TryGetOptionalInt(JsonElement arguments, string propertyName, int defaultValue, out int value, out string errorMessage)
-    {
-        value = defaultValue;
-        errorMessage = null;
-
-        if (!arguments.TryGetProperty(propertyName, out JsonElement element))
-        {
-            return true;
-        }
-
-        if (element.ValueKind != JsonValueKind.Number || !element.TryGetInt32(out value))
-        {
-            errorMessage = $"Parameter '{propertyName}' must be an integer.";
-            return false;
-        }
-
-        return true;
-    }
-
-    private static bool TryGetOptionalBool(JsonElement arguments, string propertyName, out bool value, out string errorMessage)
-    {
-        value = false;
-        errorMessage = null;
-
-        if (!arguments.TryGetProperty(propertyName, out JsonElement element))
-        {
-            return true;
-        }
-
-        if (element.ValueKind == JsonValueKind.True)
-        {
-            value = true;
-            return true;
-        }
-
-        if (element.ValueKind == JsonValueKind.False)
-        {
-            value = false;
-            return true;
-        }
-
-        errorMessage = $"Parameter '{propertyName}' must be a boolean.";
-        return false;
     }
 
     private static bool TryParseInputs(JsonElement arguments, out List<InputRequest> inputs, out string errorMessage)

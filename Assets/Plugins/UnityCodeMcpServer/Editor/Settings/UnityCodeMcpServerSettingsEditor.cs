@@ -7,6 +7,7 @@ using UnityCodeMcpServer.Editor.Installer;
 using UnityCodeMcpServer.Helpers;
 using UnityEditor;
 using UnityEngine;
+using UnityEngine.InputSystem;
 
 namespace UnityCodeMcpServer.Settings.Editor
 {
@@ -36,8 +37,10 @@ namespace UnityCodeMcpServer.Settings.Editor
             EditorGUILayout.LabelField("Server Configuration", EditorStyles.boldLabel);
             EditorGUILayout.Space();
 
-            DrawPropertiesExcluding(serializedObject, "m_Script", "AdditionalAssemblyNames", "SkillsInstallTarget", "SkillsTargetPath");
+            DrawPropertiesExcluding(serializedObject, "m_Script", "AdditionalAssemblyNames", "InputActionsAssetPath", "SkillsInstallTarget", "SkillsTargetPath");
 
+            EditorGUILayout.Space();
+            DrawInputActionsSection(settings);
             EditorGUILayout.Space();
             DrawSkillsInstallerSection();
             EditorGUILayout.Space();
@@ -136,6 +139,44 @@ namespace UnityCodeMcpServer.Settings.Editor
             if (EditorUtility.IsDirty(settings) && !EditorApplication.isUpdating && !EditorApplication.isCompiling)
             {
                 AssetDatabase.SaveAssetIfDirty(settings);
+            }
+        }
+
+        private void DrawInputActionsSection(UnityCodeMcpServerSettings settings)
+        {
+            EditorGUILayout.LabelField("Input Actions", EditorStyles.boldLabel);
+            EditorGUILayout.HelpBox(
+                "play_unity_game resolves this InputActionAsset path on every call. " +
+                "If left empty, the tool falls back to the first InputActionAsset under Assets, then the first one found anywhere.",
+                MessageType.Info);
+
+            InputActionAsset currentAsset = string.IsNullOrWhiteSpace(settings.InputActionsAssetPath)
+                ? null
+                : AssetDatabase.LoadAssetAtPath<InputActionAsset>(settings.InputActionsAssetPath);
+
+            InputActionAsset selectedAsset = (InputActionAsset)EditorGUILayout.ObjectField(
+                "Input Actions Asset",
+                currentAsset,
+                typeof(InputActionAsset),
+                false);
+
+            if (selectedAsset != currentAsset)
+            {
+                string assetPath = selectedAsset == null ? string.Empty : AssetDatabase.GetAssetPath(selectedAsset);
+                settings.SetInputActionsAssetPath(assetPath);
+            }
+
+            string enteredPath = EditorGUILayout.DelayedTextField("Asset Path", settings.InputActionsAssetPath);
+            if (!string.Equals(enteredPath, settings.InputActionsAssetPath, StringComparison.Ordinal))
+            {
+                settings.SetInputActionsAssetPath(enteredPath);
+            }
+
+            if (!string.IsNullOrWhiteSpace(settings.InputActionsAssetPath) && currentAsset == null)
+            {
+                EditorGUILayout.HelpBox(
+                    $"No InputActionAsset was found at '{settings.InputActionsAssetPath}'. The play tool will fall back to discovery.",
+                    MessageType.Warning);
             }
         }
 

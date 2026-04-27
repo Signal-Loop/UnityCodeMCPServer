@@ -29,6 +29,7 @@ MonoBehaviour:
   SessionTimeoutSeconds: 3600
   SseKeepAliveIntervalSeconds: 30
   AdditionalAssemblyNames: []
+  InputActionsAssetPath: 
   SkillsInstallTarget: 2
   SkillsTargetPath: .agents/skills/
   _hasInitializedSkillsInstallTarget: 1

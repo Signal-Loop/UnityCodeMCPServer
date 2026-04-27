@@ -113,6 +113,10 @@ namespace UnityCodeMcpServer.Settings
         [Tooltip("Additional assemblies to load for C# script execution (beyond default assemblies)")]
         public List<string> AdditionalAssemblyNames = new();
 
+        [Header("Input Actions")]
+        [Tooltip("AssetDatabase path to the InputActionAsset used by play_unity_game")]
+        public string InputActionsAssetPath = string.Empty;
+
         [Header("Skills Installer")]
         [HideInInspector]
         public SkillInstallTarget SkillsInstallTarget = SkillInstallTarget.Agents;
@@ -292,6 +296,14 @@ namespace UnityCodeMcpServer.Settings
             }
 
             return removed;
+        }
+
+        public void SetInputActionsAssetPath(string path)
+        {
+            InputActionsAssetPath = string.IsNullOrWhiteSpace(path)
+                ? string.Empty
+                : NormalizePath(path.Trim());
+            EditorUtility.SetDirty(this);
         }
 
         /// <summary>

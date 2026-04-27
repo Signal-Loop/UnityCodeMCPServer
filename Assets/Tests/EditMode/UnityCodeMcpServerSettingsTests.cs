@@ -224,6 +224,42 @@ namespace UnityCodeMcpServer.Tests.EditMode
         }
 
         [Test]
+        public void SetInputActionsAssetPath_NormalizesBackslashes()
+        {
+            UnityCodeMcpServerSettings settings = ScriptableObject.CreateInstance<UnityCodeMcpServerSettings>();
+
+            try
+            {
+                settings.SetInputActionsAssetPath("Assets\\Input\\Game.inputactions");
+
+                Assert.That(settings.InputActionsAssetPath, Is.EqualTo("Assets/Input/Game.inputactions"));
+            }
+            finally
+            {
+                ScriptableObject.DestroyImmediate(settings);
+            }
+        }
+
+        [Test]
+        public void SetInputActionsAssetPath_ClearsWhitespacePath()
+        {
+            UnityCodeMcpServerSettings settings = ScriptableObject.CreateInstance<UnityCodeMcpServerSettings>();
+
+            try
+            {
+                settings.InputActionsAssetPath = "Assets/Input/Old.inputactions";
+
+                settings.SetInputActionsAssetPath("   ");
+
+                Assert.That(settings.InputActionsAssetPath, Is.EqualTo(string.Empty));
+            }
+            finally
+            {
+                ScriptableObject.DestroyImmediate(settings);
+            }
+        }
+
+        [Test]
         public void RemoveAssembly_RemovesExistingAssembly()
         {
             UnityCodeMcpServerSettings settings = ScriptableObject.CreateInstance<UnityCodeMcpServerSettings>();

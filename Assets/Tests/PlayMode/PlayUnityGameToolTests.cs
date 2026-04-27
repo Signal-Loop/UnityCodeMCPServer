@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Reflection;
 using NUnit.Framework;
 using UnityEngine;
@@ -11,6 +12,13 @@ public class PlayUnityGameToolTests
 {
     private static MethodInfo GetPrivateMethod(string name) =>
         typeof(PlayUnityGameTool).GetMethod(name, BindingFlags.Instance | BindingFlags.NonPublic);
+
+    private static MethodInfo GetPrivateStaticMethod(string name) =>
+        typeof(PlayUnityGameTool).GetMethod(name, BindingFlags.Static | BindingFlags.NonPublic);
+
+    private static MethodInfo GetResolverMethod(string name) =>
+        Type.GetType("UnityCodeMcpServer.Helpers.InputActionAssetResolver, UnityCodeMcpServer")
+            ?.GetMethod(name, BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic);
 
     private static FieldInfo GetPrivateField(string name) =>
         typeof(PlayUnityGameTool).GetField(name, BindingFlags.Instance | BindingFlags.NonPublic);
@@ -30,6 +38,94 @@ public class PlayUnityGameToolTests
         map.AddAction("Player2Up", InputActionType.Button, "<Keyboard>/upArrow");
         asset.AddActionMap(map);
         return asset;
+    }
+
+    [Test]
+    public void ResolveInputActionAssetPath_UsesConfiguredSettingsPathFirst()
+    {
+        MethodInfo resolveMethod = GetResolverMethod("ResolveInputActionAssetPath");
+        Assert.IsNotNull(resolveMethod, "Could not find InputActionAssetResolver.ResolveInputActionAssetPath method.");
+
+        object[] args =
+        {
+            "Assets/Configured.inputactions",
+            new[] { "Assets/FallbackProject.inputactions" },
+            new[] { "Packages/pkg/FallbackAny.inputactions" },
+            null,
+            null
+        };
+
+        string resolvedPath = (string)resolveMethod.Invoke(null, args);
+
+        Assert.That(resolvedPath, Is.EqualTo("Assets/Configured.inputactions"));
+        Assert.That((bool)args[3], Is.False);
+        Assert.That(args[4], Is.Null);
+    }
+
+    [Test]
+    public void ResolveInputActionAssetPath_UsesFirstProjectAssetWhenSettingsUnset()
+    {
+        MethodInfo resolveMethod = GetResolverMethod("ResolveInputActionAssetPath");
+        Assert.IsNotNull(resolveMethod, "Could not find InputActionAssetResolver.ResolveInputActionAssetPath method.");
+
+        object[] args =
+        {
+            string.Empty,
+            new[] { "Assets/Inputs/A.inputactions", "Assets/Inputs/B.inputactions" },
+            new[] { "Packages/pkg/FallbackAny.inputactions" },
+            null,
+            null
+        };
+
+        string resolvedPath = (string)resolveMethod.Invoke(null, args);
+
+        Assert.That(resolvedPath, Is.EqualTo("Assets/Inputs/A.inputactions"));
+        Assert.That((bool)args[3], Is.True);
+        StringAssert.Contains("Assets/Inputs/A.inputactions", (string)args[4]);
+    }
+
+    [Test]
+    public void ResolveInputActionAssetPath_UsesFirstAvailableAssetWhenProjectHasNone()
+    {
+        MethodInfo resolveMethod = GetResolverMethod("ResolveInputActionAssetPath");
+        Assert.IsNotNull(resolveMethod, "Could not find InputActionAssetResolver.ResolveInputActionAssetPath method.");
+
+        object[] args =
+        {
+            string.Empty,
+            Array.Empty<string>(),
+            new[] { "Packages/pkg/FallbackAny.inputactions", "Library/Other.inputactions" },
+            null,
+            null
+        };
+
+        string resolvedPath = (string)resolveMethod.Invoke(null, args);
+
+        Assert.That(resolvedPath, Is.EqualTo("Packages/pkg/FallbackAny.inputactions"));
+        Assert.That((bool)args[3], Is.True);
+        StringAssert.Contains("Packages/pkg/FallbackAny.inputactions", (string)args[4]);
+    }
+
+    [Test]
+    public void ResolveInputActionAssetPath_ReturnsNullWhenNoAssetsExist()
+    {
+        MethodInfo resolveMethod = GetResolverMethod("ResolveInputActionAssetPath");
+        Assert.IsNotNull(resolveMethod, "Could not find InputActionAssetResolver.ResolveInputActionAssetPath method.");
+
+        object[] args =
+        {
+            string.Empty,
+            Array.Empty<string>(),
+            Array.Empty<string>(),
+            null,
+            null
+        };
+
+        string resolvedPath = (string)resolveMethod.Invoke(null, args);
+
+        Assert.That(resolvedPath, Is.Null);
+        Assert.That((bool)args[3], Is.False);
+        Assert.That(args[4], Is.Null);
     }
 
     [Test]
@@ -70,7 +166,7 @@ public class PlayUnityGameToolTests
 
             player1Up.Disable();
             player2Up.Disable();
-            Object.DestroyImmediate(asset);
+            UnityEngine.Object.DestroyImmediate(asset);
 
             if (createdKeyboard)
             {
@@ -130,7 +226,7 @@ public class PlayUnityGameToolTests
             triggerAction.Invoke(tool, new object[] { player1Up, 0f });
             InputSystem.Update();
             player1Up.Disable();
-            Object.DestroyImmediate(asset);
+            UnityEngine.Object.DestroyImmediate(asset);
 
             if (createdKeyboard)
             {

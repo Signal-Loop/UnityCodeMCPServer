@@ -301,6 +301,9 @@ Advances the Unity game state and simulates player input for a specified duratio
 Temporarily unpauses time, triggers Input System actions, captures a Game View screenshot,
 collects logs produced during gameplay, and pauses again when finished.
 Requires Unity to already be in Play Mode.
+The InputActionAsset is resolved on each call from UnityCodeMcpServer settings.
+If no settings path is configured, the tool warns and uses the first InputActionAsset under Assets,
+or the first InputActionAsset found anywhere if Assets contains none.
 ```
 
 ### exit_play_mode
