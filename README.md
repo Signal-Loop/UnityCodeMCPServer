@@ -1,6 +1,7 @@
 # Unity Code MCP Server
 
-Unity Code MCP Server is a powerful tool for the Unity Editor that gives AI Agents ability to perform any action using Unity Editor API. This includes scripts, scenes, prefabs, assets, configuration changes, and more.
+A direct bridge between your AI agent and Unity. The open-source Unity Code MCP Server gives your agent first-class access to the Unity Editor.<br/>
+By executing C# scripts within the Editor, it grants agents direct programmatic access to the Unity Editor API.It transforms your AI into a virtual developer capable of navigating complex hierarchies, authoring scenes, and validating game logic autonomously.
 
 ![diagram](images/UnityCodeMCP.png)
 
@@ -61,11 +62,14 @@ Full chat transcript: [ChatTranscript.md](Assets/Plugins/UnityCodeMcpServer/Docu
 
 ## Features
 
-- **Unity Editor / Unity Engine API access**: Perform any tasks available through public APIs or reflection
-- **Play Mode automation**: Enter Play Mode, simulate player input while the game runs, capture screenshots/logs, and exit Play Mode cleanly
-- **STDIO transport (via bridge)**: No separate server process required for MCP clients. Domain-reload safe, retries if domain reload is in progress. `uv` (Python package manager) is required.
-- **Streamable HTTP transport**: Alternative to STDIO bridge for MCP clients that support HTTP. No separate server process required. No uv required. Responds with error if domain reload is in progress.
-- **Extensible**: Add new tools, async tools, resources, or prompts by implementing interfaces anywhere in the codebase
+**Maximum Project Visibility:**
+Gain a 360-degree view of your Unity project. The server lets agents query the active scene hierarchy, inspect serialized component properties, and browse the project asset database.
+
+**Autonomous Scene & Asset Authoring:**
+Move from ideation to implementation instantly. Execute C# scripts directly within the Editor to generate GameObjects, attach components, and modify asset parameters on the fly.
+
+**Intelligent Play-Testing & QA:**
+The agent can close the feedback loop with automated verification. It can run tests, trigger Playmode, simulate precise player input, and monitor game state in real time.
 
 ### Tools
 
@@ -156,11 +160,12 @@ https://github.com/Signal-Loop/UnityCodeMCPServer.git?path=Assets/Plugins/UnityC
 ```
 
 4. Configure Skill install location (Markdown files that teach your agent how to use the server's tools effectively):
-  - In Unity Editor, open server settings: **Tools/UnityCodeMcpServer/Show or Create Settings**
-  - Scroll to the **Skills** section
-  - By default, first-time installs target `.agents/skills/`
-  - If needed, change the install directory to `.github/skills/`, `.claude/skills/`, `.agents/skills/`, or a custom folder
-  - Skills are installed and updated automatically when the package is installed or updated
+
+- In Unity Editor, open server settings: **Tools/UnityCodeMcpServer/Show or Create Settings**
+- Scroll to the **Skills** section
+- By default, first-time installs target `.agents/skills/`
+- If needed, change the install directory to `.github/skills/`, `.claude/skills/`, `.agents/skills/`, or a custom folder
+- Skills are installed and updated automatically when the package is installed or updated
 
 ### First Run
 
@@ -320,10 +325,12 @@ Unity Code MCP Server ships a set of **AI agent skill files** (Markdown document
 1. Open the server settings: **Tools/UnityCodeMcpServer/Show or Create Settings**.
 2. Scroll to the **Skills** section.
 3. Choose the install directory from the dropdown:
-  - `GitHub` targets `.github/skills/`
-  - `Claude` targets `.claude/skills/`
-  - `Agents` targets `.agents/skills/`
-  - `Custom` shows a folder picker so you can select any directory
+
+- `GitHub` targets `.github/skills/`
+- `Claude` targets `.claude/skills/`
+- `Agents` targets `.agents/skills/`
+- `Custom` shows a folder picker so you can select any directory
+
 4. The inspector shows the currently selected target directory label so you can verify exactly where skills will be copied.
 5. Package install and update runs copy the skills automatically.
 

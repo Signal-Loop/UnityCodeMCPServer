@@ -5,6 +5,7 @@ using UnityCodeMcpServer.Interfaces;
 using UnityCodeMcpServer.Protocol;
 using UnityEditor;
 
+//TODO: only messages fot ordinary logs, not stack traces, to save tokens. add stack traces for errors/exceptions
 namespace UnityCodeMcpServer.McpTools
 {
     /// <summary>
