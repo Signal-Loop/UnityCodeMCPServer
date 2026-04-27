@@ -1,6 +1,4 @@
-﻿# EditorConfig is awesome: https://EditorConfig.org
-
-# top-most EditorConfig file
+﻿# top-most EditorConfig file
 root = true
 
 # Default settings
@@ -172,8 +170,6 @@ dotnet_naming_symbols.private_internal_fields.applicable_kinds = field
 dotnet_naming_symbols.private_internal_fields.applicable_accessibilities = private, internal
 dotnet_naming_style.camel_case_underscore_style.required_prefix = _
 dotnet_naming_style.camel_case_underscore_style.capitalization = camel_case
-
-file_header_template = Licensed to the .NET Foundation under one or more agreements.\nThe .NET Foundation licenses this file to you under the MIT license.\nSee the LICENSE file in the project root for more information.
 
 # RS0016: Only enable if API files are present
 dotnet_public_api_analyzer.require_api_files = true
