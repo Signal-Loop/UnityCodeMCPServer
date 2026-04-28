@@ -34,7 +34,6 @@ namespace UnityCodeMcpServer.Tests.EditMode
                     "42",
                     "log line",
                     "error line",
-                    "return 42;",
                     null
                 });
 
@@ -45,8 +44,6 @@ namespace UnityCodeMcpServer.Tests.EditMode
             Assert.That(text, Does.Contain("Status: compilation_error"));
             Assert.That(text, Does.Contain("### Result"));
             Assert.That(text, Does.Contain("42"));
-            Assert.That(text, Does.Contain("### Script"));
-            Assert.That(text, Does.Contain("return 42;"));
             Assert.That(text, Does.Contain("### Logs"));
             Assert.That(text, Does.Contain("log line"));
             Assert.That(text, Does.Contain("### Errors"));

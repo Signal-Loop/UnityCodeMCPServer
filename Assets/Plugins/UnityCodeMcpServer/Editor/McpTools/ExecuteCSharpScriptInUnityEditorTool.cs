@@ -86,10 +86,10 @@ Debug.Log($""Player position: {go.transform.position}"");
             string script = arguments.GetStringOrDefault("script", string.Empty)?.Trim();
             if (string.IsNullOrWhiteSpace(script))
             {
-                return CreateToolCallResult(isError: true, status: "error", resultText: null, logs: null, errors: "Script is empty or missing.", script: script);
+                return CreateToolCallResult(isError: true, status: "error", resultText: null, logs: null, errors: "Script is empty or missing.");
             }
 
-            ToolsCallResult compilationBlockedResult = GetCompilationBlockedResult(script);
+            ToolsCallResult compilationBlockedResult = GetCompilationBlockedResult();
             if (compilationBlockedResult != null)
             {
                 return compilationBlockedResult;
@@ -104,7 +104,6 @@ Debug.Log($""Player position: {go.transform.position}"");
                 resultText: result.ResultText,
                 logs: result.Logs,
                 errors: result.Errors,
-                script: script,
                 assemblies: result.LoadedAssemblies);
 
             LogToolCallResult(toolCallResult);
@@ -114,21 +113,21 @@ Debug.Log($""Player position: {go.transform.position}"");
         public static ToolsCallResult BuildCompilationBlockedResult(bool isCompiling, bool hasCompileErrors)
         {
             string message = EditorCompilationGate.BuildBlockedMessage("execute C# scripts", isCompiling, hasCompileErrors);
-            return CreateToolCallResult(isError: true, status: "error", resultText: null, logs: null, errors: message, script: null);
+            return CreateToolCallResult(isError: true, status: "error", resultText: null, logs: null, errors: message);
         }
 
-        private static ToolsCallResult GetCompilationBlockedResult(string script)
+        private static ToolsCallResult GetCompilationBlockedResult()
         {
             if (!EditorCompilationGate.TryGetBlockedMessage("execute C# scripts", out string message))
             {
                 return null;
             }
 
-            return CreateToolCallResult(isError: true, status: "error", resultText: null, logs: null, errors: message, script: script);
+            return CreateToolCallResult(isError: true, status: "error", resultText: null, logs: null, errors: message);
         }
 
 
-        private static ToolsCallResult CreateToolCallResult(bool isError, string status, string resultText, string logs, string errors, string script, string[] assemblies = null)
+        private static ToolsCallResult CreateToolCallResult(bool isError, string status, string resultText, string logs, string errors, string[] assemblies = null)
         {
             StringBuilder response = new();
             string mode = EditorApplication.isPlaying ? "Play Mode" : "Edit Mode";
@@ -143,11 +142,6 @@ Debug.Log($""Player position: {go.transform.position}"");
                 response.AppendLine(resultText);
                 response.AppendLine("```");
             }
-
-            response.AppendLine("### Script");
-            response.AppendLine("```csharp");
-            response.AppendLine(string.IsNullOrWhiteSpace(script) ? "(not provided)" : script);
-            response.AppendLine("```");
 
             response.AppendLine("### Logs");
             response.AppendLine(string.IsNullOrWhiteSpace(logs) ? "(none)" : logs.TrimEnd());
