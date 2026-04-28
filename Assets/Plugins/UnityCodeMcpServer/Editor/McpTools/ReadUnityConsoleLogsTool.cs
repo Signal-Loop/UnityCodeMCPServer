@@ -1,11 +1,12 @@
 ﻿using System;
+using System.Collections.Generic;
+using System.Text;
 using System.Text.Json;
 using UnityCodeMcpServer.Helpers;
 using UnityCodeMcpServer.Interfaces;
 using UnityCodeMcpServer.Protocol;
 using UnityEditor;
 
-//TODO: only messages fot ordinary logs, not stack traces, to save tokens. add stack traces for errors/exceptions
 namespace UnityCodeMcpServer.McpTools
 {
     /// <summary>
@@ -16,14 +17,14 @@ namespace UnityCodeMcpServer.McpTools
     {
         private const int DefaultMaxEntries = 200;
 
-        private readonly Func<int, (string text, bool isError)> _logReader;
+        private readonly Func<int, UnityConsoleLogReadResult> _logReader;
 
         public ReadUnityConsoleLogsTool()
             : this(null)
         {
         }
 
-        public ReadUnityConsoleLogsTool(Func<int, (string text, bool isError)> logReader)
+        public ReadUnityConsoleLogsTool(Func<int, UnityConsoleLogReadResult> logReader)
         {
             _logReader = logReader ?? UnityConsoleLogReader.ReadTail;
         }
@@ -40,7 +41,7 @@ namespace UnityCodeMcpServer.McpTools
 
 **PARAMETERS & USAGE GUIDELINES:**
 - `max_entries` (Optional): Limits the number of returned logs. You MUST use this to protect your context window from token bloat. Recommend setting this to 20-50 entries for standard debugging.
-- Output includes the log type (Message, Warning, Error, Exception), the log message, and stack traces where applicable.";
+- Output includes the log type (Message, Warning, Error, Exception), the log message, and stack traces for error entries only.";
 
         public JsonElement InputSchema => JsonHelper.ParseElement(@"
         {
@@ -61,16 +62,21 @@ namespace UnityCodeMcpServer.McpTools
             int requested = arguments.GetIntOrDefault("max_entries", DefaultMaxEntries);
             int maxEntries = NormalizeMaxEntries(requested);
 
-            (string text, bool isError) = _logReader(maxEntries);
-            if (string.IsNullOrWhiteSpace(text))
+            UnityConsoleLogReadResult result = _logReader(maxEntries);
+            string text;
+            if (result.IsError && !string.IsNullOrWhiteSpace(result.ErrorText))
             {
-                text = "(No console logs available)";
+                text = result.ErrorText;
+            }
+            else
+            {
+                text = FormatEntries(result.Entries, result.TotalCount, maxEntries);
             }
 
             string mode = EditorApplication.isPlaying ? "Play Mode" : "Edit Mode";
             text = $"**Unity Editor is in {mode}**\n\n{text}";
 
-            return ToolsCallResult.TextResult(text, isError);
+            return ToolsCallResult.TextResult(text, result.IsError);
         }
 
         private static int NormalizeMaxEntries(int requested)
@@ -81,6 +87,63 @@ namespace UnityCodeMcpServer.McpTools
             }
 
             return Math.Min(requested, UnityConsoleLogReader.MaxEntriesLimit);
+        }
+
+        public static string FormatEntries(IReadOnlyList<UnityConsoleLogEntry> entries, int totalCount, int maxEntries)
+        {
+            if (entries == null || entries.Count == 0)
+            {
+                return "(No console logs available)";
+            }
+
+            int effectiveLimit = NormalizeMaxEntries(maxEntries);
+            StringBuilder sb = new();
+
+            if (totalCount > effectiveLimit)
+            {
+                AppendLine(sb, $"--- Showing last {entries.Count} logs (Total: {totalCount}) ---");
+            }
+
+            for (int i = 0; i < entries.Count; i++)
+            {
+                UnityConsoleLogEntry entry = entries[i];
+                AppendLine(sb, GetDisplayMessage(entry));
+
+                if (ShouldIncludeStackTrace(entry.Severity) && !string.IsNullOrWhiteSpace(entry.StackTrace))
+                {
+                    AppendLine(sb, entry.StackTrace);
+                }
+            }
+
+            return sb.ToString().TrimEnd();
+        }
+
+        private static bool ShouldIncludeStackTrace(UnityConsoleLogSeverity severity)
+        {
+            return severity == UnityConsoleLogSeverity.Error;
+        }
+
+        private static void AppendLine(StringBuilder sb, string text)
+        {
+            sb.Append(text);
+            sb.Append('\n');
+        }
+
+        private static string GetDisplayMessage(UnityConsoleLogEntry entry)
+        {
+            if (entry.Severity != UnityConsoleLogSeverity.Info)
+            {
+                return entry.Message;
+            }
+
+            string normalizedText = entry.Message?.Replace("\r\n", "\n").Replace('\r', '\n');
+            if (string.IsNullOrWhiteSpace(normalizedText))
+            {
+                return string.Empty;
+            }
+
+            int firstNewline = normalizedText.IndexOf('\n');
+            return firstNewline >= 0 ? normalizedText[..firstNewline].TrimEnd() : normalizedText;
         }
     }
 }

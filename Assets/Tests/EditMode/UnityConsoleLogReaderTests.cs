@@ -1,6 +1,7 @@
 ﻿using System.Collections.Generic;
 using NUnit.Framework;
 using UnityCodeMcpServer.Helpers;
+using UnityEngine;
 
 namespace UnityCodeMcpServer.Tests.EditMode
 {
@@ -12,8 +13,8 @@ namespace UnityCodeMcpServer.Tests.EditMode
             IReadOnlyList<UnityConsoleLogEntry> tail = UnityConsoleLogReader.SelectTail(
                 new[]
                 {
-                    new UnityConsoleLogEntry("first", null),
-                    new UnityConsoleLogEntry("second", null)
+                    new UnityConsoleLogEntry("first"),
+                    new UnityConsoleLogEntry("second")
                 },
                 10);
 
@@ -28,10 +29,10 @@ namespace UnityCodeMcpServer.Tests.EditMode
             IReadOnlyList<UnityConsoleLogEntry> tail = UnityConsoleLogReader.SelectTail(
                 new[]
                 {
-                    new UnityConsoleLogEntry("one", null),
-                    new UnityConsoleLogEntry("two", null),
-                    new UnityConsoleLogEntry("three", null),
-                    new UnityConsoleLogEntry("four", null)
+                    new UnityConsoleLogEntry("one"),
+                    new UnityConsoleLogEntry("two"),
+                    new UnityConsoleLogEntry("three"),
+                    new UnityConsoleLogEntry("four")
                 },
                 2);
 
@@ -41,28 +42,43 @@ namespace UnityCodeMcpServer.Tests.EditMode
         }
 
         [Test]
-        public void FormatEntries_AddsTailHeader_WhenEntriesWereTruncated()
+        public void SelectTail_PreservesStructuredFields()
         {
-            string text = UnityConsoleLogReader.FormatEntries(
+            IReadOnlyList<UnityConsoleLogEntry> tail = UnityConsoleLogReader.SelectTail(
                 new[]
                 {
-                    new UnityConsoleLogEntry("three", null),
-                    new UnityConsoleLogEntry("four", null)
+                    new UnityConsoleLogEntry("old", "old-stack", UnityConsoleLogSeverity.Info),
+                    new UnityConsoleLogEntry("new", "new-stack", UnityConsoleLogSeverity.Warning)
                 },
-                4,
                 2);
 
-            StringAssert.Contains("Showing last 2 logs (Total: 4)", text);
-            StringAssert.Contains("three", text);
-            StringAssert.Contains("four", text);
+            Assert.AreEqual(2, tail.Count);
+            Assert.AreEqual("new", tail[1].Message);
+            Assert.AreEqual("new-stack", tail[1].StackTrace);
+            Assert.AreEqual(UnityConsoleLogSeverity.Warning, tail[1].Severity);
         }
 
         [Test]
-        public void FormatEntries_ReturnsPlaceholder_WhenEmpty()
+        public void ReadTail_PreservesStackTrace_ForInfoEntries()
         {
-            string text = UnityConsoleLogReader.FormatEntries(System.Array.Empty<UnityConsoleLogEntry>(), 0, 1);
+            string probeId = "reader-info-" + System.Guid.NewGuid().ToString("N");
+            Debug.Log(probeId);
 
-            Assert.AreEqual("(No console logs available)", text);
+            UnityConsoleLogReadResult result = UnityConsoleLogReader.ReadTail(20);
+            UnityConsoleLogEntry? matchingEntry = null;
+            for (int i = result.Entries.Count - 1; i >= 0; i--)
+            {
+                if (result.Entries[i].Message.Contains(probeId))
+                {
+                    matchingEntry = result.Entries[i];
+                    break;
+                }
+            }
+
+            Assert.IsTrue(matchingEntry.HasValue, "Expected the reader to return the probe log entry.");
+            Assert.AreEqual(UnityConsoleLogSeverity.Info, matchingEntry.Value.Severity);
+            Assert.IsNotNull(matchingEntry.Value.StackTrace);
+            StringAssert.Contains("UnityEngine.Debug:Log", matchingEntry.Value.StackTrace);
         }
     }
 }
