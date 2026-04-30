@@ -1,6 +1,5 @@
 ﻿using System;
 using System.IO;
-using System.Net;
 using System.Text;
 using System.Text.Json;
 using System.Threading;
@@ -103,50 +102,6 @@ namespace UnityCodeMcpServer.Servers.StreamableHttp
             }
         }
 
-        public async UniTask HandleRequestAsync(HttpListenerContext context, CancellationToken ct)
-        {
-            HttpListenerRequest request = context.Request;
-            HttpListenerResponse response = context.Response;
-
-            try
-            {
-                UnityCodeMcpServerLogger.Trace($"[HTTP] {request.HttpMethod} {request.Url.PathAndQuery} from {request.RemoteEndPoint}");
-
-                // Validate Origin header for security
-                ValidationResult originValidation = ValidateOrigin(request);
-                if (!originValidation.IsValid)
-                {
-                    await SendErrorResponseAsync(response, originValidation.StatusCode, originValidation.ErrorMessage, ct);
-                    return;
-                }
-
-                if (string.Equals(request.HttpMethod, "POST", StringComparison.OrdinalIgnoreCase))
-                {
-                    await HandlePostAsync(context, ct);
-                    return;
-                }
-
-                response.Headers.Add("Allow", "POST");
-                await SendErrorResponseAsync(response, 405, "Method Not Allowed", ct);
-            }
-            catch (OperationCanceledException)
-            {
-                // Server shutting down
-            }
-            catch (Exception ex)
-            {
-                UnityCodeMcpServerLogger.Error($"[HTTP] Request handler error: {ex}");
-                try
-                {
-                    await SendErrorResponseAsync(response, 500, "Internal Server Error", ct);
-                }
-                catch
-                {
-                    // Ignore errors when sending error response
-                }
-            }
-        }
-
         /// <summary>
         /// Handle POST requests - primary method for client-to-server messages
         /// </summary>
@@ -216,78 +171,6 @@ namespace UnityCodeMcpServer.Servers.StreamableHttp
             await SendJsonResponseAsync(response, responseJson, ct);
         }
 
-        private async UniTask HandlePostAsync(HttpListenerContext context, CancellationToken ct)
-        {
-            HttpListenerRequest request = context.Request;
-            HttpListenerResponse response = context.Response;
-
-            // Check Accept header
-            string acceptHeader = request.Headers["Accept"] ?? "";
-            bool acceptsJson = acceptHeader.Contains(McpHttpTransport.ContentTypeJson) || acceptHeader.Contains("*/*");
-            bool acceptsSse = acceptHeader.Contains(McpHttpTransport.ContentTypeSse);
-
-            if (!acceptsJson && !acceptsSse)
-            {
-                await SendErrorResponseAsync(response, 406,
-                    $"Accept header must include {McpHttpTransport.ContentTypeJson} and/or {McpHttpTransport.ContentTypeSse}", ct);
-                return;
-            }
-
-            // Read request body
-            string requestBody;
-            try
-            {
-                using (StreamReader reader = new(request.InputStream, Encoding.UTF8))
-                {
-                    requestBody = await reader.ReadToEndAsync();
-                }
-            }
-            catch (Exception ex)
-            {
-                UnityCodeMcpServerLogger.Warn($"[HTTP] Failed to read request body: {ex.Message}");
-                await SendErrorResponseAsync(response, 400, "Failed to read request body", ct);
-                return;
-            }
-
-            if (string.IsNullOrWhiteSpace(requestBody))
-            {
-                await SendErrorResponseAsync(response, 400, "Empty request body", ct);
-                return;
-            }
-
-            UnityCodeMcpServerLogger.Trace($"[HTTP] Received: {requestBody}");
-
-            bool isNotification = false;
-            try
-            {
-                using (JsonDocument doc = JsonDocument.Parse(requestBody))
-                {
-                    JsonElement root = doc.RootElement;
-                    isNotification = !root.TryGetProperty("id", out _);
-                }
-            }
-            catch (JsonException)
-            {
-                // Will be handled by message processor
-            }
-
-            // Process message on main thread for Unity API access
-            await UniTask.SwitchToMainThread();
-            string responseJson = await _messageHandler.ProcessMessageAsync(requestBody);
-
-            // Handle notifications - return 202 Accepted with no body
-            if (isNotification || responseJson == null)
-            {
-                response.StatusCode = 202;
-                response.Close();
-                return;
-            }
-
-            // Return JSON response (could also use SSE if client prefers and server wants)
-            // For simplicity, we return JSON for single request-response
-            await SendJsonResponseAsync(response, responseJson, ct);
-        }
-
         /// <summary>
         /// Validate Origin header for security (prevent DNS rebinding attacks)
         /// </summary>
@@ -306,11 +189,6 @@ namespace UnityCodeMcpServer.Servers.StreamableHttp
 
             UnityCodeMcpServerLogger.Warn($"[HTTP] Blocked request from origin: {origin}");
             return ValidationResult.Failure(403, "Origin not allowed");
-        }
-
-        private ValidationResult ValidateOrigin(HttpListenerRequest request)
-        {
-            return ValidateOrigin(request.Headers["Origin"]);
         }
 
         private static bool IsSupportedPath(string pathAndQuery)
@@ -334,23 +212,6 @@ namespace UnityCodeMcpServer.Servers.StreamableHttp
             response.StatusCode = 200;
             response.ContentType = McpHttpTransport.ContentTypeJson;
             response.Headers["Access-Control-Allow-Origin"] = "*";
-            byte[] bytes = _utf8NoBom.GetBytes(json);
-            response.ContentLength64 = bytes.Length;
-
-            await response.OutputStream.WriteAsync(bytes, 0, bytes.Length, ct);
-            response.Close();
-
-            UnityCodeMcpServerLogger.Trace($"[HTTP] Sent: {json}");
-        }
-
-        /// <summary>
-        /// Send a JSON response
-        /// </summary>
-        private async Task SendJsonResponseAsync(HttpListenerResponse response, string json, CancellationToken ct)
-        {
-            response.StatusCode = 200;
-            response.ContentType = McpHttpTransport.ContentTypeJson;
-            response.Headers.Add("Access-Control-Allow-Origin", "*");
             byte[] bytes = _utf8NoBom.GetBytes(json);
             response.ContentLength64 = bytes.Length;
 
@@ -385,33 +246,5 @@ namespace UnityCodeMcpServer.Servers.StreamableHttp
             }
         }
 
-        private async Task SendErrorResponseAsync(HttpListenerResponse response, int statusCode, string message, CancellationToken ct)
-        {
-            response.StatusCode = statusCode;
-            response.ContentType = "text/plain";
-
-            byte[] bytes = _utf8NoBom.GetBytes(message);
-            response.ContentLength64 = bytes.Length;
-
-            try
-            {
-                await response.OutputStream.WriteAsync(bytes, 0, bytes.Length, ct);
-            }
-            catch
-            {
-                // Ignore write errors
-            }
-            finally
-            {
-                try
-                {
-                    response.Close();
-                }
-                catch
-                {
-                    // Ignore close errors
-                }
-            }
-        }
     }
 }

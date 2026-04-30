@@ -41,3 +41,11 @@ Agent guidance for contributors working in this repository.
 
 - Update `README.md`, `README_STDIO.md`, release notes, or skill docs when behavior or workflow changes make existing guidance inaccurate.
 - Keep AGENTS.md concise. Put detailed end-user explanations in README or skill files instead.
+
+## Dotnet tests
+
+Use `run_unity_tests` tool to run tests in the `Assets/Tests` folder. This will ensure that the Unity editor is properly launched and the test assemblies are correctly loaded. Avoid running dotnet tests directly from the command line, as this may lead to missing dependencies or incorrect test execution context. Always check Unity console logs for any compile errors or test failures after running tests.
+
+## Integration tests
+
+Run `uv run C:\Users\tbory\source\Workspaces\Loop\UnityCodeMcpServer\Dev\Python\mcp_random_tester.py --sequence-length 20 --request-timeout-seconds 180 --workspace-dir .`

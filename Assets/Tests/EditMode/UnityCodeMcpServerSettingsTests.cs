@@ -27,9 +27,6 @@ namespace UnityCodeMcpServer.Tests.EditMode
         public void SetUp()
         {
             ServerLifecycleCoordinator.SetHandlers(
-                startTcp: () => { },
-                stopTcp: () => { },
-                restartTcp: () => { },
                 startHttp: () => { },
                 stopHttp: () => { },
                 restartHttp: () => { });
@@ -42,30 +39,13 @@ namespace UnityCodeMcpServer.Tests.EditMode
         }
 
         [Test]
-        public void DefaultStartupServer_IsStdio()
+        public void DefaultHttpPort_Is3001()
         {
             UnityCodeMcpServerSettings settings = ScriptableObject.CreateInstance<UnityCodeMcpServerSettings>();
 
             try
             {
-                Assert.That(settings.StartupServer, Is.EqualTo(UnityCodeMcpServerSettings.ServerStartupMode.Stdio));
-            }
-            finally
-            {
-                ScriptableObject.DestroyImmediate(settings);
-            }
-        }
-
-        [Test]
-        public void StartupServer_CanBeSetToHttp()
-        {
-            UnityCodeMcpServerSettings settings = ScriptableObject.CreateInstance<UnityCodeMcpServerSettings>();
-
-            try
-            {
-                settings.StartupServer = UnityCodeMcpServerSettings.ServerStartupMode.Http;
-
-                Assert.That(settings.StartupServer, Is.EqualTo(UnityCodeMcpServerSettings.ServerStartupMode.Http));
+                Assert.That(settings.HttpPort, Is.EqualTo(3001));
             }
             finally
             {
@@ -140,11 +120,11 @@ namespace UnityCodeMcpServer.Tests.EditMode
             try
             {
                 settings.AdditionalAssemblyNames.Add("CustomAssembly");
-                settings.AdditionalAssemblyNames.Add("CustomAssembly"); // Duplicate
+                settings.AdditionalAssemblyNames.Add("CustomAssembly");
 
                 string[] allAssemblies = settings.GetAllAssemblyNames();
 
-                Assert.That(allAssemblies.Count(a => a == "CustomAssembly"), Is.EqualTo(1));
+                Assert.That(allAssemblies.Count(assembly => assembly == "CustomAssembly"), Is.EqualTo(1));
             }
             finally
             {
@@ -159,10 +139,10 @@ namespace UnityCodeMcpServer.Tests.EditMode
 
             try
             {
-                bool result = settings.AddAssembly("NewCustomAssembly");
+                bool result = settings.AddAssembly("CustomAssembly");
 
                 Assert.That(result, Is.True);
-                Assert.That(settings.AdditionalAssemblyNames, Contains.Item("NewCustomAssembly"));
+                Assert.That(settings.AdditionalAssemblyNames, Contains.Item("CustomAssembly"));
             }
             finally
             {
@@ -171,17 +151,15 @@ namespace UnityCodeMcpServer.Tests.EditMode
         }
 
         [Test]
-        public void AddAssembly_RejectsDuplicates()
+        public void AddAssembly_RejectsDefaultAssembly()
         {
             UnityCodeMcpServerSettings settings = ScriptableObject.CreateInstance<UnityCodeMcpServerSettings>();
 
             try
             {
-                settings.AddAssembly("TestAssembly");
-                bool result = settings.AddAssembly("TestAssembly");
+                bool result = settings.AddAssembly(UnityCodeMcpServerSettings.DefaultAssemblyNames[0]);
 
                 Assert.That(result, Is.False);
-                Assert.That(settings.AdditionalAssemblyNames.Count(a => a == "TestAssembly"), Is.EqualTo(1));
             }
             finally
             {
@@ -190,70 +168,16 @@ namespace UnityCodeMcpServer.Tests.EditMode
         }
 
         [Test]
-        public void AddAssembly_RejectsDefaultAssemblies()
-        {
-            UnityCodeMcpServerSettings settings = ScriptableObject.CreateInstance<UnityCodeMcpServerSettings>();
-
-            try
-            {
-                bool result = settings.AddAssembly("Assembly-CSharp");
-
-                Assert.That(result, Is.False);
-                Assert.That(settings.AdditionalAssemblyNames, Does.Not.Contains("Assembly-CSharp"));
-            }
-            finally
-            {
-                ScriptableObject.DestroyImmediate(settings);
-            }
-        }
-
-        [Test]
-        public void AddAssembly_RejectsNullOrWhitespace()
+        public void AddAssembly_HandlesNullOrWhitespace()
         {
             UnityCodeMcpServerSettings settings = ScriptableObject.CreateInstance<UnityCodeMcpServerSettings>();
 
             try
             {
                 Assert.That(settings.AddAssembly(null), Is.False);
-                Assert.That(settings.AddAssembly(""), Is.False);
+                Assert.That(settings.AddAssembly(string.Empty), Is.False);
                 Assert.That(settings.AddAssembly("   "), Is.False);
                 Assert.That(settings.AdditionalAssemblyNames, Is.Empty);
-            }
-            finally
-            {
-                ScriptableObject.DestroyImmediate(settings);
-            }
-        }
-
-        [Test]
-        public void SetInputActionsAssetPath_NormalizesBackslashes()
-        {
-            UnityCodeMcpServerSettings settings = ScriptableObject.CreateInstance<UnityCodeMcpServerSettings>();
-
-            try
-            {
-                settings.SetInputActionsAssetPath("Assets\\Input\\Game.inputactions");
-
-                Assert.That(settings.InputActionsAssetPath, Is.EqualTo("Assets/Input/Game.inputactions"));
-            }
-            finally
-            {
-                ScriptableObject.DestroyImmediate(settings);
-            }
-        }
-
-        [Test]
-        public void SetInputActionsAssetPath_ClearsWhitespacePath()
-        {
-            UnityCodeMcpServerSettings settings = ScriptableObject.CreateInstance<UnityCodeMcpServerSettings>();
-
-            try
-            {
-                settings.InputActionsAssetPath = "Assets/Input/Old.inputactions";
-
-                settings.SetInputActionsAssetPath("   ");
-
-                Assert.That(settings.InputActionsAssetPath, Is.EqualTo(string.Empty));
             }
             finally
             {
@@ -268,12 +192,12 @@ namespace UnityCodeMcpServer.Tests.EditMode
 
             try
             {
-                settings.AdditionalAssemblyNames.Add("TestAssembly");
+                settings.AdditionalAssemblyNames.Add("CustomAssembly");
 
-                bool result = settings.RemoveAssembly("TestAssembly");
+                bool result = settings.RemoveAssembly("CustomAssembly");
 
                 Assert.That(result, Is.True);
-                Assert.That(settings.AdditionalAssemblyNames, Does.Not.Contains("TestAssembly"));
+                Assert.That(settings.AdditionalAssemblyNames, Does.Not.Contain("CustomAssembly"));
             }
             finally
             {
@@ -282,7 +206,7 @@ namespace UnityCodeMcpServer.Tests.EditMode
         }
 
         [Test]
-        public void RemoveAssembly_ReturnsFalseForNonExistent()
+        public void RemoveAssembly_ReturnsFalseWhenAssemblyMissing()
         {
             UnityCodeMcpServerSettings settings = ScriptableObject.CreateInstance<UnityCodeMcpServerSettings>();
 
@@ -306,7 +230,7 @@ namespace UnityCodeMcpServer.Tests.EditMode
             try
             {
                 Assert.That(settings.RemoveAssembly(null), Is.False);
-                Assert.That(settings.RemoveAssembly(""), Is.False);
+                Assert.That(settings.RemoveAssembly(string.Empty), Is.False);
                 Assert.That(settings.RemoveAssembly("   "), Is.False);
             }
             finally
@@ -316,137 +240,10 @@ namespace UnityCodeMcpServer.Tests.EditMode
         }
 
         [Test]
-        public void OnValidate_PortChangeWithStdioSelection_RestartsTcp()
-        {
-            int restartCount = 0;
-            ServerLifecycleCoordinator.SetHandlers(
-                startTcp: () => { },
-                stopTcp: () => { },
-                restartTcp: () => restartCount++,
-                startHttp: () => { },
-                stopHttp: () => { },
-                restartHttp: () => { });
-
-            UnityCodeMcpServerSettings settings = ScriptableObject.CreateInstance<UnityCodeMcpServerSettings>();
-
-            try
-            {
-                settings.StartupServer = UnityCodeMcpServerSettings.ServerStartupMode.Stdio;
-                settings.StdioPort = 21088;
-                InvokeOnValidate(settings);
-
-                settings.StdioPort = 21099;
-                InvokeOnValidate(settings);
-
-                Assert.That(restartCount, Is.EqualTo(1));
-            }
-            finally
-            {
-                ScriptableObject.DestroyImmediate(settings);
-            }
-        }
-
-        [Test]
-        public void OnValidate_InitialHttpSelection_DoesNotStartHttpImmediately()
-        {
-            int startHttpCount = 0;
-            int stopTcpCount = 0;
-            ServerLifecycleCoordinator.SetHandlers(
-                startTcp: () => { },
-                stopTcp: () => stopTcpCount++,
-                restartTcp: () => { },
-                startHttp: () => startHttpCount++,
-                stopHttp: () => { },
-                restartHttp: () => { });
-
-            UnityCodeMcpServerSettings settings = ScriptableObject.CreateInstance<UnityCodeMcpServerSettings>();
-
-            try
-            {
-                settings.StartupServer = UnityCodeMcpServerSettings.ServerStartupMode.Http;
-
-                InvokeOnValidate(settings);
-
-                Assert.That(startHttpCount, Is.EqualTo(0));
-                Assert.That(stopTcpCount, Is.EqualTo(0));
-            }
-            finally
-            {
-                ScriptableObject.DestroyImmediate(settings);
-            }
-        }
-
-        [Test]
-        public void OnValidate_StartupServerChange_AppliesNewSelection()
-        {
-            int startHttpCount = 0;
-            int stopTcpCount = 0;
-            ServerLifecycleCoordinator.SetHandlers(
-                startTcp: () => { },
-                stopTcp: () => stopTcpCount++,
-                restartTcp: () => { },
-                startHttp: () => startHttpCount++,
-                stopHttp: () => { },
-                restartHttp: () => { });
-
-            UnityCodeMcpServerSettings settings = ScriptableObject.CreateInstance<UnityCodeMcpServerSettings>();
-
-            try
-            {
-                settings.StartupServer = UnityCodeMcpServerSettings.ServerStartupMode.Stdio;
-                InvokeOnValidate(settings);
-
-                settings.StartupServer = UnityCodeMcpServerSettings.ServerStartupMode.Http;
-                InvokeOnValidate(settings);
-
-                Assert.That(startHttpCount, Is.EqualTo(1));
-                Assert.That(stopTcpCount, Is.EqualTo(1));
-            }
-            finally
-            {
-                ScriptableObject.DestroyImmediate(settings);
-            }
-        }
-
-        [Test]
-        public void OnValidate_PortChangeWithHttpSelection_DoesNotRestartTcp()
-        {
-            int restartCount = 0;
-            ServerLifecycleCoordinator.SetHandlers(
-                startTcp: () => { },
-                stopTcp: () => { },
-                restartTcp: () => restartCount++,
-                startHttp: () => { },
-                stopHttp: () => { },
-                restartHttp: () => { });
-
-            UnityCodeMcpServerSettings settings = ScriptableObject.CreateInstance<UnityCodeMcpServerSettings>();
-
-            try
-            {
-                settings.StartupServer = UnityCodeMcpServerSettings.ServerStartupMode.Http;
-                settings.StdioPort = 21088;
-                InvokeOnValidate(settings);
-
-                settings.StdioPort = 21100;
-                InvokeOnValidate(settings);
-
-                Assert.That(restartCount, Is.EqualTo(0));
-            }
-            finally
-            {
-                ScriptableObject.DestroyImmediate(settings);
-            }
-        }
-
-        [Test]
-        public void OnValidate_HttpPortChangeWithHttpSelection_RestartsHttp()
+        public void OnValidate_InitialHttpPortTracking_DoesNotRestartHttpImmediately()
         {
             int restartHttpCount = 0;
             ServerLifecycleCoordinator.SetHandlers(
-                startTcp: () => { },
-                stopTcp: () => { },
-                restartTcp: () => { },
                 startHttp: () => { },
                 stopHttp: () => { },
                 restartHttp: () => restartHttpCount++);
@@ -455,7 +252,31 @@ namespace UnityCodeMcpServer.Tests.EditMode
 
             try
             {
-                settings.StartupServer = UnityCodeMcpServerSettings.ServerStartupMode.Http;
+                settings.HttpPort = 3001;
+
+                InvokeOnValidate(settings);
+
+                Assert.That(restartHttpCount, Is.EqualTo(0));
+            }
+            finally
+            {
+                ScriptableObject.DestroyImmediate(settings);
+            }
+        }
+
+        [Test]
+        public void OnValidate_HttpPortChange_RestartsHttp()
+        {
+            int restartHttpCount = 0;
+            ServerLifecycleCoordinator.SetHandlers(
+                startHttp: () => { },
+                stopHttp: () => { },
+                restartHttp: () => restartHttpCount++);
+
+            UnityCodeMcpServerSettings settings = ScriptableObject.CreateInstance<UnityCodeMcpServerSettings>();
+
+            try
+            {
                 settings.HttpPort = 3001;
                 InvokeOnValidate(settings);
 
@@ -463,37 +284,6 @@ namespace UnityCodeMcpServer.Tests.EditMode
                 InvokeOnValidate(settings);
 
                 Assert.That(restartHttpCount, Is.EqualTo(1));
-            }
-            finally
-            {
-                ScriptableObject.DestroyImmediate(settings);
-            }
-        }
-
-        [Test]
-        public void OnValidate_HttpPortChangeWithStdioSelection_DoesNotRestartHttp()
-        {
-            int restartHttpCount = 0;
-            ServerLifecycleCoordinator.SetHandlers(
-                startTcp: () => { },
-                stopTcp: () => { },
-                restartTcp: () => { },
-                startHttp: () => { },
-                stopHttp: () => { },
-                restartHttp: () => restartHttpCount++);
-
-            UnityCodeMcpServerSettings settings = ScriptableObject.CreateInstance<UnityCodeMcpServerSettings>();
-
-            try
-            {
-                settings.StartupServer = UnityCodeMcpServerSettings.ServerStartupMode.Stdio;
-                settings.HttpPort = 3001;
-                InvokeOnValidate(settings);
-
-                settings.HttpPort = 3003;
-                InvokeOnValidate(settings);
-
-                Assert.That(restartHttpCount, Is.EqualTo(0));
             }
             finally
             {
@@ -554,7 +344,7 @@ namespace UnityCodeMcpServer.Tests.EditMode
             DeleteTestAsset();
 
             UnityCodeMcpServerSettings firstInstance = ScriptableObject.CreateInstance<UnityCodeMcpServerSettings>();
-            firstInstance.StdioPort = 12345;
+            firstInstance.HttpPort = 12345;
 
             // Create first asset
             UnityCodeMcpServerSettings.SaveInstance(firstInstance);
@@ -563,18 +353,18 @@ namespace UnityCodeMcpServer.Tests.EditMode
             {
                 // Modify the loaded asset
                 UnityCodeMcpServerSettings loadedAsset = AssetDatabase.LoadAssetAtPath<UnityCodeMcpServerSettings>(TestSettingsAssetPath);
-                loadedAsset.StdioPort = 99999;
+                loadedAsset.HttpPort = 99999;
                 EditorUtility.SetDirty(loadedAsset);
                 AssetDatabase.SaveAssets();
 
                 // Try to save a different instance
                 UnityCodeMcpServerSettings secondInstance = ScriptableObject.CreateInstance<UnityCodeMcpServerSettings>();
-                secondInstance.StdioPort = 54321;
+                secondInstance.HttpPort = 54321;
                 UnityCodeMcpServerSettings.SaveInstance(secondInstance);
 
                 // Verify original asset was not overwritten
                 UnityCodeMcpServerSettings reloadedAsset = AssetDatabase.LoadAssetAtPath<UnityCodeMcpServerSettings>(TestSettingsAssetPath);
-                Assert.That(reloadedAsset.StdioPort, Is.EqualTo(99999), "Existing asset should not be overwritten");
+                Assert.That(reloadedAsset.HttpPort, Is.EqualTo(99999), "Existing asset should not be overwritten");
 
                 // Second instance was not saved, can be destroyed
                 ScriptableObject.DestroyImmediate(secondInstance);
@@ -632,7 +422,7 @@ namespace UnityCodeMcpServer.Tests.EditMode
 
             // Create an asset first
             UnityCodeMcpServerSettings originalAsset = ScriptableObject.CreateInstance<UnityCodeMcpServerSettings>();
-            originalAsset.StdioPort = 77777;
+            originalAsset.HttpPort = 77777;
             UnityCodeMcpServerSettings.SaveInstance(originalAsset);
             // originalAsset is now an asset, don't hold reference
 
@@ -643,7 +433,7 @@ namespace UnityCodeMcpServer.Tests.EditMode
 
                 // Verify it returned the existing asset
                 Assert.That(retrievedAsset, Is.Not.Null);
-                Assert.That(retrievedAsset.StdioPort, Is.EqualTo(77777), "Should return existing asset with same values");
+                Assert.That(retrievedAsset.HttpPort, Is.EqualTo(77777), "Should return existing asset with same values");
             }
             finally
             {
@@ -667,7 +457,7 @@ namespace UnityCodeMcpServer.Tests.EditMode
                 Assert.That(File.Exists(TestSettingsAssetPath), Is.True, "Asset file should be created");
 
                 // Verify it has default values
-                Assert.That(asset.StdioPort, Is.EqualTo(21088), "Should have default port value");
+                Assert.That(asset.HttpPort, Is.EqualTo(3001), "Should have default port value");
                 Assert.That(asset.SkillsInstallTarget, Is.EqualTo(UnityCodeMcpServerSettings.SkillInstallTarget.Agents));
                 Assert.That(asset.SkillsTargetPath, Is.EqualTo(".agents/skills/"));
 
@@ -907,7 +697,7 @@ namespace UnityCodeMcpServer.Tests.EditMode
             DeleteTestAsset();
 
             UnityCodeMcpServerSettings original = ScriptableObject.CreateInstance<UnityCodeMcpServerSettings>();
-            original.StdioPort = 55555;
+            original.HttpPort = 55555;
             UnityCodeMcpServerSettings.SaveInstance(original);
 
             // Clear the cache so Instance has to re-initialize
@@ -919,7 +709,7 @@ namespace UnityCodeMcpServer.Tests.EditMode
                 UnityCodeMcpServerSettings instance = UnityCodeMcpServerSettings.Instance;
 
                 // Assert: should have loaded the saved asset, not a brand-new default one
-                Assert.That(instance.StdioPort, Is.EqualTo(55555),
+                Assert.That(instance.HttpPort, Is.EqualTo(55555),
                     "Instance should load the existing asset from disk, not create a new default ScriptableObject");
             }
             finally
@@ -930,33 +720,33 @@ namespace UnityCodeMcpServer.Tests.EditMode
         }
 
         [Test]
-        public void OnValidate_LogsPortFromThisNotFromInstance()
+        public void OnValidate_LogsHttpPortFromThisNotFromInstance()
         {
             // Arrange: save an asset with port 11111 so Instance would return that if accessed
             ResetInstanceCache();
             DeleteTestAsset();
 
             UnityCodeMcpServerSettings assetInstance = ScriptableObject.CreateInstance<UnityCodeMcpServerSettings>();
-            assetInstance.StdioPort = 11111;
+            assetInstance.HttpPort = 11111;
             UnityCodeMcpServerSettings.SaveInstance(assetInstance);
             ResetInstanceCache();
 
             // Create a separate in-memory settings with a different port
             UnityCodeMcpServerSettings inMemorySettings = ScriptableObject.CreateInstance<UnityCodeMcpServerSettings>();
-            inMemorySettings.StdioPort = 22222;
+            inMemorySettings.HttpPort = 22222;
 
             try
             {
-                // If OnValidate reads from `this`, the logged port should reflect inMemorySettings.StdioPort.
+                // If OnValidate reads from `this`, the logged port should reflect inMemorySettings.HttpPort.
                 // If it incorrectly reads from `Instance`, it would see 11111 (from the asset).
                 // We verify indirectly: after OnValidate the port on `this` object is unchanged.
                 InvokeOnValidate(inMemorySettings);
 
-                Assert.That(inMemorySettings.StdioPort, Is.EqualTo(22222),
+                Assert.That(inMemorySettings.HttpPort, Is.EqualTo(22222),
                     "OnValidate must not overwrite 'this' port by reading from Instance");
 
                 // Also confirm Instance has loaded the asset (port 11111), not the in-memory object
-                Assert.That(UnityCodeMcpServerSettings.Instance.StdioPort, Is.EqualTo(11111),
+                Assert.That(UnityCodeMcpServerSettings.Instance.HttpPort, Is.EqualTo(11111),
                     "Instance should be the saved asset, independent from the in-memory settings object");
             }
             finally
@@ -1073,14 +863,14 @@ namespace UnityCodeMcpServer.Tests.EditMode
             // Arrange: create a settings asset on disk with a known port value
             DeleteTestAsset();
             UnityCodeMcpServerSettings initial = ScriptableObject.CreateInstance<UnityCodeMcpServerSettings>();
-            initial.StdioPort = 11111;
+            initial.HttpPort = 11111;
             UnityCodeMcpServerSettings.SaveInstance(initial);
 
             UnityCodeMcpServerSettings loadedSettings = AssetDatabase.LoadAssetAtPath<UnityCodeMcpServerSettings>(TestSettingsAssetPath);
             Assert.That(loadedSettings, Is.Not.Null);
 
             // Act: change the port and mark the asset dirty, then let the inspector run
-            loadedSettings.StdioPort = 22222;
+            loadedSettings.HttpPort = 22222;
             EditorUtility.SetDirty(loadedSettings);
 
             UnityCodeMcpServerSettingsEditor inspector = (UnityCodeMcpServer.Settings.Editor.UnityCodeMcpServerSettingsEditor)
@@ -1103,7 +893,7 @@ namespace UnityCodeMcpServer.Tests.EditMode
             // Assert: the .asset file on disk must now contain the updated port
             string diskContent = File.ReadAllText(TestSettingsAssetPath);
             Assert.That(diskContent, Does.Contain("22222"),
-                "StdioPort change should be flushed to disk by OnInspectorGUI via AssetDatabase.SaveAssetIfDirty");
+                "HttpPort change should be flushed to disk by OnInspectorGUI via AssetDatabase.SaveAssetIfDirty");
 
             DeleteTestAsset();
         }

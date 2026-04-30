@@ -20,7 +20,6 @@ namespace UnityCodeMcpServer.Servers.StreamableHttp
     /// <summary>
     /// Streamable HTTP Server that handles MCP protocol connections per specification 2025-03-26.
     /// Auto-starts with Unity Editor and handles domain reloads gracefully.
-    /// Runs alongside the TCP server on a separate port.
     /// </summary>
     [InitializeOnLoad]
     public static class UnityCodeMcpHttpServer
@@ -77,12 +76,6 @@ namespace UnityCodeMcpServer.Servers.StreamableHttp
         private static void StartServer(string reason)
         {
             UnityCodeMcpServerSettings settings = UnityCodeMcpServerSettings.Instance;
-
-            if (settings.StartupServer != UnityCodeMcpServerSettings.ServerStartupMode.Http)
-            {
-                UnityCodeMcpServerLogger.Debug($"[UnityCodeMcpHttpServer] Startup skipped because server selection is {settings.StartupServer}");
-                return;
-            }
 
             if (_transport != null)
             {
@@ -208,8 +201,7 @@ namespace UnityCodeMcpServer.Servers.StreamableHttp
 
             UnityCodeMcpServerLogger.Info($"[UnityCodeMcpHttpServer] Server Status:\n" +
                 $"  Status: {status}\n" +
-                $"  Port: {settings.HttpPort}\n" +
-                $"  Startup Server: {settings.StartupServer}");
+                $"  Port: {settings.HttpPort}");
         }
 
         /// <summary>

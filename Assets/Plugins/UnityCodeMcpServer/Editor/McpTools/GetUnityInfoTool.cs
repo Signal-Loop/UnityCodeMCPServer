@@ -19,7 +19,7 @@ namespace UnityCodeMcpServer.McpTools
 
 **Returns:**
 - `project_path`: The absolute path to the Unity project root directory.
-- `settings`: The current UnityCodeMcpServerSettings values (startup server mode, ports, timeouts, assemblies, etc.).";
+- `settings`: The current UnityCodeMcpServerSettings values (HTTP server settings, logging, assemblies, etc.).";
 
         public JsonElement InputSchema => JsonHelper.ParseElement(@"
         {
@@ -42,17 +42,11 @@ namespace UnityCodeMcpServer.McpTools
             sb.AppendLine();
             sb.AppendLine("## UnityCodeMcpServer Settings");
             sb.AppendLine();
-            sb.AppendLine($"- **Startup Server:** {settings.StartupServer}");
             sb.AppendLine($"- **Min Log Level:** {settings.MinLogLevel}");
             sb.AppendLine();
-            sb.AppendLine("### STDIO Server");
-            sb.AppendLine($"- **Port:** {settings.StdioPort}");
-            sb.AppendLine($"- **Backlog:** {settings.Backlog}");
-            sb.AppendLine($"- **Read Timeout (ms):** {settings.ReadTimeoutMs}");
-            sb.AppendLine($"- **Write Timeout (ms):** {settings.WriteTimeoutMs}");
-            sb.AppendLine();
-            sb.AppendLine("### Streamable HTTP Server");
+            sb.AppendLine("### HTTP Server");
             sb.AppendLine($"- **Port:** {settings.HttpPort}");
+            sb.AppendLine($"- **Backlog:** {settings.Backlog}");
             sb.AppendLine($"- **Session Timeout (s):** {settings.SessionTimeoutSeconds}");
             sb.AppendLine($"- **SSE Keep-Alive Interval (s):** {settings.SseKeepAliveIntervalSeconds}");
             sb.AppendLine();

@@ -171,8 +171,8 @@ https://github.com/Signal-Loop/UnityCodeMCPServer.git?path=Assets/Plugins/UnityC
 
 ### MCP client configuration
 
-1. Open your Unity project (the STDIO server auto-starts with the Editor).
-2. In Unity, run menu item: **Tools/UnityCodeMcpServer/STDIO or HTTP/Print MCP Configuration to Console**.
+1. Open your Unity project (the Streamable HTTP server auto-starts with the Editor).
+2. In Unity, run menu item: **Tools/UnityCodeMcpServer/HTTP/Print MCP configuration to console**.
 3. Copy the printed MCP configuration into your MCP client.
 
 #### STDIO
@@ -214,23 +214,15 @@ The `unity-code-mcp-stdio` bridge now forwards STDIO traffic to Unity's Streamab
 
 1. Access (and create if necessary) settings via **Tools/UnityCodeMcpServer/Show or Create Settings**.
 2. Configure options:
-   - **Server Selection**: Choose STDIO (TCP) or HTTP server for auto-start
    - **Verbose Logging**: Enable detailed logging for debugging
 
-- **TCP Server**: Port (default: `21088`), backlog, timeouts (changing the port restarts the STDIO server if running)
-- **HTTP Server**: Port (default: `3001`), session timeout, SSE keep-alive interval (changing the port restarts the HTTP server if running)
+- **HTTP Server**: Port (default: `3001`), backlog, session timeout, SSE keep-alive interval (changing the port restarts the HTTP server if running)
 
 ### Menu commands
 
 #### General
 
 - **Tools/UnityCodeMcpServer/Show or Create Settings** — Open the server settings asset in the inspector
-
-#### STDIO Server (TCP)
-
-- **Tools/UnityCodeMcpServer/STDIO/Refresh Registry** — Re-scan for new tools/prompts/resources
-- **Tools/UnityCodeMcpServer/STDIO/Restart Server** — Restart the TCP server
-- **Tools/UnityCodeMcpServer/STDIO/Print MCP configuration to console** — Log MCP client configuration for STDIO bridge
 
 #### HTTP Server
 

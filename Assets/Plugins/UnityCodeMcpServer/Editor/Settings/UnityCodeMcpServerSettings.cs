@@ -29,12 +29,6 @@ namespace UnityCodeMcpServer.Settings
         {
             _settingsAssetPath = _defaultSettingsAssetPath;
         }
-        public enum ServerStartupMode
-        {
-            Stdio,
-            Http
-        }
-
         public enum SkillInstallTarget
         {
             GitHub,
@@ -56,10 +50,6 @@ namespace UnityCodeMcpServer.Settings
             "Assembly-CSharp-Editor"
         };
 
-        [Header("Server Selection")]
-        [Tooltip("Select which server automatically starts in the Unity Editor")]
-        public ServerStartupMode StartupServer = ServerStartupMode.Stdio;
-
         [Header("Logging")]
         [Tooltip("Minimum log level. Messages below this level are suppressed.")]
         public Helpers.UnityCodeMcpServerLogger.LogLevel MinLogLevel = Helpers.UnityCodeMcpServerLogger.LogLevel.Info;
@@ -68,36 +58,13 @@ namespace UnityCodeMcpServer.Settings
         public bool LogToFile = false;
 
         [SerializeField, HideInInspector]
-        private int _lastPort;
-
-        [SerializeField, HideInInspector]
-        private bool _hasInitializedPortTracking;
-
-        [SerializeField, HideInInspector]
         private int _lastHttpPort;
 
         [SerializeField, HideInInspector]
         private bool _hasInitializedHttpPortTracking;
 
-        [SerializeField, HideInInspector]
-        private ServerStartupMode _lastStartupServer;
-
-        [SerializeField, HideInInspector]
-        private bool _hasInitializedStartupServerTracking;
-
-        [Header("STDIO Server Configuration")]
-        [Tooltip("The port the STDIO bridge will use to connect to Unity")]
-        [UnityEngine.Serialization.FormerlySerializedAs("Port")]
-        public int StdioPort = 21088;
-
         [Tooltip("Maximum number of pending connections in the listen queue")]
         public int Backlog = 10;
-
-        [Tooltip("Read timeout in milliseconds (0 = infinite)")]
-        public int ReadTimeoutMs = 30000;
-
-        [Tooltip("Write timeout in milliseconds (0 = infinite)")]
-        public int WriteTimeoutMs = 30000;
 
         [Header("Streamable HTTP Server Configuration")]
         [Tooltip("The port the HTTP server will listen on")]
@@ -362,36 +329,14 @@ namespace UnityCodeMcpServer.Settings
 
         private void OnValidate()
         {
-            bool shouldRestartStdio = ShouldRestartStdioForPortChange();
             bool shouldRestartHttp = ShouldRestartHttpForPortChange();
-            bool shouldApplyStartupSelection = ShouldApplyStartupSelectionChange();
 
-            if (!shouldRestartStdio && !shouldRestartHttp && !shouldApplyStartupSelection)
+            if (!shouldRestartHttp)
             {
                 return;
             }
 
-            ServerLifecycleCoordinator.UpdateServerState(StartupServer, shouldRestartStdio, shouldRestartHttp);
-        }
-
-        private bool ShouldRestartStdioForPortChange()
-        {
-            if (!_hasInitializedPortTracking)
-            {
-                _hasInitializedPortTracking = true;
-                _lastPort = StdioPort;
-                return false;
-            }
-
-            if (_lastPort == StdioPort)
-            {
-                return false;
-            }
-
-            _lastPort = StdioPort;
-
-            // Only restart the STDIO server when it's the selected transport.
-            return StartupServer == ServerStartupMode.Stdio;
+            ServerLifecycleCoordinator.UpdateServerState(restartHttp: true);
         }
 
         private bool ShouldRestartHttpForPortChange()
@@ -409,26 +354,6 @@ namespace UnityCodeMcpServer.Settings
             }
 
             _lastHttpPort = HttpPort;
-
-            // Only restart the HTTP server when it's the selected transport.
-            return StartupServer == ServerStartupMode.Http;
-        }
-
-        private bool ShouldApplyStartupSelectionChange()
-        {
-            if (!_hasInitializedStartupServerTracking)
-            {
-                _hasInitializedStartupServerTracking = true;
-                _lastStartupServer = StartupServer;
-                return false;
-            }
-
-            if (_lastStartupServer == StartupServer)
-            {
-                return false;
-            }
-
-            _lastStartupServer = StartupServer;
             return true;
         }
 
@@ -438,7 +363,7 @@ namespace UnityCodeMcpServer.Settings
         /// </summary>
         public void ApplySelection()
         {
-            ServerLifecycleCoordinator.UpdateServerState(StartupServer);
+            ServerLifecycleCoordinator.UpdateServerState();
         }
 
         /// <summary>

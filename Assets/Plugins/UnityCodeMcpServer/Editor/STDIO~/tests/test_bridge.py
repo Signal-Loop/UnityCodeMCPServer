@@ -76,7 +76,7 @@ class TestSettingsDiscovery:
 
     def test_read_http_port_from_settings_missing_key(self, tmp_path):
         settings_file = tmp_path / "settings.asset"
-        settings_file.write_text("StdioPort: 21099\n", encoding="utf-8")
+        settings_file.write_text("Backlog: 10\n", encoding="utf-8")
 
         assert read_http_port_from_settings(settings_file) is None
 
@@ -119,7 +119,7 @@ class TestUnityHttpClient:
         assert "Mcp-Session-Id" not in headers
 
     def test_parse_sse_response_reads_message_event_payload(self):
-        body = b"event: message\ndata: {\"jsonrpc\":\"2.0\",\"id\":\"1\",\"result\":{}}\n\n"
+        body = b'event: message\ndata: {"jsonrpc":"2.0","id":"1","result":{}}\n\n'
 
         parsed = UnityHttpClient._parse_sse_response(body)
 
@@ -358,7 +358,9 @@ class TestResourceContentMapping:
 
         assert isinstance(converted, types.EmbeddedResource)
         assert isinstance(converted.resource, types.TextResourceContents)
-        assert str(converted.resource.uri) == "memory://play_unity_game_video/example.mp4"
+        assert (
+            str(converted.resource.uri) == "memory://play_unity_game_video/example.mp4"
+        )
         assert converted.resource.mimeType == "video/mp4"
         assert converted.resource.text == ""
 
