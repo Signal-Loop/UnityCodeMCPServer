@@ -76,6 +76,7 @@ SIDE EFFECTS: Alters Time.timeScale, overrides active Input System states, and c
 
         LogCapture logCapture = new();
 
+        bool applicationRunInBackground = Application.runInBackground;
         InputSettings.BackgroundBehavior previousBackgroundBehavior = InputSystem.settings.backgroundBehavior;
         InputSettings.EditorInputBehaviorInPlayMode previousEditorInputBehavior = InputSystem.settings.editorInputBehaviorInPlayMode;
 
@@ -87,8 +88,12 @@ SIDE EFFECTS: Alters Time.timeScale, overrides active Input System states, and c
             Time.timeScale = 1f;
 
             // Bypass Input System focus gating so input works without window focus.
+            Application.runInBackground = true;
+            UnityCodeMcpServerLogger.Info($"#PlayUnityGameTool: Set Application.runInBackground=true to allow input without focus. Previous value was {applicationRunInBackground}.");
             InputSystem.settings.backgroundBehavior = InputSettings.BackgroundBehavior.IgnoreFocus;
+            UnityCodeMcpServerLogger.Info($"#PlayUnityGameTool: Set InputSystem.settings.backgroundBehavior=IgnoreFocus to bypass focus gating. Previous value was {previousBackgroundBehavior}.");
             InputSystem.settings.editorInputBehaviorInPlayMode = InputSettings.EditorInputBehaviorInPlayMode.AllDeviceInputAlwaysGoesToGameView;
+            UnityCodeMcpServerLogger.Info($"#PlayUnityGameTool: Set InputSystem.settings.editorInputBehaviorInPlayMode=AllDeviceInputAlwaysGoesToGameView to ensure input is sent to game view. Previous value was {previousEditorInputBehavior}.");
 
             // Re-enable devices that were disabled when Unity lost focus.
             // OnFocusChanged(false) disables devices with DisabledWhileInBackground flag
@@ -165,6 +170,12 @@ SIDE EFFECTS: Alters Time.timeScale, overrides active Input System states, and c
         }
         finally
         {
+            Application.runInBackground = applicationRunInBackground;
+            UnityCodeMcpServerLogger.Info($"#PlayUnityGameTool: Restored Application.runInBackground to {applicationRunInBackground}.");
+            InputSystem.settings.backgroundBehavior = previousBackgroundBehavior;
+            UnityCodeMcpServerLogger.Info($"#PlayUnityGameTool: Restored InputSystem.settings.backgroundBehavior to {previousBackgroundBehavior}.");
+            InputSystem.settings.editorInputBehaviorInPlayMode = previousEditorInputBehavior;
+            UnityCodeMcpServerLogger.Info($"#PlayUnityGameTool: Restored InputSystem.settings.editorInputBehaviorInPlayMode to {previousEditorInputBehavior}.");
             logCapture.Stop();
             logCapture.Dispose();
             Time.timeScale = 0f;
@@ -174,8 +185,6 @@ SIDE EFFECTS: Alters Time.timeScale, overrides active Input System states, and c
             ReleaseActions(actions_to_release);
             ReleaseActions(held_actions);
             ResetAllInputDevices();
-            InputSystem.settings.backgroundBehavior = previousBackgroundBehavior;
-            InputSystem.settings.editorInputBehaviorInPlayMode = previousEditorInputBehavior;
         }
     }
 

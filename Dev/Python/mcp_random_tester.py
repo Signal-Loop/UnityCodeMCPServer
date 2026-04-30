@@ -37,6 +37,9 @@ RELOAD_TIMESTAMP_PATTERN = re.compile(r"Reload Timestamp:\s*\d+")
 TOOL_READ_UNITY_CONSOLE_LOGS = "read_unity_console_logs"
 TOOL_GET_UNITY_INFO = "get_unity_info"
 TOOL_EXECUTE_CSHARP = "execute_csharp_script_in_unity_editor"
+TOOL_ENTER_PLAY_MODE = "enter_play_mode"
+TOOL_PLAY_UNITY_GAME = "play_unity_game"
+TOOL_EXIT_PLAY_MODE = "exit_play_mode"
 AVAILABLE_OPERATIONS = (
     TOOL_READ_UNITY_CONSOLE_LOGS,
     TOOL_GET_UNITY_INFO,
@@ -44,6 +47,7 @@ AVAILABLE_OPERATIONS = (
     "run_long_csharp_script",
     "force_domain_reload",
     "force_domain_recompile_and_reload",
+    "play_unity_game_sequence",
 )
 ANSI_RESET = "\033[0m"
 ANSI_COLORS = {
@@ -382,6 +386,38 @@ async def execute_operation(
         )
         return success, normalize_for_json(response)
 
+    if operation.name == "play_unity_game_sequence":
+        responses: list[dict[str, Any]] = []
+        for tool_name, arguments in (
+            (TOOL_ENTER_PLAY_MODE, None),
+            (TOOL_PLAY_UNITY_GAME, {"duration": 200}),
+            (TOOL_EXIT_PLAY_MODE, None),
+        ):
+            success, result = await call_tool_and_log(
+                session,
+                tool_name,
+                arguments,
+                args.request_timeout_seconds,
+            )
+            responses.append(
+                {
+                    "tool": tool_name,
+                    "arguments": arguments,
+                    "response": normalize_for_json(result),
+                }
+            )
+            if not success:
+                return False, {
+                    "operation": operation.name,
+                    "failed_tool": tool_name,
+                    "responses": responses,
+                }
+
+        return True, {
+            "operation": operation.name,
+            "responses": responses,
+        }
+
     raise ValueError(f"Unknown operation: {operation.name}")
 
 
@@ -458,8 +494,62 @@ class ScriptSelfTests(unittest.TestCase):
                     "run_long_csharp_script",
                     "force_domain_reload",
                     "force_domain_recompile_and_reload",
+                    "play_unity_game_sequence",
                 }
             )
+        )
+
+    def test_build_operation_sequence_can_include_play_unity_game_sequence(
+        self,
+    ) -> None:
+        sequence = build_operation_sequence(200, 0)
+        names = [operation.name for operation in sequence]
+
+        self.assertIn("play_unity_game_sequence", names)
+
+    def test_execute_operation_play_unity_game_sequence_calls_tools_in_order(
+        self,
+    ) -> None:
+        class FakeSession:
+            def __init__(self) -> None:
+                self.calls: list[tuple[str, dict[str, Any] | None]] = []
+
+            async def call_tool(
+                self,
+                tool_name: str,
+                arguments: dict[str, Any] | None = None,
+                read_timeout_seconds: timedelta | None = None,
+            ) -> types.CallToolResult:
+                self.calls.append((tool_name, arguments))
+                return types.CallToolResult(
+                    content=[
+                        types.TextContent(type="text", text=f"ok:{tool_name}")
+                    ],
+                    isError=False,
+                )
+
+        session = FakeSession()
+        args = argparse.Namespace(
+            console_log_limit=2,
+            request_timeout_seconds=20.0,
+            long_script_seconds=5,
+            domain_reload_file=DEFAULT_DOMAIN_RELOAD_FILE,
+            workspace_dir=WORKSPACE_ROOT,
+        )
+
+        success, payload = asyncio.run(
+            execute_operation(session, Operation(name="play_unity_game_sequence"), args)
+        )
+
+        self.assertTrue(success)
+        self.assertEqual(payload["operation"], "play_unity_game_sequence")
+        self.assertEqual(
+            session.calls,
+            [
+                ("enter_play_mode", None),
+                ("play_unity_game", {"duration": 200}),
+                ("exit_play_mode", None),
+            ],
         )
 
     def test_workspace_to_asset_path_returns_project_relative_assets_path(self) -> None:
