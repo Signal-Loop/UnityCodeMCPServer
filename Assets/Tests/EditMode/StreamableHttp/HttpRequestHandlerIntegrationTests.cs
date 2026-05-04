@@ -116,6 +116,50 @@ namespace UnityCodeMcpServer.Tests.EditMode.StreamableHttp
             Assert.That(context.Response.StatusCode, Is.EqualTo(404));
         }
 
+        [Test]
+        public void HandleRequestAsync_HealthRequest_ReturnsHealthPayloadWithoutMcpProcessing()
+        {
+            const string healthJson = "{\"status\":\"ok\",\"listenerBound\":true,\"acceptLoopRunning\":true}";
+            HttpRequestHandler handler = new(
+                _messageHandler,
+                _ => UniTask.FromResult(healthJson));
+            MemoryStream outputStream = new();
+            LoopbackHttpContext context = new(
+                new LoopbackHttpRequest(
+                    "GET",
+                    "/health",
+                    new Dictionary<string, string>(),
+                    new MemoryStream()),
+                new LoopbackHttpResponse(outputStream));
+
+            handler.HandleRequestAsync(context, CancellationToken.None).GetAwaiter().GetResult();
+
+            Assert.That(context.Response.StatusCode, Is.EqualTo(200));
+            Assert.That(context.Response.ContentType, Is.EqualTo(McpHttpTransport.ContentTypeJson));
+            Assert.That(Encoding.UTF8.GetString(outputStream.ToArray()), Is.EqualTo(healthJson));
+        }
+
+        [Test]
+        public void HandleRequestAsync_HealthRequest_RejectsNonGetMethods()
+        {
+            HttpRequestHandler handler = new(
+                _messageHandler,
+                _ => UniTask.FromResult("{}"));
+            MemoryStream outputStream = new();
+            LoopbackHttpContext context = new(
+                new LoopbackHttpRequest(
+                    "POST",
+                    "/health",
+                    new Dictionary<string, string>(),
+                    new MemoryStream()),
+                new LoopbackHttpResponse(outputStream));
+
+            handler.HandleRequestAsync(context, CancellationToken.None).GetAwaiter().GetResult();
+
+            Assert.That(context.Response.StatusCode, Is.EqualTo(405));
+            Assert.That(context.Response.Headers["Allow"], Is.EqualTo("GET"));
+        }
+
         #endregion
 
         #region Message Handler Integration Tests

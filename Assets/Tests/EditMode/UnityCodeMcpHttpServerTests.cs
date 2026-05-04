@@ -1,10 +1,12 @@
 ﻿using System.Net;
 using System.Net.Sockets;
 using System.Reflection;
+using System.Text.Json;
 using System.Threading;
 using Cysharp.Threading.Tasks;
 using NUnit.Framework;
 using UnityCodeMcpServer.HttpServer;
+using UnityEngine;
 
 namespace UnityCodeMcpServer.Tests.EditMode
 {
@@ -177,6 +179,26 @@ namespace UnityCodeMcpServer.Tests.EditMode
             Assert.That(shouldRetryBindConflictMethod, Is.Null);
             Assert.That(tryScheduleStartupRetryMethod, Is.Null);
             Assert.That(retryStartupAfterBindConflictAsyncMethod, Is.Null);
+        }
+
+        [Test]
+        public void BuildHealthResponseAsync_IncludesProjectPath()
+        {
+            MethodInfo method = typeof(UnityCodeMcpHttpServer).GetMethod(
+                "BuildHealthResponseAsync",
+                BindingFlags.NonPublic | BindingFlags.Static);
+            Assert.That(method, Is.Not.Null);
+
+            string json = ((UniTask<string>)method.Invoke(null, new object[] { CancellationToken.None }))
+                .GetAwaiter()
+                .GetResult();
+
+            using JsonDocument document = JsonDocument.Parse(json);
+            string expectedProjectPath = System.IO.Path.GetFullPath(
+                System.IO.Path.Combine(Application.dataPath, ".."));
+
+            Assert.That(document.RootElement.TryGetProperty("projectPath", out JsonElement projectPathElement), Is.True);
+            Assert.That(projectPathElement.GetString(), Is.EqualTo(expectedProjectPath));
         }
     }
 }

@@ -41,11 +41,20 @@ namespace UnityCodeMcpServer.HttpServer
     public sealed class HttpRequestHandler
     {
         private readonly McpMessageHandler _messageHandler;
+        private readonly Func<CancellationToken, UniTask<string>> _healthResponseFactory;
         private readonly Encoding _utf8NoBom = new UTF8Encoding(false);
 
         public HttpRequestHandler(McpMessageHandler messageHandler)
+            : this(messageHandler, null)
+        {
+        }
+
+        public HttpRequestHandler(
+            McpMessageHandler messageHandler,
+            Func<CancellationToken, UniTask<string>> healthResponseFactory)
         {
             _messageHandler = messageHandler ?? throw new ArgumentNullException(nameof(messageHandler));
+            _healthResponseFactory = healthResponseFactory;
         }
 
         /// <summary>
@@ -61,6 +70,26 @@ namespace UnityCodeMcpServer.HttpServer
             try
             {
                 UnityCodeMcpServerLogger.Trace($"[HTTP] {request.HttpMethod} {request.PathAndQuery} from {request.RemoteEndPoint}");
+
+                if (IsHealthPath(request.PathAndQuery))
+                {
+                    ValidationResult healthOriginValidation = ValidateOrigin(request.GetHeader("Origin"));
+                    if (!healthOriginValidation.IsValid)
+                    {
+                        await SendErrorResponseAsync(response, healthOriginValidation.StatusCode, healthOriginValidation.ErrorMessage, ct);
+                        return;
+                    }
+
+                    if (!string.Equals(request.HttpMethod, "GET", StringComparison.OrdinalIgnoreCase))
+                    {
+                        response.Headers["Allow"] = "GET";
+                        await SendErrorResponseAsync(response, 405, "Method Not Allowed", ct);
+                        return;
+                    }
+
+                    await HandleHealthAsync(response, ct);
+                    return;
+                }
 
                 if (!IsSupportedPath(request.PathAndQuery))
                 {
@@ -171,6 +200,18 @@ namespace UnityCodeMcpServer.HttpServer
             await SendJsonResponseAsync(response, responseJson, ct);
         }
 
+        private async UniTask HandleHealthAsync(LoopbackHttpResponse response, CancellationToken ct)
+        {
+            if (_healthResponseFactory == null)
+            {
+                await SendErrorResponseAsync(response, 503, "Health reporting unavailable", ct);
+                return;
+            }
+
+            string healthJson = await _healthResponseFactory(ct);
+            await SendJsonResponseAsync(response, healthJson, ct);
+        }
+
         /// <summary>
         /// Validate Origin header for security (prevent DNS rebinding attacks)
         /// </summary>
@@ -202,6 +243,19 @@ namespace UnityCodeMcpServer.HttpServer
             string path = queryIndex >= 0 ? pathAndQuery.Substring(0, queryIndex) : pathAndQuery;
             return string.Equals(path, "/mcp", StringComparison.OrdinalIgnoreCase) ||
                    string.Equals(path, McpHttpTransport.EndpointPath, StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static bool IsHealthPath(string pathAndQuery)
+        {
+            if (string.IsNullOrEmpty(pathAndQuery))
+            {
+                return false;
+            }
+
+            int queryIndex = pathAndQuery.IndexOfAny(new[] { '?', '#' });
+            string path = queryIndex >= 0 ? pathAndQuery.Substring(0, queryIndex) : pathAndQuery;
+            return string.Equals(path, "/health", StringComparison.OrdinalIgnoreCase) ||
+                   string.Equals(path, "/health/", StringComparison.OrdinalIgnoreCase);
         }
 
         /// <summary>

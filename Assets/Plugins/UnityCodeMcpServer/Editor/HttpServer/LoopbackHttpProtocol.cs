@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
@@ -6,34 +6,28 @@ using System.Net;
 using System.Text;
 using System.Threading;
 using Cysharp.Threading.Tasks;
+using UnityCodeMcpServer.Helpers;
 
 namespace UnityCodeMcpServer.HttpServer
 {
     public static class LoopbackHttpProtocol
     {
-        public static async UniTask<LoopbackHttpRequest> ReadRequestAsync(Stream stream, EndPoint remoteEndPoint, CancellationToken ct)
+        public static async UniTask<LoopbackHttpRequest> ReadRequestAsync(
+            Stream stream,
+            EndPoint remoteEndPoint,
+            CancellationToken ct,
+            TimeSpan? headerReadTimeout = null,
+            TimeSpan? bodyReadTimeout = null)
         {
             MemoryStream headerBuffer = new();
             byte[] readBuffer = new byte[4096];
-            int headerEndIndex = -1;
-
-            while (headerEndIndex < 0)
+            int headerEndIndex = await ReadHeadersAsync(stream, remoteEndPoint, headerBuffer, readBuffer, headerReadTimeout, ct);
+            if (headerEndIndex < 0)
             {
-                int bytesRead = await stream.ReadAsync(readBuffer, 0, readBuffer.Length, ct);
-                if (bytesRead == 0)
-                {
-                    return null;
-                }
-
-                headerBuffer.Write(readBuffer, 0, bytesRead);
-                byte[] currentBytes = headerBuffer.GetBuffer();
-                headerEndIndex = FindHeaderEnd(currentBytes, (int)headerBuffer.Length);
-
-                if (headerBuffer.Length > 64 * 1024)
-                {
-                    throw new InvalidDataException("HTTP headers too large");
-                }
+                return null;
             }
+
+            UnityCodeMcpServerLogger.Trace($"[LoopbackHttpProtocol] Request parsing completed remote={remoteEndPoint}");
 
             byte[] requestBytes = headerBuffer.ToArray();
             string headerText = Encoding.ASCII.GetString(requestBytes, 0, headerEndIndex);
@@ -78,7 +72,7 @@ namespace UnityCodeMcpServer.HttpServer
             }
 
             BufferedByteReader reader = new(stream, bufferedBodyBytes);
-            byte[] bodyBytes = await ReadBodyAsync(reader, headers, ct);
+            byte[] bodyBytes = await ReadBodyAsync(reader, headers, remoteEndPoint, bodyReadTimeout, ct);
 
             return new LoopbackHttpRequest(
                 requestLineParts[0],
@@ -131,25 +125,68 @@ namespace UnityCodeMcpServer.HttpServer
             await stream.FlushAsync(ct);
         }
 
-        private static async UniTask<byte[]> ReadBodyAsync(BufferedByteReader reader, IReadOnlyDictionary<string, string> headers, CancellationToken ct)
+        private static async UniTask<int> ReadHeadersAsync(
+            Stream stream,
+            EndPoint remoteEndPoint,
+            MemoryStream headerBuffer,
+            byte[] readBuffer,
+            TimeSpan? headerReadTimeout,
+            CancellationToken ct)
         {
-            if (headers.TryGetValue("Transfer-Encoding", out string transferEncoding) &&
-                transferEncoding.IndexOf("chunked", StringComparison.OrdinalIgnoreCase) >= 0)
-            {
-                return await ReadChunkedBodyAsync(reader, ct);
-            }
+            UnityCodeMcpServerLogger.Trace($"[LoopbackHttpProtocol] Request parsing started remote={remoteEndPoint}");
 
-            int contentLength = 0;
-            if (headers.TryGetValue("Content-Length", out string rawContentLength) &&
-                !string.IsNullOrWhiteSpace(rawContentLength) &&
-                !int.TryParse(rawContentLength, out contentLength))
+            return await RunWithTimeoutAsync(async timeoutToken =>
             {
-                throw new InvalidDataException("Invalid Content-Length header");
-            }
+                int headerEndIndex = -1;
+                while (headerEndIndex < 0)
+                {
+                    int bytesRead = await stream.ReadAsync(readBuffer, 0, readBuffer.Length, timeoutToken);
+                    if (bytesRead == 0)
+                    {
+                        return -1;
+                    }
 
-            return contentLength > 0
-                ? await reader.ReadExactlyAsync(contentLength, ct)
-                : Array.Empty<byte>();
+                    headerBuffer.Write(readBuffer, 0, bytesRead);
+                    byte[] currentBytes = headerBuffer.GetBuffer();
+                    headerEndIndex = FindHeaderEnd(currentBytes, (int)headerBuffer.Length);
+
+                    if (headerBuffer.Length > 64 * 1024)
+                    {
+                        throw new InvalidDataException("HTTP headers too large");
+                    }
+                }
+
+                return headerEndIndex;
+            }, headerReadTimeout, "header", remoteEndPoint, ct);
+        }
+
+        private static async UniTask<byte[]> ReadBodyAsync(
+            BufferedByteReader reader,
+            IReadOnlyDictionary<string, string> headers,
+            EndPoint remoteEndPoint,
+            TimeSpan? bodyReadTimeout,
+            CancellationToken ct)
+        {
+            return await RunWithTimeoutAsync(async timeoutToken =>
+            {
+                if (headers.TryGetValue("Transfer-Encoding", out string transferEncoding) &&
+                    transferEncoding.IndexOf("chunked", StringComparison.OrdinalIgnoreCase) >= 0)
+                {
+                    return await ReadChunkedBodyAsync(reader, timeoutToken);
+                }
+
+                int contentLength = 0;
+                if (headers.TryGetValue("Content-Length", out string rawContentLength) &&
+                    !string.IsNullOrWhiteSpace(rawContentLength) &&
+                    !int.TryParse(rawContentLength, out contentLength))
+                {
+                    throw new InvalidDataException("Invalid Content-Length header");
+                }
+
+                return contentLength > 0
+                    ? await reader.ReadExactlyAsync(contentLength, timeoutToken)
+                    : Array.Empty<byte>();
+            }, bodyReadTimeout, "body", remoteEndPoint, ct);
         }
 
         private static async UniTask<byte[]> ReadChunkedBodyAsync(BufferedByteReader reader, CancellationToken ct)
@@ -233,10 +270,41 @@ namespace UnityCodeMcpServer.HttpServer
                     return "Method Not Allowed";
                 case 406:
                     return "Not Acceptable";
+                case 408:
+                    return "Request Timeout";
                 case 500:
                     return "Internal Server Error";
+                case 503:
+                    return "Service Unavailable";
                 default:
                     return "HTTP Response";
+            }
+        }
+
+        private static async UniTask<T> RunWithTimeoutAsync<T>(
+            Func<CancellationToken, UniTask<T>> action,
+            TimeSpan? timeout,
+            string stageName,
+            EndPoint remoteEndPoint,
+            CancellationToken ct)
+        {
+            if (!timeout.HasValue || timeout.Value <= TimeSpan.Zero)
+            {
+                return await action(ct);
+            }
+
+            using CancellationTokenSource timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+            timeoutCts.CancelAfter(timeout.Value);
+
+            try
+            {
+                return await action(timeoutCts.Token);
+            }
+            catch (OperationCanceledException ex) when (!ct.IsCancellationRequested)
+            {
+                string message = $"Timed out while reading HTTP {stageName} from {remoteEndPoint}";
+                UnityCodeMcpServerLogger.Warn($"[LoopbackHttpProtocol] {message}");
+                throw new TimeoutException(message, ex);
             }
         }
 

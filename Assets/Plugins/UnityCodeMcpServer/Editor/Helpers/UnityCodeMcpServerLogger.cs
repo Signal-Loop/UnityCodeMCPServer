@@ -32,16 +32,34 @@ namespace UnityCodeMcpServer.Helpers
         private static readonly int _max_log_files = 5;
         private static readonly long _max_log_file_size = 10 * 1024 * 1024; // 10 MB
         private static readonly string LogPrefix = "#UnityCodeMcpServer";
+        private static volatile LogLevel _cached_log_level = LogLevel.Warn;
+        private static volatile bool _cached_log_to_file;
 
-        private static LogLevel CurrentLevel =>
-            UnityCodeMcpServerSettings.Instance != null
-                ? UnityCodeMcpServerSettings.Instance.MinLogLevel
-                : LogLevel.Warn;
+        private static LogLevel CurrentLevel => _cached_log_level;
 
         private static bool IsEnabled(LogLevel level) => level >= CurrentLevel;
 
-        private static bool ShouldLogToFile() =>
-            UnityCodeMcpServerSettings.Instance != null && UnityCodeMcpServerSettings.Instance.LogToFile;
+        private static bool ShouldLogToFile() => _cached_log_to_file;
+
+        public static void RefreshSettingsCache()
+        {
+            try
+            {
+                UnityCodeMcpServerSettings settings = UnityCodeMcpServerSettings.Instance;
+                if (settings == null)
+                {
+                    return;
+                }
+
+                _cached_log_level = settings.MinLogLevel;
+                _cached_log_to_file = settings.LogToFile;
+            }
+            catch
+            {
+                _cached_log_level = LogLevel.Warn;
+                _cached_log_to_file = false;
+            }
+        }
 
         // ── public API ────────────────────────────────────────────────────────
 
