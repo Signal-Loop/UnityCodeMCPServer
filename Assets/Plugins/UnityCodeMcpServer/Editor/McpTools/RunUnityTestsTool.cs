@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
 using System.Text;
 using System.Text.Json;
 using Cysharp.Threading.Tasks;
@@ -67,7 +68,7 @@ Returns pass/fail status, total execution time, and detailed stack traces for an
                 return compilationBlockResult;
             }
 
-            if (ShouldBlockTestExecution(EditorApplication.isPlayingOrWillChangePlaymode))
+            if (ShouldBlockTestExecution(EditorApplication.isPlayingOrWillChangePlaymode, IsTestRunActive()))
             {
                 return BuildPlayModeStateBlockedResult();
             }
@@ -171,9 +172,24 @@ Returns pass/fail status, total execution time, and detailed stack traces for an
             return (mode & TestMode.EditMode) == TestMode.EditMode;
         }
 
-        public static bool ShouldBlockTestExecution(bool isPlayingOrWillChangePlaymode)
+        public static bool ShouldBlockTestExecution(bool isPlayingOrWillChangePlaymode, bool isTestRunActive)
         {
-            return isPlayingOrWillChangePlaymode;
+            return isPlayingOrWillChangePlaymode && !isTestRunActive;
+        }
+
+        internal static bool IsTestRunActive()
+        {
+            MethodInfo isRunActiveMethod = typeof(TestRunnerApi).GetMethod(
+                "IsRunActive",
+                BindingFlags.Static | BindingFlags.NonPublic);
+
+            if (isRunActiveMethod == null)
+            {
+                return false;
+            }
+
+            object result = isRunActiveMethod.Invoke(null, null);
+            return result is bool isActive && isActive;
         }
 
         public static ToolsCallResult BuildEditModeBlockedResult()

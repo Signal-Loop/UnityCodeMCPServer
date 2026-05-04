@@ -186,7 +186,8 @@ namespace UnityCodeMcpServer.Tests.EditMode
         public void ShouldBlockTestExecution_WhenPlaying_AndPlayModeRequested()
         {
             bool shouldBlock = RunUnityTestsTool.ShouldBlockTestExecution(
-                isPlayingOrWillChangePlaymode: true);
+                isPlayingOrWillChangePlaymode: true,
+                isTestRunActive: false);
 
             Assert.IsTrue(shouldBlock);
         }
@@ -195,7 +196,8 @@ namespace UnityCodeMcpServer.Tests.EditMode
         public void ShouldBlockTestExecution_WhenTransitioningPlayMode()
         {
             bool shouldBlock = RunUnityTestsTool.ShouldBlockTestExecution(
-                isPlayingOrWillChangePlaymode: true);
+                isPlayingOrWillChangePlaymode: true,
+                isTestRunActive: false);
 
             Assert.IsTrue(shouldBlock);
         }
@@ -204,7 +206,18 @@ namespace UnityCodeMcpServer.Tests.EditMode
         public void ShouldNotBlockTestExecution_WhenEditorIsStable()
         {
             bool shouldBlock = RunUnityTestsTool.ShouldBlockTestExecution(
-                isPlayingOrWillChangePlaymode: false);
+                isPlayingOrWillChangePlaymode: false,
+                isTestRunActive: false);
+
+            Assert.IsFalse(shouldBlock);
+        }
+
+        [Test]
+        public void ShouldNotBlockTestExecution_WhenPlayModeTestRunIsAlreadyActive()
+        {
+            bool shouldBlock = RunUnityTestsTool.ShouldBlockTestExecution(
+                isPlayingOrWillChangePlaymode: true,
+                isTestRunActive: true);
 
             Assert.IsFalse(shouldBlock);
         }
