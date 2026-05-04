@@ -14,14 +14,8 @@ MonoBehaviour:
   m_EditorClassIdentifier: UnityCodeMcpServer::UnityCodeMcpServer.Settings.UnityCodeMcpServerSettings
   MinLogLevel: 1
   LogToFile: 1
-  _lastHttpPort: 3002
-  _hasInitializedHttpPortTracking: 1
-  Backlog: 10
-  HttpPort: 3002
-  SessionTimeoutSeconds: 3600
-  SseKeepAliveIntervalSeconds: 30
   AdditionalAssemblyNames: []
-  InputActionsAssetPath: 
+  InputActionsAssetPath:
   SkillsInstallTarget: 2
   SkillsTargetPath: .agents/skills/
   _hasInitializedSkillsInstallTarget: 1

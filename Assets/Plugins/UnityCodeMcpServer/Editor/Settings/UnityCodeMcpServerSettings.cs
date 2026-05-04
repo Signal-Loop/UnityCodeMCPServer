@@ -57,25 +57,6 @@ namespace UnityCodeMcpServer.Settings
         [Tooltip("Enable logging to file (UnityCodeMcpServerLog.log in project root)")]
         public bool LogToFile = false;
 
-        [SerializeField, HideInInspector]
-        private int _lastHttpPort;
-
-        [SerializeField, HideInInspector]
-        private bool _hasInitializedHttpPortTracking;
-
-        [Tooltip("Maximum number of pending connections in the listen queue")]
-        public int Backlog = 10;
-
-        [Header("Streamable HTTP Server Configuration")]
-        [Tooltip("The port the HTTP server will listen on")]
-        public int HttpPort = 3001;
-
-        [Tooltip("Session timeout in seconds (0 = no timeout)")]
-        public int SessionTimeoutSeconds = 3600;
-
-        [Tooltip("Interval for SSE keep-alive pings in seconds")]
-        public int SseKeepAliveIntervalSeconds = 30;
-
         [Header("Script Execution Assemblies")]
         [Tooltip("Additional assemblies to load for C# script execution (beyond default assemblies)")]
         public List<string> AdditionalAssemblyNames = new();
@@ -325,36 +306,6 @@ namespace UnityCodeMcpServer.Settings
             AssetDatabase.SaveAssets();
             AssetDatabase.ImportAsset(_settingsAssetPath, ImportAssetOptions.ForceUpdate);
             Debug.Log($"{Protocol.McpProtocol.LogPrefix} Created new UnityCodeMcpServerSettings asset at {_settingsAssetPath}");
-        }
-
-        private void OnValidate()
-        {
-            bool shouldRestartHttp = ShouldRestartHttpForPortChange();
-
-            if (!shouldRestartHttp)
-            {
-                return;
-            }
-
-            ServerLifecycleCoordinator.UpdateServerState(restartHttp: true);
-        }
-
-        private bool ShouldRestartHttpForPortChange()
-        {
-            if (!_hasInitializedHttpPortTracking)
-            {
-                _hasInitializedHttpPortTracking = true;
-                _lastHttpPort = HttpPort;
-                return false;
-            }
-
-            if (_lastHttpPort == HttpPort)
-            {
-                return false;
-            }
-
-            _lastHttpPort = HttpPort;
-            return true;
         }
 
         /// <summary>

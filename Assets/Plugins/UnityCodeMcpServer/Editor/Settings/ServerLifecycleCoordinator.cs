@@ -1,45 +1,51 @@
 ﻿using System;
-using UnityCodeMcpServer.HttpServer;
+using UnityCodeMcpServer.FileServer;
 
 namespace UnityCodeMcpServer.Settings
 {
     /// <summary>
-    /// Centralizes HTTP server lifecycle calls.
-    /// Handlers are overridable for tests to avoid starting real listeners.
+    /// Centralizes file server lifecycle calls.
+    /// Handlers are overridable for tests to avoid starting the real watcher.
     /// </summary>
     public static class ServerLifecycleCoordinator
     {
-        private static Action _startHttp = UnityCodeMcpHttpServer.StartServer;
-        private static Action _restartHttp = UnityCodeMcpHttpServer.RestartServer;
+        private static Action _startServer = UnityCodeMcpFileServer.StartServer;
+        private static Action _restartServer = RestartFileServer;
 
         public static void UpdateServerState()
         {
-            UpdateServerState(restartHttp: false);
+            UpdateServerState(restartServer: false);
         }
 
-        public static void UpdateServerState(bool restartHttp)
+        public static void UpdateServerState(bool restartServer)
         {
-            if (restartHttp)
+            if (restartServer)
             {
-                _restartHttp?.Invoke();
+                _restartServer?.Invoke();
                 return;
             }
 
-            _startHttp?.Invoke();
+            _startServer?.Invoke();
         }
 
         public static void SetHandlers(
-            Action startHttp = null,
-            Action restartHttp = null)
+            Action startServer = null,
+            Action restartServer = null)
         {
-            _startHttp = startHttp ?? UnityCodeMcpHttpServer.StartServer;
-            _restartHttp = restartHttp ?? UnityCodeMcpHttpServer.RestartServer;
+            _startServer = startServer ?? UnityCodeMcpFileServer.StartServer;
+            _restartServer = restartServer ?? RestartFileServer;
         }
 
         public static void ResetHandlers()
         {
-            _startHttp = UnityCodeMcpHttpServer.StartServer;
-            _restartHttp = UnityCodeMcpHttpServer.RestartServer;
+            _startServer = UnityCodeMcpFileServer.StartServer;
+            _restartServer = RestartFileServer;
+        }
+
+        private static void RestartFileServer()
+        {
+            UnityCodeMcpFileServer.StopServer();
+            UnityCodeMcpFileServer.StartServer();
         }
     }
 }

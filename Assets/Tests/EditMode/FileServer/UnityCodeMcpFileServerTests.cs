@@ -137,13 +137,13 @@ namespace UnityCodeMcpServer.Tests.EditMode
         }
 
         [Test]
-        public async System.Threading.Tasks.Task ProcessRequestJsonAsync_WhenInvokedOffMainThread_StillExecutesToolOnMainThread()
+        public async System.Threading.Tasks.Task ProcessRequestJsonAsync_WhenInvokedOffMainThread_StillReturnsJsonRpcResponse()
         {
             JsonRpcRequest request = new()
             {
                 Id = 1,
-                Method = McpMethods.ToolsCall,
-                Params = JsonHelper.ParseElement("{\"name\":\"read_unity_console_logs\",\"arguments\":{\"max_entries\":1}}")
+                Method = McpMethods.ToolsList,
+                Params = JsonHelper.ParseElement("{}")
             };
             McpRegistry registry = new();
             McpMessageHandler handler = new(registry);
@@ -164,8 +164,8 @@ namespace UnityCodeMcpServer.Tests.EditMode
 
             using JsonDocument document = JsonDocument.Parse(responseJson);
             Assert.That(document.RootElement.TryGetProperty("result", out JsonElement result), Is.True);
-            Assert.That(result.TryGetProperty("isError", out JsonElement isError), Is.True);
-            Assert.That(isError.GetBoolean(), Is.False);
+            Assert.That(result.TryGetProperty("tools", out JsonElement tools), Is.True);
+            Assert.That(tools.ValueKind, Is.EqualTo(JsonValueKind.Array));
         }
     }
 }

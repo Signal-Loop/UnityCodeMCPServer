@@ -1,13 +1,13 @@
 # Unity Code MCP STDIO Bridge
 
-A Python package that bridges MCP (Model Context Protocol) over STDIO to Unity's Streamable HTTP endpoint.
+A Python package that bridges MCP (Model Context Protocol) over STDIO to Unity's file-backed transport.
 
 ## Overview
 
-This bridge enables MCP clients to communicate with UnityCodeMcpServer running inside the Unity Editor via Streamable HTTP. The bridge:
+This bridge enables MCP clients to communicate with UnityCodeMcpServer running inside the Unity Editor through `.unityCodeMcpServer/messages`. The bridge:
 
 1. Receives MCP messages via STDIO
-2. Forwards them to the Unity HTTP endpoint
+2. Writes them to Unity request files
 3. Returns responses back via STDIO
 
 ## Prerequisites
@@ -51,15 +51,11 @@ unity-code-mcp-stdio
 
 ### Command Line Arguments
 
-| Argument            | Default | Description                                                          |
-| ------------------- | ------- | -------------------------------------------------------------------- |
-| `--retry-time`      | `2`     | Seconds between HTTP retry attempts                                  |
-| `--retry-count`     | `5`     | Maximum number of HTTP retry attempts for one Unity request          |
-| `--request-timeout` | `120`   | Seconds to wait for each Unity HTTP request attempt                  |
+| Argument            | Default | Description                                                     |
+| ------------------- | ------- | --------------------------------------------------------------- |
+| `--request-timeout` | `180`   | Seconds to wait for a Unity response file before failing        |
 
-> **Note:** The host is hardcoded to `127.0.0.1` and the port is read automatically from `UnityCodeMcpServerSettings.asset` inside the Unity project.
-
-> **Note:** For the Unity Streamable HTTP backend, Unity now prefers reclaiming the configured HTTP port across its own reloads instead of drifting to a different port. The bridge continues reading the configured port from project settings, so manual port changes should not be required for Unity-owned reload conflicts.
+> **Note:** The bridge resolves the Unity project root automatically from the packaged `STDIO~` folder and exchanges files through `.unityCodeMcpServer/messages`.
 
 ### Examples
 
@@ -70,11 +66,8 @@ uv run unity-code-mcp-stdio
 # Run from any directory using --directory
 uv run --directory "C:/path/to/STDIO~" unity-code-mcp-stdio
 
-# With retry configuration
-uv run --directory "C:/path/to/STDIO~" unity-code-mcp-stdio --retry-time 3 --retry-count 10
-
 # Allow slower Unity operations before the bridge times out a stalled request
-uv run --directory "C:/path/to/STDIO~" unity-code-mcp-stdio --request-timeout 60
+uv run --directory "C:/path/to/STDIO~" unity-code-mcp-stdio --request-timeout 240
 ```
 
 ## MCP Configuration
@@ -95,44 +88,44 @@ uv run --directory "C:/path/to/STDIO~" unity-code-mcp-stdio --request-timeout 60
 }
 ```
 
-> **Note:** Replace `C:/Users/YOUR_USERNAME/path/to/...` with the actual path to your Unity project's STDIO folder. The port is read automatically from `UnityCodeMcpServerSettings.asset` inside the Unity project.
+> **Note:** Replace `C:/Users/YOUR_USERNAME/path/to/...` with the actual path to your Unity project's STDIO folder.
 
 ## Architecture
 
 ```
-┌─────────────────┐   HTTP / SSE   ┌─────────────────┐     STDIO      ┌─────────────────┐
-│                 │                │                 │                │                 │
-│  Unity Editor   │ ◄────────────► │  STDIO Bridge   │ ◄────────────► │  MCP Client     │
-│                 │                │                 │                │                 │
-└─────────────────┘                └─────────────────┘                └─────────────────┘
+┌─────────────────┐   request/response files   ┌─────────────────┐     STDIO      ┌─────────────────┐
+│                 │                            │                 │                │                 │
+│  Unity Editor   │ ◄────────────────────────► │  STDIO Bridge   │ ◄────────────► │  MCP Client     │
+│                 │                            │                 │                │                 │
+└─────────────────┘                            └─────────────────┘                └─────────────────┘
 ```
 
 ### Communication Flow
 
 1. **MCP Client → Bridge (STDIO):** MCP Client sends JSON-RPC 2.0 messages via stdin
-2. **Bridge → Unity (HTTP):** Bridge forwards each message as a fresh HTTP POST to Unity's `/mcp/` endpoint
-3. **Unity → Bridge (HTTP/SSE):** Unity responds with JSON or an SSE message containing the MCP response
-4. **Bridge → MCP Client (STDIO):** Bridge writes response to stdout
+2. **Bridge → Unity (files):** Bridge writes a request file to `.unityCodeMcpServer/messages`
+3. **Unity → Bridge (files):** Unity processes the request and writes a matching response file
+4. **Bridge → MCP Client (STDIO):** Bridge writes the response to stdout
 
-If Unity is unavailable during a request, the bridge retries the same HTTP request within the configured retry budget and then returns an actionable error if Unity still has not recovered.
+If Unity does not produce a matching response file before the timeout expires, the bridge returns an actionable error and removes the pending request file.
 
 ## Logging
 
-The bridge writes diagnostics to `src/unity_code_mcp_stdio/unity_code_mcp_bridge.log` next to the Python entrypoint. Logging stays file-only so stdout remains clean for JSON-RPC traffic.
+The bridge writes diagnostics to `src/unity_code_mcp_stdio/unity_code_mcp_bridge_over_file.log` next to the Python entrypoint. Logging stays file-only so stdout remains clean for JSON-RPC traffic.
 
 Each request now records enough context to trace failures across the transport boundary:
 
 - A bridge-local trace id for every forwarded Unity request
 - The JSON-RPC request id and method
 - Tool name, URI, and argument key summary when present
-- HTTP request start, retry, response, shutdown, and closed-stream events
+- File request creation, response wait, response handling, shutdown, and closed-stream events
 - Request duration, response summary, and error type/message on failure
-- HTTP status, content type, and timeout details when a request stalls or fails
+- Timeout details when a request stalls or fails
 - The last stdin line preview or last stdout message preview when framing breaks
 
 Log retention is bounded with size-based rotation:
 
-- Active log file: `unity_code_mcp_bridge.log`
+- Active log file: `unity_code_mcp_bridge_over_file.log`
 - Maximum size per file: 5 MB
 - Retained rotated files: 3 backups
 - Maximum on-disk footprint: about 20 MB including the active file

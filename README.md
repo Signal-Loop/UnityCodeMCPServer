@@ -171,15 +171,14 @@ https://github.com/Signal-Loop/UnityCodeMCPServer.git?path=Assets/Plugins/UnityC
 
 ### MCP client configuration
 
-1. Open your Unity project (the Streamable HTTP server auto-starts with the Editor).
-2. In Unity, run menu item: **Tools/UnityCodeMcpServer/HTTP/Print MCP configuration to console**.
-3. Copy the printed MCP configuration into your MCP client.
+1. Open your Unity project. The file server auto-starts with the Editor and watches `.unityCodeMcpServer/messages` in the project root.
+2. Configure your MCP client to run the bundled STDIO bridge.
 
 #### STDIO
 
 Example configuration (using `uv` to run the bridge):
 
-The `unity-code-mcp-stdio` bridge now forwards STDIO traffic to Unity's Streamable HTTP endpoint and reads the configured `HttpPort` from project settings automatically.
+The `unity-code-mcp-stdio` bridge now forwards STDIO traffic to Unity through the file-backed transport in `.unityCodeMcpServer/messages`.
 
 ```json
 {
@@ -197,39 +196,19 @@ The `unity-code-mcp-stdio` bridge now forwards STDIO traffic to Unity's Streamab
 }
 ```
 
-#### Streamable HTTP
-
-```json
-{
-  "servers": {
-    "unity-code-mcp-http": {
-      "url": "http://127.0.0.1:3001/mcp/",
-      "type": "http"
-    }
-  }
-}
-```
-
 ### Server configuration (Unity)
 
 1. Access (and create if necessary) settings via **Tools/UnityCodeMcpServer/Show or Create Settings**.
 2. Configure options:
    - **Verbose Logging**: Enable detailed logging for debugging
 
-- **HTTP Server**: Port (default: `3001`), backlog, session timeout, SSE keep-alive interval (changing the port restarts the HTTP server if running)
+- **File Server**: Request and response files are exchanged through `.unityCodeMcpServer/messages` in the Unity project root
 
 ### Menu commands
 
 #### General
 
 - **Tools/UnityCodeMcpServer/Show or Create Settings** — Open the server settings asset in the inspector
-
-#### HTTP Server
-
-- **Tools/UnityCodeMcpServer/HTTP/Refresh Registry** — Re-scan for new tools/prompts/resources
-- **Tools/UnityCodeMcpServer/HTTP/Restart Server** — Restart the HTTP server
-- **Tools/UnityCodeMcpServer/HTTP/Log Server Status** — Display current HTTP server status
-- **Tools/UnityCodeMcpServer/HTTP/Print MCP configuration to console** — Log MCP client configuration for HTTP server
 
 ## Built-in tools
 

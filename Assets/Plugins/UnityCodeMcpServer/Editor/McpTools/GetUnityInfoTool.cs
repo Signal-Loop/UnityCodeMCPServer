@@ -1,4 +1,5 @@
-﻿using System.Text;
+﻿using System.IO;
+using System.Text;
 using System.Text.Json;
 using UnityCodeMcpServer.Interfaces;
 using UnityCodeMcpServer.Protocol;
@@ -35,6 +36,7 @@ namespace UnityCodeMcpServer.McpTools
                 System.IO.Path.Combine(Application.dataPath, ".."));
 
             StringBuilder sb = new();
+            string messageDirectory = Path.Combine(projectPath, ".unityCodeMcpServer", "messages");
             sb.AppendLine("## Unity Project Info");
             sb.AppendLine();
             sb.AppendLine($"**Project Path:** {projectPath}");
@@ -43,12 +45,10 @@ namespace UnityCodeMcpServer.McpTools
             sb.AppendLine("## UnityCodeMcpServer Settings");
             sb.AppendLine();
             sb.AppendLine($"- **Min Log Level:** {settings.MinLogLevel}");
+            sb.AppendLine($"- **Log To File:** {settings.LogToFile}");
             sb.AppendLine();
-            sb.AppendLine("### HTTP Server");
-            sb.AppendLine($"- **Port:** {settings.HttpPort}");
-            sb.AppendLine($"- **Backlog:** {settings.Backlog}");
-            sb.AppendLine($"- **Session Timeout (s):** {settings.SessionTimeoutSeconds}");
-            sb.AppendLine($"- **SSE Keep-Alive Interval (s):** {settings.SseKeepAliveIntervalSeconds}");
+            sb.AppendLine("### File Server");
+            sb.AppendLine($"- **Messages Directory:** {messageDirectory}");
             sb.AppendLine();
             sb.AppendLine("### Script Execution Assemblies");
             sb.AppendLine("**Default Assemblies:**");

@@ -15,7 +15,7 @@ namespace UnityCodeMcpServer.Editor.Installer
         private static readonly string[] FilesToCopy =
         {
             "src/unity_code_mcp_stdio/__init__.py",
-            "src/unity_code_mcp_stdio/unity_code_mcp_bridge_stdio.py",
+            "src/unity_code_mcp_stdio/unity_code_mcp_bridge_over_file.py",
             "pyproject.toml",
             "uv.lock"
         };

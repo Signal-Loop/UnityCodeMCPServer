@@ -29,15 +29,7 @@ MODULE_PATH = (
 )
 
 
-def load_bridge_over_file_without_stdio_dependency(monkeypatch):
-    original_import = builtins.__import__
-
-    def guarded_import(name, globals=None, locals=None, fromlist=(), level=0):
-        if name == "unity_code_mcp_stdio.unity_code_mcp_bridge_stdio":
-            raise AssertionError("stdio bridge import is not allowed")
-        return original_import(name, globals, locals, fromlist, level)
-
-    monkeypatch.setattr(builtins, "__import__", guarded_import)
+def load_bridge_over_file_module():
     spec = importlib.util.spec_from_file_location(
         "isolated_bridge_over_file",
         MODULE_PATH,
@@ -56,6 +48,13 @@ class TestFileBridgePaths:
     def test_default_file_request_timeout_is_180_seconds(self):
         assert DEFAULT_FILE_REQUEST_TIMEOUT == 180.0
 
+    def test_package_main_uses_file_bridge_entrypoint(self):
+        import unity_code_mcp_stdio
+        import unity_code_mcp_stdio.unity_code_mcp_bridge_over_file as file_bridge
+
+        assert unity_code_mcp_stdio.main is file_bridge.main
+        assert unity_code_mcp_stdio.UnityFileClient is file_bridge.UnityFileClient
+
     def test_get_project_root_resolves_workspace_root(self):
         project_root = get_project_root()
 
@@ -70,13 +69,13 @@ class TestFileBridgePaths:
         assert request_path.name == "20260504123456789_request_client-123.json"
         assert request_path.parent == tmp_path / ".unityCodeMcpServer" / "messages"
 
-    def test_module_loads_without_importing_stdio_bridge(self, monkeypatch):
-        module = load_bridge_over_file_without_stdio_dependency(monkeypatch)
+    def test_module_loads_in_isolation(self):
+        module = load_bridge_over_file_module()
 
         assert module.DEFAULT_FILE_REQUEST_TIMEOUT == 180.0
 
-    def test_module_configures_file_logging_on_import(self, monkeypatch):
-        module = load_bridge_over_file_without_stdio_dependency(monkeypatch)
+    def test_module_configures_file_logging_on_import(self):
+        module = load_bridge_over_file_module()
 
         assert any(
             isinstance(handler, logging.FileHandler)

@@ -16,19 +16,12 @@ namespace UnityCodeMcpServer.Tests.EditMode
     [TestFixture]
     public class UnityCodeMcpServerSettingsTests
     {
-        private static void InvokeOnValidate(UnityCodeMcpServerSettings settings)
-        {
-            MethodInfo method = typeof(UnityCodeMcpServerSettings)
-                .GetMethod("OnValidate", BindingFlags.Instance | BindingFlags.NonPublic);
-            method?.Invoke(settings, null);
-        }
-
         [SetUp]
         public void SetUp()
         {
             ServerLifecycleCoordinator.SetHandlers(
-                startHttp: () => { },
-                restartHttp: () => { });
+                startServer: () => { },
+                restartServer: () => { });
         }
 
         [TearDown]
@@ -38,13 +31,13 @@ namespace UnityCodeMcpServer.Tests.EditMode
         }
 
         [Test]
-        public void DefaultHttpPort_Is3001()
+        public void DefaultLogToFile_IsFalse()
         {
             UnityCodeMcpServerSettings settings = ScriptableObject.CreateInstance<UnityCodeMcpServerSettings>();
 
             try
             {
-                Assert.That(settings.HttpPort, Is.EqualTo(3001));
+                Assert.That(settings.LogToFile, Is.False);
             }
             finally
             {
@@ -238,56 +231,6 @@ namespace UnityCodeMcpServer.Tests.EditMode
             }
         }
 
-        [Test]
-        public void OnValidate_InitialHttpPortTracking_DoesNotRestartHttpImmediately()
-        {
-            int restartHttpCount = 0;
-            ServerLifecycleCoordinator.SetHandlers(
-                startHttp: () => { },
-                restartHttp: () => restartHttpCount++);
-
-            UnityCodeMcpServerSettings settings = ScriptableObject.CreateInstance<UnityCodeMcpServerSettings>();
-
-            try
-            {
-                settings.HttpPort = 3001;
-
-                InvokeOnValidate(settings);
-
-                Assert.That(restartHttpCount, Is.EqualTo(0));
-            }
-            finally
-            {
-                ScriptableObject.DestroyImmediate(settings);
-            }
-        }
-
-        [Test]
-        public void OnValidate_HttpPortChange_RestartsHttp()
-        {
-            int restartHttpCount = 0;
-            ServerLifecycleCoordinator.SetHandlers(
-                startHttp: () => { },
-                restartHttp: () => restartHttpCount++);
-
-            UnityCodeMcpServerSettings settings = ScriptableObject.CreateInstance<UnityCodeMcpServerSettings>();
-
-            try
-            {
-                settings.HttpPort = 3001;
-                InvokeOnValidate(settings);
-
-                settings.HttpPort = 3002;
-                InvokeOnValidate(settings);
-
-                Assert.That(restartHttpCount, Is.EqualTo(1));
-            }
-            finally
-            {
-                ScriptableObject.DestroyImmediate(settings);
-            }
-        }
-
         #region Asset Creation Flow Tests
 
         private const string TestSettingsAssetPath = "Assets/Tests/EditMode/TestResources/TestUnityCodeMcpServerSettings.asset";
@@ -341,7 +284,7 @@ namespace UnityCodeMcpServer.Tests.EditMode
             DeleteTestAsset();
 
             UnityCodeMcpServerSettings firstInstance = ScriptableObject.CreateInstance<UnityCodeMcpServerSettings>();
-            firstInstance.HttpPort = 12345;
+            firstInstance.LogToFile = false;
 
             // Create first asset
             UnityCodeMcpServerSettings.SaveInstance(firstInstance);
@@ -350,18 +293,18 @@ namespace UnityCodeMcpServer.Tests.EditMode
             {
                 // Modify the loaded asset
                 UnityCodeMcpServerSettings loadedAsset = AssetDatabase.LoadAssetAtPath<UnityCodeMcpServerSettings>(TestSettingsAssetPath);
-                loadedAsset.HttpPort = 99999;
+                loadedAsset.LogToFile = true;
                 EditorUtility.SetDirty(loadedAsset);
                 AssetDatabase.SaveAssets();
 
                 // Try to save a different instance
                 UnityCodeMcpServerSettings secondInstance = ScriptableObject.CreateInstance<UnityCodeMcpServerSettings>();
-                secondInstance.HttpPort = 54321;
+                secondInstance.LogToFile = false;
                 UnityCodeMcpServerSettings.SaveInstance(secondInstance);
 
                 // Verify original asset was not overwritten
                 UnityCodeMcpServerSettings reloadedAsset = AssetDatabase.LoadAssetAtPath<UnityCodeMcpServerSettings>(TestSettingsAssetPath);
-                Assert.That(reloadedAsset.HttpPort, Is.EqualTo(99999), "Existing asset should not be overwritten");
+                Assert.That(reloadedAsset.LogToFile, Is.True, "Existing asset should not be overwritten");
 
                 // Second instance was not saved, can be destroyed
                 ScriptableObject.DestroyImmediate(secondInstance);
@@ -419,7 +362,7 @@ namespace UnityCodeMcpServer.Tests.EditMode
 
             // Create an asset first
             UnityCodeMcpServerSettings originalAsset = ScriptableObject.CreateInstance<UnityCodeMcpServerSettings>();
-            originalAsset.HttpPort = 77777;
+            originalAsset.LogToFile = true;
             UnityCodeMcpServerSettings.SaveInstance(originalAsset);
             // originalAsset is now an asset, don't hold reference
 
@@ -430,7 +373,7 @@ namespace UnityCodeMcpServer.Tests.EditMode
 
                 // Verify it returned the existing asset
                 Assert.That(retrievedAsset, Is.Not.Null);
-                Assert.That(retrievedAsset.HttpPort, Is.EqualTo(77777), "Should return existing asset with same values");
+                Assert.That(retrievedAsset.LogToFile, Is.True, "Should return existing asset with same values");
             }
             finally
             {
@@ -454,7 +397,7 @@ namespace UnityCodeMcpServer.Tests.EditMode
                 Assert.That(File.Exists(TestSettingsAssetPath), Is.True, "Asset file should be created");
 
                 // Verify it has default values
-                Assert.That(asset.HttpPort, Is.EqualTo(3001), "Should have default port value");
+                Assert.That(asset.LogToFile, Is.False, "Should have default log-to-file value");
                 Assert.That(asset.SkillsInstallTarget, Is.EqualTo(UnityCodeMcpServerSettings.SkillInstallTarget.Agents));
                 Assert.That(asset.SkillsTargetPath, Is.EqualTo(".agents/skills/"));
 
@@ -694,7 +637,7 @@ namespace UnityCodeMcpServer.Tests.EditMode
             DeleteTestAsset();
 
             UnityCodeMcpServerSettings original = ScriptableObject.CreateInstance<UnityCodeMcpServerSettings>();
-            original.HttpPort = 55555;
+            original.LogToFile = true;
             UnityCodeMcpServerSettings.SaveInstance(original);
 
             // Clear the cache so Instance has to re-initialize
@@ -706,49 +649,11 @@ namespace UnityCodeMcpServer.Tests.EditMode
                 UnityCodeMcpServerSettings instance = UnityCodeMcpServerSettings.Instance;
 
                 // Assert: should have loaded the saved asset, not a brand-new default one
-                Assert.That(instance.HttpPort, Is.EqualTo(55555),
+                Assert.That(instance.LogToFile, Is.True,
                     "Instance should load the existing asset from disk, not create a new default ScriptableObject");
             }
             finally
             {
-                ResetInstanceCache();
-                DeleteTestAsset();
-            }
-        }
-
-        [Test]
-        public void OnValidate_LogsHttpPortFromThisNotFromInstance()
-        {
-            // Arrange: save an asset with port 11111 so Instance would return that if accessed
-            ResetInstanceCache();
-            DeleteTestAsset();
-
-            UnityCodeMcpServerSettings assetInstance = ScriptableObject.CreateInstance<UnityCodeMcpServerSettings>();
-            assetInstance.HttpPort = 11111;
-            UnityCodeMcpServerSettings.SaveInstance(assetInstance);
-            ResetInstanceCache();
-
-            // Create a separate in-memory settings with a different port
-            UnityCodeMcpServerSettings inMemorySettings = ScriptableObject.CreateInstance<UnityCodeMcpServerSettings>();
-            inMemorySettings.HttpPort = 22222;
-
-            try
-            {
-                // If OnValidate reads from `this`, the logged port should reflect inMemorySettings.HttpPort.
-                // If it incorrectly reads from `Instance`, it would see 11111 (from the asset).
-                // We verify indirectly: after OnValidate the port on `this` object is unchanged.
-                InvokeOnValidate(inMemorySettings);
-
-                Assert.That(inMemorySettings.HttpPort, Is.EqualTo(22222),
-                    "OnValidate must not overwrite 'this' port by reading from Instance");
-
-                // Also confirm Instance has loaded the asset (port 11111), not the in-memory object
-                Assert.That(UnityCodeMcpServerSettings.Instance.HttpPort, Is.EqualTo(11111),
-                    "Instance should be the saved asset, independent from the in-memory settings object");
-            }
-            finally
-            {
-                ScriptableObject.DestroyImmediate(inMemorySettings);
                 ResetInstanceCache();
                 DeleteTestAsset();
             }
@@ -857,17 +762,17 @@ namespace UnityCodeMcpServer.Tests.EditMode
         [UnityTest]
         public IEnumerator OnInspectorGUI_SavesDirtySettingsToDisk()
         {
-            // Arrange: create a settings asset on disk with a known port value
+            // Arrange: create a settings asset on disk with a known logging value
             DeleteTestAsset();
             UnityCodeMcpServerSettings initial = ScriptableObject.CreateInstance<UnityCodeMcpServerSettings>();
-            initial.HttpPort = 11111;
+            initial.LogToFile = false;
             UnityCodeMcpServerSettings.SaveInstance(initial);
 
             UnityCodeMcpServerSettings loadedSettings = AssetDatabase.LoadAssetAtPath<UnityCodeMcpServerSettings>(TestSettingsAssetPath);
             Assert.That(loadedSettings, Is.Not.Null);
 
-            // Act: change the port and mark the asset dirty, then let the inspector run
-            loadedSettings.HttpPort = 22222;
+            // Act: change the log setting and mark the asset dirty, then let the inspector run
+            loadedSettings.LogToFile = true;
             EditorUtility.SetDirty(loadedSettings);
 
             UnityCodeMcpServerSettingsEditor inspector = (UnityCodeMcpServer.Settings.Editor.UnityCodeMcpServerSettingsEditor)
@@ -887,10 +792,10 @@ namespace UnityCodeMcpServer.Tests.EditMode
             window.Close();
             UnityEngine.Object.DestroyImmediate(inspector);
 
-            // Assert: the .asset file on disk must now contain the updated port
+            // Assert: the .asset file on disk must now contain the updated value
             string diskContent = File.ReadAllText(TestSettingsAssetPath);
-            Assert.That(diskContent, Does.Contain("22222"),
-                "HttpPort change should be flushed to disk by OnInspectorGUI via AssetDatabase.SaveAssetIfDirty");
+            Assert.That(diskContent, Does.Contain("LogToFile: 1"),
+                "Settings changes should be flushed to disk by OnInspectorGUI via AssetDatabase.SaveAssetIfDirty");
 
             DeleteTestAsset();
         }
