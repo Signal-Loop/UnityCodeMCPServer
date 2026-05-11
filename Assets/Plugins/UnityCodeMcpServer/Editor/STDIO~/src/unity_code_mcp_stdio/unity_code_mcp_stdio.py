@@ -220,12 +220,11 @@ class UnityFileClient(UnityBridgeClient):
     async def disconnect(self, reason: str = "manual") -> None:
         logger.info("File bridge reset reason=%s", reason)
 
-    async def _wait_for_response(self, request_path: Path, response_path: Path) -> None:
+    async def _wait_for_response(self, response_path: Path) -> None:
         with anyio.fail_after(self.request_timeout):
             while not response_path.exists():
                 logger.debug(
-                    "Waiting for Unity file response request=%s response=%s",
-                    request_path.name,
+                    "Waiting for Unity file response response=%s",
                     response_path.name,
                 )
                 await anyio.sleep(self.response_poll_interval)
@@ -257,7 +256,7 @@ class UnityFileClient(UnityBridgeClient):
             )
 
             try:
-                await self._wait_for_response(request_path, response_path)
+                await self._wait_for_response(response_path)
                 logger.debug(
                     "trace=%s Unity file response detected response=%s",
                     trace_id,

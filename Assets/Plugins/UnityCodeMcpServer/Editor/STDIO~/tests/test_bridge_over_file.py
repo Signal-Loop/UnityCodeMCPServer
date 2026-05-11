@@ -1,6 +1,5 @@
 """Tests for the file-backed Unity Code MCP STDIO bridge."""
 
-import builtins
 import importlib.util
 import json
 import logging
@@ -110,8 +109,8 @@ class TestUnityFileClient:
             "params": {},
         }
 
-        async def fake_wait_for_response(request_path, response_path):
-            assert request_path.exists()
+        async def fake_wait_for_response(response_path):
+            assert response_path.name.endswith("_response_client-123.json")
             response_path.write_text(
                 json.dumps(
                     {
@@ -132,6 +131,47 @@ class TestUnityFileClient:
         assert list(client.paths.messages_dir.glob("*_response_client-123.json")) == []
 
     @pytest.mark.asyncio
+    async def test_send_request_succeeds_after_unity_deletes_request_file(
+        self, tmp_path
+    ):
+        client = UnityFileClient(
+            project_root=tmp_path,
+            client_id="client-123",
+            request_timeout=1.0,
+        )
+        request_payload = {
+            "jsonrpc": "2.0",
+            "id": "tools",
+            "method": "tools/list",
+            "params": {},
+        }
+        request_paths: list[Path] = []
+
+        async def fake_wait_for_response(response_path):
+            request_paths.extend(
+                client.paths.messages_dir.glob("*_request_client-123.json")
+            )
+            assert len(request_paths) == 1
+            request_paths[0].unlink(missing_ok=True)
+            response_path.write_text(
+                json.dumps(
+                    {
+                        "jsonrpc": "2.0",
+                        "id": "tools",
+                        "result": {"tools": []},
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+        client._wait_for_response = fake_wait_for_response
+
+        response = await client.send_request(request_payload)
+
+        assert response["result"] == {"tools": []}
+        assert request_paths[0].exists() is False
+
+    @pytest.mark.asyncio
     async def test_send_request_returns_timeout_error_and_removes_request_file(
         self, tmp_path
     ):
@@ -147,7 +187,7 @@ class TestUnityFileClient:
             "params": {},
         }
 
-        async def fake_wait_for_response(request_path, response_path):
+        async def fake_wait_for_response(response_path):
             raise TimeoutError("timed out")
 
         client._wait_for_response = fake_wait_for_response

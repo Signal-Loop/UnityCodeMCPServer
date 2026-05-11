@@ -82,10 +82,35 @@ namespace UnityCodeMcpServer.Tests.EditMode
 
             Assert.That(processed, Is.True);
             Assert.That(File.Exists(responsePath), Is.True);
+            Assert.That(File.Exists(requestPath), Is.False);
 
             using JsonDocument document = JsonDocument.Parse(File.ReadAllText(responsePath));
             Assert.That(document.RootElement.TryGetProperty("result", out JsonElement result), Is.True);
             Assert.That(result.TryGetProperty("tools", out _), Is.True);
+        }
+
+        [Test]
+        public async System.Threading.Tasks.Task ReadAndDeleteRequestAsync_ReturnsJsonAndDeletesRequestFile()
+        {
+            string messagesDirectory = Path.Combine(_projectRoot, ".unityCodeMcpServer", "messages");
+            Directory.CreateDirectory(messagesDirectory);
+
+            string requestPath = Path.Combine(messagesDirectory, "20260504120000001_request_client-a.json");
+            File.WriteAllText(requestPath, "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/list\",\"params\":{}}");
+
+            MethodInfo method = typeof(UnityCodeMcpFileServer).GetMethod(
+                "ReadAndDeleteRequestAsync",
+                BindingFlags.NonPublic | BindingFlags.Static);
+
+            Assert.That(method, Is.Not.Null);
+
+            UniTask<string> task = (UniTask<string>)method.Invoke(
+                null,
+                new object[] { requestPath, CancellationToken.None });
+            string requestJson = await task;
+
+            Assert.That(requestJson, Does.Contain("\"tools/list\""));
+            Assert.That(File.Exists(requestPath), Is.False);
         }
 
         [Test]
@@ -167,5 +192,6 @@ namespace UnityCodeMcpServer.Tests.EditMode
             Assert.That(result.TryGetProperty("tools", out JsonElement tools), Is.True);
             Assert.That(tools.ValueKind, Is.EqualTo(JsonValueKind.Array));
         }
+
     }
 }

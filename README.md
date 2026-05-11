@@ -171,7 +171,7 @@ https://github.com/Signal-Loop/UnityCodeMCPServer.git?path=Assets/Plugins/UnityC
 
 ### MCP client configuration
 
-1. Open your Unity project. The file server auto-starts with the Editor and watches `.unityCodeMcpServer/messages` in the project root.
+1. Open your Unity project. The file server auto-starts with the Editor, watches `.unityCodeMcpServer/messages` in the project root, and deletes each request file as soon as Unity has claimed it for processing.
 2. Configure your MCP client to run the bundled STDIO bridge.
 
 #### STDIO
@@ -202,7 +202,7 @@ The `unity-code-mcp-stdio` bridge now forwards STDIO traffic to Unity through th
 2. Configure options:
    - **Verbose Logging**: Enable detailed logging for debugging
 
-- **File Server**: Request and response files are exchanged through `.unityCodeMcpServer/messages` in the Unity project root
+- **File Server**: Request and response files are exchanged through `.unityCodeMcpServer/messages` in the Unity project root, with Unity deleting request files after claiming them and the bridge waiting only for response files
 
 ### Menu commands
 

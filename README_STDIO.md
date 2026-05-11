@@ -104,10 +104,12 @@ uv run --directory "C:/path/to/STDIO~" unity-code-mcp-stdio --request-timeout 24
 
 1. **MCP Client → Bridge (STDIO):** MCP Client sends JSON-RPC 2.0 messages via stdin
 2. **Bridge → Unity (files):** Bridge writes a request file to `.unityCodeMcpServer/messages`
-3. **Unity → Bridge (files):** Unity processes the request and writes a matching response file
+3. **Unity → Bridge (files):** Unity claims the request by reading and deleting the request file, then writes a matching response file
 4. **Bridge → MCP Client (STDIO):** Bridge writes the response to stdout
 
-If Unity does not produce a matching response file before the timeout expires, the bridge returns an actionable error and removes the pending request file.
+The bridge only waits for the matching response file. It does not require the request file to remain present after Unity starts processing.
+
+If Unity does not produce a matching response file before the timeout expires, the bridge returns an actionable error and removes the pending request file if it is still present.
 
 ## Logging
 

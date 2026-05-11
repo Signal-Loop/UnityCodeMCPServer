@@ -214,7 +214,7 @@ namespace UnityCodeMcpServer.FileServer
 
             ct.ThrowIfCancellationRequested();
             UnityCodeMcpServerLogger.Debug($"[UnityCodeMcpFileServer] Processing request file request={request.RequestPath}");
-            string requestJson = await File.ReadAllTextAsync(request.RequestPath, ct);
+            string requestJson = await ReadAndDeleteRequestAsync(request.RequestPath, ct);
             string responseJson = await ProcessRequestJsonAsync(messageHandler, requestJson, ct);
             if (responseJson != null)
             {
@@ -227,6 +227,16 @@ namespace UnityCodeMcpServer.FileServer
             }
 
             return true;
+        }
+
+        private static async UniTask<string> ReadAndDeleteRequestAsync(
+            string requestPath,
+            CancellationToken ct)
+        {
+            string requestJson = await File.ReadAllTextAsync(requestPath, ct);
+            File.Delete(requestPath);
+            UnityCodeMcpServerLogger.Debug($"[UnityCodeMcpFileServer] Claimed request file request={requestPath}");
+            return requestJson;
         }
 
         private static async UniTask<string> ProcessRequestJsonAsync(
