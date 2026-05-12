@@ -214,29 +214,27 @@ namespace UnityCodeMcpServer.FileServer
 
             ct.ThrowIfCancellationRequested();
             UnityCodeMcpServerLogger.Debug($"[UnityCodeMcpFileServer] Processing request file request={request.RequestPath}");
-            string requestJson = await ReadAndDeleteRequestAsync(request.RequestPath, ct);
+            string requestJson = await ReadRequestAsync(request.RequestPath, ct);
             string responseJson = await ProcessRequestJsonAsync(messageHandler, requestJson, ct);
             if (responseJson != null)
             {
-                await WriteAllTextAtomicallyAsync(request.ResponsePath, responseJson, ct);
+                await WriteAllTextAtomicallyAsync(request.ResponsePath, responseJson, request.RequestPath, ct);
                 UnityCodeMcpServerLogger.Debug($"[UnityCodeMcpFileServer] Wrote response file response={request.ResponsePath}");
             }
             else
             {
+                DeleteRequestFile(request.RequestPath);
                 UnityCodeMcpServerLogger.Debug($"[UnityCodeMcpFileServer] Request was a notification with no response file request={request.RequestPath}");
             }
 
             return true;
         }
 
-        private static async UniTask<string> ReadAndDeleteRequestAsync(
+        private static async UniTask<string> ReadRequestAsync(
             string requestPath,
             CancellationToken ct)
         {
-            string requestJson = await File.ReadAllTextAsync(requestPath, ct);
-            File.Delete(requestPath);
-            UnityCodeMcpServerLogger.Debug($"[UnityCodeMcpFileServer] Claimed request file request={requestPath}");
-            return requestJson;
+            return await File.ReadAllTextAsync(requestPath, ct);
         }
 
         private static async UniTask<string> ProcessRequestJsonAsync(
@@ -248,9 +246,21 @@ namespace UnityCodeMcpServer.FileServer
             return await messageHandler.ProcessMessageAsync(requestJson);
         }
 
+        private static void DeleteRequestFile(string requestPath)
+        {
+            if (!File.Exists(requestPath))
+            {
+                return;
+            }
+
+            File.Delete(requestPath);
+            UnityCodeMcpServerLogger.Debug($"[UnityCodeMcpFileServer] Deleted request file request={requestPath}");
+        }
+
         private static async UniTask WriteAllTextAtomicallyAsync(
             string path,
             string content,
+            string requestPath,
             CancellationToken ct)
         {
             string temporaryPath = Path.Combine(
@@ -267,6 +277,7 @@ namespace UnityCodeMcpServer.FileServer
                 }
 
                 File.Move(temporaryPath, path);
+                DeleteRequestFile(requestPath);
             }
             finally
             {

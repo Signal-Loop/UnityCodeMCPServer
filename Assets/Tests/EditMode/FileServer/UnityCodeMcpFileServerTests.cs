@@ -90,7 +90,7 @@ namespace UnityCodeMcpServer.Tests.EditMode
         }
 
         [Test]
-        public async System.Threading.Tasks.Task ReadAndDeleteRequestAsync_ReturnsJsonAndDeletesRequestFile()
+        public async System.Threading.Tasks.Task ReadRequestAsync_ReturnsJsonWithoutDeletingRequestFile()
         {
             string messagesDirectory = Path.Combine(_projectRoot, ".unityCodeMcpServer", "messages");
             Directory.CreateDirectory(messagesDirectory);
@@ -99,7 +99,7 @@ namespace UnityCodeMcpServer.Tests.EditMode
             File.WriteAllText(requestPath, "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/list\",\"params\":{}}");
 
             MethodInfo method = typeof(UnityCodeMcpFileServer).GetMethod(
-                "ReadAndDeleteRequestAsync",
+            "ReadRequestAsync",
                 BindingFlags.NonPublic | BindingFlags.Static);
 
             Assert.That(method, Is.Not.Null);
@@ -110,7 +110,7 @@ namespace UnityCodeMcpServer.Tests.EditMode
             string requestJson = await task;
 
             Assert.That(requestJson, Does.Contain("\"tools/list\""));
-            Assert.That(File.Exists(requestPath), Is.False);
+            Assert.That(File.Exists(requestPath), Is.True);
         }
 
         [Test]
@@ -128,7 +128,7 @@ namespace UnityCodeMcpServer.Tests.EditMode
 
             UniTask task = (UniTask)method.Invoke(
                 null,
-                new object[] { responsePath, "{\"jsonrpc\":\"2.0\"}", CancellationToken.None });
+                new object[] { responsePath, "{\"jsonrpc\":\"2.0\"}", null, CancellationToken.None });
             await task;
 
             Assert.That(File.Exists(responsePath), Is.True);
@@ -154,11 +154,70 @@ namespace UnityCodeMcpServer.Tests.EditMode
 
             UniTask task = (UniTask)method.Invoke(
                 null,
-                new object[] { responsePath, "{\"jsonrpc\":\"2.0\"}", cts.Token });
+                new object[] { responsePath, "{\"jsonrpc\":\"2.0\"}", null, cts.Token });
 
             Assert.ThrowsAsync<System.Threading.Tasks.TaskCanceledException>(async () => await task);
             Assert.That(File.Exists(responsePath), Is.False);
             Assert.That(Directory.GetFiles(messagesDirectory, "*.tmp"), Is.Empty);
+        }
+
+        [Test]
+        public async System.Threading.Tasks.Task WriteAllTextAtomicallyAsync_WhenMoveFails_LeavesRequestFileInPlace()
+        {
+            string messagesDirectory = Path.Combine(_projectRoot, ".unityCodeMcpServer", "messages");
+            Directory.CreateDirectory(messagesDirectory);
+            string requestPath = Path.Combine(messagesDirectory, "20260504120000003_request_client-a.json");
+            string responsePath = Path.Combine(messagesDirectory, "20260504120000003_response_client-a.json");
+            File.WriteAllText(requestPath, "{\"jsonrpc\":\"2.0\",\"id\":1}");
+            Directory.CreateDirectory(responsePath);
+
+            MethodInfo method = typeof(UnityCodeMcpFileServer).GetMethod(
+                "WriteAllTextAtomicallyAsync",
+                BindingFlags.NonPublic | BindingFlags.Static);
+
+            Assert.That(method, Is.Not.Null);
+
+            UniTask task = (UniTask)method.Invoke(
+                null,
+                new object[] { responsePath, "{\"jsonrpc\":\"2.0\"}", requestPath, CancellationToken.None });
+
+            IOException exception = null;
+            try
+            {
+                await task;
+            }
+            catch (IOException ex)
+            {
+                exception = ex;
+            }
+
+            Assert.That(exception, Is.Not.Null);
+            Assert.That(File.Exists(requestPath), Is.True);
+            Assert.That(Directory.GetFiles(messagesDirectory, "*.tmp"), Is.Empty);
+        }
+
+        [Test]
+        public async System.Threading.Tasks.Task WriteAllTextAtomicallyAsync_DeletesRequestFileAfterResponseIsMoved()
+        {
+            string messagesDirectory = Path.Combine(_projectRoot, ".unityCodeMcpServer", "messages");
+            Directory.CreateDirectory(messagesDirectory);
+            string requestPath = Path.Combine(messagesDirectory, "20260504120000003_request_client-a.json");
+            string responsePath = Path.Combine(messagesDirectory, "20260504120000003_response_client-a.json");
+            File.WriteAllText(requestPath, "{\"jsonrpc\":\"2.0\",\"id\":1}");
+
+            MethodInfo method = typeof(UnityCodeMcpFileServer).GetMethod(
+                "WriteAllTextAtomicallyAsync",
+                BindingFlags.NonPublic | BindingFlags.Static);
+
+            Assert.That(method, Is.Not.Null);
+
+            UniTask task = (UniTask)method.Invoke(
+                null,
+                new object[] { responsePath, "{\"jsonrpc\":\"2.0\"}", requestPath, CancellationToken.None });
+            await task;
+
+            Assert.That(File.Exists(responsePath), Is.True);
+            Assert.That(File.Exists(requestPath), Is.False);
         }
 
         [Test]
