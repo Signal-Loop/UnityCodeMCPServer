@@ -6,6 +6,7 @@ using Cysharp.Threading.Tasks;
 using UnityCodeMcpServer.Helpers;
 using UnityCodeMcpServer.Interfaces;
 using UnityCodeMcpServer.Protocol;
+using UnityEngine;
 
 namespace UnityCodeMcpServer.Registry
 {
@@ -176,15 +177,26 @@ namespace UnityCodeMcpServer.Registry
         /// </summary>
         public async UniTask<ToolsCallResult> ExecuteToolAsync(string name, JsonElement arguments)
         {
+
+            bool applicationRunInBackground = Application.runInBackground;
+
             if (_syncTools.TryGetValue(name, out ITool syncTool))
             {
                 try
                 {
+                    Application.runInBackground = true;
+                    UnityCodeMcpServerLogger.Debug($"#PlayUnityGameTool: Set Application.runInBackground=true to allow input without focus. Previous value was {applicationRunInBackground}.");
+
                     return syncTool.Execute(arguments);
                 }
                 catch (Exception ex)
                 {
                     return ToolsCallResult.ErrorResult($"Tool execution error: {ex.Message}");
+                }
+                finally
+                {
+                    Application.runInBackground = applicationRunInBackground;
+                    UnityCodeMcpServerLogger.Debug($"#PlayUnityGameTool: Restored Application.runInBackground to {applicationRunInBackground} after tool execution.");
                 }
             }
 
@@ -192,11 +204,19 @@ namespace UnityCodeMcpServer.Registry
             {
                 try
                 {
+                    Application.runInBackground = true;
+                    UnityCodeMcpServerLogger.Debug($"#PlayUnityGameTool: Set Application.runInBackground=true to allow input without focus. Previous value was {applicationRunInBackground}.");
+
                     return await asyncTool.ExecuteAsync(arguments);
                 }
                 catch (Exception ex)
                 {
                     return ToolsCallResult.ErrorResult($"Tool execution error: {ex.Message}");
+                }
+                finally
+                {
+                    Application.runInBackground = applicationRunInBackground;
+                    UnityCodeMcpServerLogger.Debug($"#PlayUnityGameTool: Restored Application.runInBackground to {applicationRunInBackground} after tool execution.");
                 }
             }
 
