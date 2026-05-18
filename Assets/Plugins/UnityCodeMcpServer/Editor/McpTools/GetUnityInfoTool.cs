@@ -1,9 +1,9 @@
+﻿using System.IO;
 using System.Text;
 using System.Text.Json;
 using UnityCodeMcpServer.Interfaces;
 using UnityCodeMcpServer.Protocol;
 using UnityCodeMcpServer.Settings;
-using UnityEditor;
 using UnityEngine;
 
 namespace UnityCodeMcpServer.McpTools
@@ -20,7 +20,7 @@ namespace UnityCodeMcpServer.McpTools
 
 **Returns:**
 - `project_path`: The absolute path to the Unity project root directory.
-- `settings`: The current UnityCodeMcpServerSettings values (startup server mode, ports, timeouts, assemblies, etc.).";
+- `settings`: The current UnityCodeMcpServerSettings values (HTTP server settings, logging, assemblies, etc.).";
 
         public JsonElement InputSchema => JsonHelper.ParseElement(@"
         {
@@ -31,11 +31,12 @@ namespace UnityCodeMcpServer.McpTools
 
         public ToolsCallResult Execute(JsonElement arguments)
         {
-            var settings = UnityCodeMcpServerSettings.Instance;
+            UnityCodeMcpServerSettings settings = UnityCodeMcpServerSettings.Instance;
             string projectPath = System.IO.Path.GetFullPath(
                 System.IO.Path.Combine(Application.dataPath, ".."));
 
-            var sb = new StringBuilder();
+            StringBuilder sb = new();
+            string messageDirectory = Path.Combine(projectPath, ".unityCodeMcpServer", "messages");
             sb.AppendLine("## Unity Project Info");
             sb.AppendLine();
             sb.AppendLine($"**Project Path:** {projectPath}");
@@ -43,23 +44,15 @@ namespace UnityCodeMcpServer.McpTools
             sb.AppendLine();
             sb.AppendLine("## UnityCodeMcpServer Settings");
             sb.AppendLine();
-            sb.AppendLine($"- **Startup Server:** {settings.StartupServer}");
             sb.AppendLine($"- **Min Log Level:** {settings.MinLogLevel}");
+            sb.AppendLine($"- **Log To File:** {settings.LogToFile}");
             sb.AppendLine();
-            sb.AppendLine("### STDIO Server");
-            sb.AppendLine($"- **Port:** {settings.StdioPort}");
-            sb.AppendLine($"- **Backlog:** {settings.Backlog}");
-            sb.AppendLine($"- **Read Timeout (ms):** {settings.ReadTimeoutMs}");
-            sb.AppendLine($"- **Write Timeout (ms):** {settings.WriteTimeoutMs}");
-            sb.AppendLine();
-            sb.AppendLine("### Streamable HTTP Server");
-            sb.AppendLine($"- **Port:** {settings.HttpPort}");
-            sb.AppendLine($"- **Session Timeout (s):** {settings.SessionTimeoutSeconds}");
-            sb.AppendLine($"- **SSE Keep-Alive Interval (s):** {settings.SseKeepAliveIntervalSeconds}");
+            sb.AppendLine("### File Server");
+            sb.AppendLine($"- **Messages Directory:** {messageDirectory}");
             sb.AppendLine();
             sb.AppendLine("### Script Execution Assemblies");
             sb.AppendLine("**Default Assemblies:**");
-            foreach (var assembly in UnityCodeMcpServerSettings.DefaultAssemblyNames)
+            foreach (string assembly in UnityCodeMcpServerSettings.DefaultAssemblyNames)
             {
                 sb.AppendLine($"  - {assembly}");
             }
@@ -71,7 +64,7 @@ namespace UnityCodeMcpServer.McpTools
             }
             else
             {
-                foreach (var assembly in settings.AdditionalAssemblyNames)
+                foreach (string assembly in settings.AdditionalAssemblyNames)
                 {
                     sb.AppendLine($"  - {assembly}");
                 }

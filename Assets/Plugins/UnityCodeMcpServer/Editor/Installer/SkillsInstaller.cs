@@ -1,7 +1,8 @@
-using System;
-using System.Collections.Generic;
+﻿using System;
 using System.IO;
 using UnityCodeMcpServer.Helpers;
+using UnityCodeMcpServer.Settings;
+using UnityCodeMcpServer.Settings.Editor;
 
 namespace UnityCodeMcpServer.Editor.Installer
 {
@@ -18,7 +19,8 @@ namespace UnityCodeMcpServer.Editor.Installer
         public bool AnyChanges => FilesUpdated > 0;
 
         public static SkillsInstallResult Failure(string errorMessage) =>
-            new SkillsInstallResult { Success = false, ErrorMessage = errorMessage };
+            new()
+            { Success = false, ErrorMessage = errorMessage };
 
         public override string ToString()
         {
@@ -44,6 +46,27 @@ namespace UnityCodeMcpServer.Editor.Installer
             _fileSystem = fileSystem;
         }
 
+        public bool InstallConfiguredSkills()
+        {
+            string sourcePath = UnityCodeMcpServerSettingsEditor.ResolveSkillsSourcePath();
+            if (string.IsNullOrEmpty(sourcePath))
+            {
+                UnityCodeMcpServerLogger.Warn("[SkillsInstaller] Could not locate the Skills source directory within the package. Skipping skills install.");
+                return false;
+            }
+
+            UnityCodeMcpServerSettings settings = UnityCodeMcpServerSettings.Instance;
+            string targetPath = settings.GetEffectiveSkillsTargetPath();
+            if (string.IsNullOrWhiteSpace(targetPath))
+            {
+                UnityCodeMcpServerLogger.Warn("[SkillsInstaller] Skills target directory is empty. Skipping skills install.");
+                return false;
+            }
+
+            SkillsInstallResult result = Install(sourcePath, targetPath);
+            return result.Success && result.AnyChanges;
+        }
+
         /// <summary>
         /// Copy all skill subfolders from <paramref name="sourcePath"/> into <paramref name="targetPath"/>.
         /// </summary>
@@ -51,7 +74,7 @@ namespace UnityCodeMcpServer.Editor.Installer
         {
             if (!_fileSystem.DirectoryExists(sourcePath))
             {
-                LoopLogger.Error($"{Protocol.McpProtocol.LogPrefix} Skills source directory not found: {sourcePath}");
+                UnityCodeMcpServerLogger.Error($"[SkillsInstaller] Skills source directory not found: {sourcePath}");
                 return SkillsInstallResult.Failure($"Source directory not found: {sourcePath}");
             }
 
@@ -62,7 +85,7 @@ namespace UnityCodeMcpServer.Editor.Installer
 
             try
             {
-                var result = new SkillsInstallResult { Success = true };
+                SkillsInstallResult result = new() { Success = true };
 
                 string[] skillFolders = _fileSystem.GetDirectories(sourcePath);
 
@@ -77,23 +100,26 @@ namespace UnityCodeMcpServer.Editor.Installer
                     {
                         result.SkillFoldersUpdated++;
                         result.FilesUpdated += filesCopied;
-                        LoopLogger.Info(
-                            $"{Protocol.McpProtocol.LogPrefix} Installed skill '{folderName}'" +
+                        UnityCodeMcpServerLogger.Info(
+                            $"[SkillsInstaller] Installed skill '{folderName}'" +
                             $" ({filesCopied} file(s) updated) to: {targetSkillFolder}");
                     }
                     else
                     {
-                        LoopLogger.Debug(
-                            $"{Protocol.McpProtocol.LogPrefix} Skill '{folderName}' is already up to date.");
+                        UnityCodeMcpServerLogger.Trace(
+                            $"[SkillsInstaller] Skill '{folderName}' is already up to date.");
                     }
                 }
 
-                LoopLogger.Debug($"{Protocol.McpProtocol.LogPrefix} Skills install complete — {result}");
+                if (result.AnyChanges)
+                    UnityCodeMcpServerLogger.Debug($"[SkillsInstaller] Skills install complete — {result}");
+                else
+                    UnityCodeMcpServerLogger.Trace($"[SkillsInstaller] Skills install complete — {result}");
                 return result;
             }
             catch (Exception ex)
             {
-                LoopLogger.Error($"{Protocol.McpProtocol.LogPrefix} Failed to install skills. Error: {ex.Message}");
+                UnityCodeMcpServerLogger.Error($"[SkillsInstaller] Failed to install skills. Error: {ex.Message}");
                 return SkillsInstallResult.Failure(ex.Message);
             }
         }
@@ -157,7 +183,7 @@ namespace UnityCodeMcpServer.Editor.Installer
 
                 _fileSystem.DeleteFile(oldTargetFilePath);
                 removedAnyFiles = true;
-                LoopLogger.Debug($"{Protocol.McpProtocol.LogPrefix} Removed old skill file: {oldTargetFilePath}");
+                UnityCodeMcpServerLogger.Trace($"[SkillsInstaller] Removed old skill file: {oldTargetFilePath}");
             }
 
             foreach (string sourceSubDir in _fileSystem.GetDirectories(sourceDir))
@@ -172,7 +198,7 @@ namespace UnityCodeMcpServer.Editor.Installer
                 _fileSystem.GetDirectories(oldTargetDir).Length == 0)
             {
                 _fileSystem.DeleteDirectory(oldTargetDir, recursive: false);
-                LoopLogger.Debug($"{Protocol.McpProtocol.LogPrefix} Removed empty old skill directory: {oldTargetDir}");
+                UnityCodeMcpServerLogger.Trace($"[SkillsInstaller] Removed empty old skill directory: {oldTargetDir}");
                 return true;
             }
 
@@ -186,7 +212,7 @@ namespace UnityCodeMcpServer.Editor.Installer
             if (!_fileSystem.DirectoryExists(targetDir))
             {
                 _fileSystem.CreateDirectory(targetDir);
-                LoopLogger.Debug($"{Protocol.McpProtocol.LogPrefix} Created directory: {targetDir}");
+                UnityCodeMcpServerLogger.Trace($"[SkillsInstaller] Created directory: {targetDir}");
             }
 
             foreach (string filePath in _fileSystem.GetFiles(sourceDir))
@@ -200,7 +226,7 @@ namespace UnityCodeMcpServer.Editor.Installer
                 if (ShouldCopyFile(filePath, destPath))
                 {
                     _fileSystem.CopyFile(filePath, destPath, overwrite: true);
-                    LoopLogger.Debug($"{Protocol.McpProtocol.LogPrefix} Copied: {destPath}");
+                    UnityCodeMcpServerLogger.Trace($"[SkillsInstaller] Copied: {destPath}");
                     filesCopied++;
                 }
             }
@@ -226,8 +252,8 @@ namespace UnityCodeMcpServer.Editor.Installer
             }
             catch (Exception ex)
             {
-                LoopLogger.Warn(
-                    $"{Protocol.McpProtocol.LogPrefix} Cannot compute hash, will copy file. Error: {ex.Message}");
+                UnityCodeMcpServerLogger.Warn(
+                    $"[SkillsInstaller] Cannot compute hash, will copy file. Error: {ex.Message}");
                 return true;
             }
         }

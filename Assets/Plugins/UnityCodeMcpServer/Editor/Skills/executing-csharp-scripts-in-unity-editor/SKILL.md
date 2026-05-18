@@ -20,13 +20,13 @@ description: Use this skill always when you need to use execute_csharp_script_in
 
 ## Available Tools
 
-This skill coordinates three tools. Use them together as a pipeline — never in isolation.
+This skill coordinates three tools within one workflow. Use the tool that matches the task, and combine them when the task crosses from source edits to Editor automation or test verification.
 
 | Tool                                    | Purpose                                                 | When to Use                                                                                                                                                                                        |
 | --------------------------------------- | ------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `execute_csharp_script_in_unity_editor` | Executes C# code in the live Unity Editor (Roslyn)      | Modifying scenes, GameObjects, Components, Prefabs, ScriptableObjects, or running Editor automation. Script output and logs are returned directly in the tool result.                              |
-| `read_unity_console_logs`               | Reads recent entries from the Unity Editor Console      | **Before** executing a script, to check whether prior C# file edits have caused compilation errors that would prevent the script from running. Also useful when debugging unexpected Editor state. |
-| `run_unity_tests`                       | Runs EditMode or PlayMode Unity tests via TestRunnerApi | After editing C# source files to verify logic correctness; **never** to run ad-hoc code and **never** after `execute_csharp_script_in_unity_editor` (scripts do not change compiled code)          |
+| `read_unity_console_logs`               | Reads recent entries from the Unity Editor Console      | Before executing an Editor script or Unity test when the task depends on compiled C# code. Also useful when debugging unexpected Editor state.                                                   |
+| `run_unity_tests`                       | Runs EditMode or PlayMode Unity tests via TestRunnerApi | After editing C# source files to verify logic correctness. Do not use it for ad-hoc code execution, and do not run it solely because an Editor script was executed.                              |
 
 ---
 
@@ -61,15 +61,16 @@ This skill coordinates three tools. Use them together as a pipeline — never in
 
 ## Usage Workflow
 
-Execute these steps in strict order for every task:
+Use the applicable steps in this order for each task. Skip only the steps that do not apply.
 
-1. **Analyze Requirements:** Understand what needs to be created, modified, or queried. Identify target GameObjects, Components, assets, and expected outcome.
-2. **Analyze Unity Context:** Check scene or prefab hierarchy, asset structure, and existing components using `execute_csharp_script_in_unity_editor` to determine how to achieve the goal. Identify potential edge cases (e.g., object already exists, missing dependencies).
-3. **Plan the Script:** Determine which Unity APIs are needed. Verify the approach handles edge cases (object not found, component already exists, asset path incorrect).
-4. **Check for Compilation Errors:** Call `read_unity_console_logs` (max_entries: 20) to confirm the project compiles cleanly. Prior C# file edits may have broken the build, which would cause the script to fail. Do not proceed if compilation errors are present — fix them first.
-5. **Write the Script:** Apply all Core Principles. Add idempotency guards, null checks, `Debug.Log` for each significant action, and `try-catch` for risky operations.
-6. **Execute the Script:** Call `execute_csharp_script_in_unity_editor`. All `Debug.Log` and `Debug.LogError` output is returned directly in the tool result — no separate log read is needed.
-7. **Fix and Retry:** If the result contains errors, apply the Debugging Loop before reporting completion.
+1. **Analyze Requirements:** Understand what needs to be created, modified, or queried. Identify target GameObjects, Components, assets, source files, and expected outcome.
+2. **Check for Compilation Errors:** If the task depends on compiled C# code, call `read_unity_console_logs` (max_entries: 20) before executing any Editor script or Unity test. Prior C# file edits may have broken the build. Do not proceed until compilation errors are resolved.
+3. **Analyze Unity Context:** When the task needs scene, prefab, or asset inspection, use `execute_csharp_script_in_unity_editor` to inspect hierarchy, existing components, and current asset state. Identify edge cases such as missing objects, duplicate components, or invalid asset paths.
+4. **Plan the Action:** Determine which Unity APIs are needed and whether the task requires Editor scripting, source-file edits, Unity tests, or some combination of them.
+5. **Write the Script or Source Change:** Apply all Core Principles. For Editor scripts, add idempotency guards, null checks, `Debug.Log` for significant actions, and `try-catch` for risky operations.
+6. **Execute the Script:** When using Editor automation, call `execute_csharp_script_in_unity_editor`. All `Debug.Log` and `Debug.LogError` output is returned directly in the tool result — no separate log read is needed.
+7. **Run Tests When Source Changed:** If you edited compiled C# source files, run the narrowest relevant Unity tests with `run_unity_tests` after the code compiles cleanly.
+8. **Fix and Retry:** If script execution, compilation, or tests fail, apply the Debugging Loop before reporting completion.
 
 ---
 
@@ -173,6 +174,7 @@ After editing `UnityCodeMcpServerSettings.asset` directly via file tools, the ne
 var settings = AssetDatabase.LoadAssetAtPath<ScriptableObject>("Assets/Plugins/UnityCodeMcpServer/Editor/UnityCodeMcpServerSettings.asset");
 EditorUtility.SetDirty(settings);
 AssetDatabase.SaveAssets();
+AssetDatabase.ImportAsset("Assets/Plugins/UnityCodeMcpServer/Editor/UnityCodeMcpServerSettings.asset", ImportAssetOptions.ForceUpdate);
 Debug.Log("Settings reloaded — new assemblies now available");
 ```
 

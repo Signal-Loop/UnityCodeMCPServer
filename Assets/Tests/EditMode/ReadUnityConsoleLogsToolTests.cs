@@ -1,10 +1,10 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Text.Json;
-using UnityCodeMcpServer.Helpers;
-using UnityCodeMcpServer.Protocol;
-using UnityCodeMcpServer.McpTools;
 using NUnit.Framework;
+using UnityCodeMcpServer.Helpers;
+using UnityCodeMcpServer.McpTools;
+using UnityCodeMcpServer.Protocol;
 using UnityEngine;
 
 namespace UnityCodeMcpServer.Tests.EditMode
@@ -14,7 +14,7 @@ namespace UnityCodeMcpServer.Tests.EditMode
         [Test]
         public void Tool_Metadata_IsPresent()
         {
-            var tool = new ReadUnityConsoleLogsTool();
+            ReadUnityConsoleLogsTool tool = new();
 
             Assert.AreEqual("read_unity_console_logs", tool.Name);
             Assert.IsNotEmpty(tool.Description);
@@ -23,11 +23,11 @@ namespace UnityCodeMcpServer.Tests.EditMode
         [Test]
         public void InputSchema_DefinesMaxEntries()
         {
-            var schema = new ReadUnityConsoleLogsTool().InputSchema;
+            JsonElement schema = new ReadUnityConsoleLogsTool().InputSchema;
 
             Assert.AreEqual(JsonValueKind.Object, schema.ValueKind);
-            Assert.IsTrue(schema.TryGetProperty("properties", out var properties));
-            Assert.IsTrue(properties.TryGetProperty("max_entries", out var maxEntries));
+            Assert.IsTrue(schema.TryGetProperty("properties", out JsonElement properties));
+            Assert.IsTrue(properties.TryGetProperty("max_entries", out JsonElement maxEntries));
             Assert.AreEqual(JsonValueKind.Object, maxEntries.ValueKind);
         }
 
@@ -35,13 +35,13 @@ namespace UnityCodeMcpServer.Tests.EditMode
         public void Execute_UsesDefaultLimit_WhenNotProvided()
         {
             int capturedLimit = -1;
-            var tool = new ReadUnityConsoleLogsTool(limit =>
+            ReadUnityConsoleLogsTool tool = new(limit =>
             {
                 capturedLimit = limit;
-                return ("stub log", false);
+                return CreateReaderResult(new UnityConsoleLogEntry("stub log", null, UnityConsoleLogSeverity.Info));
             });
 
-            var result = tool.Execute(JsonHelper.ParseElement("{}"));
+            ToolsCallResult result = tool.Execute(JsonHelper.ParseElement("{}"));
 
             Assert.AreEqual(200, capturedLimit);
             Assert.IsFalse(result.IsError);
@@ -52,13 +52,13 @@ namespace UnityCodeMcpServer.Tests.EditMode
         public void Execute_ClampsLimit_ToUpperBound()
         {
             int capturedLimit = -1;
-            var tool = new ReadUnityConsoleLogsTool(limit =>
+            ReadUnityConsoleLogsTool tool = new(limit =>
             {
                 capturedLimit = limit;
-                return ("ok", false);
+                return CreateReaderResult(new UnityConsoleLogEntry("ok", null, UnityConsoleLogSeverity.Info));
             });
 
-            var args = JsonHelper.ParseElement("{\"max_entries\": 5000}");
+            JsonElement args = JsonHelper.ParseElement("{\"max_entries\": 5000}");
             tool.Execute(args);
 
             Assert.AreEqual(1000, capturedLimit);
@@ -68,13 +68,13 @@ namespace UnityCodeMcpServer.Tests.EditMode
         public void Execute_DefaultsLimit_WhenNegativeProvided()
         {
             int capturedLimit = -1;
-            var tool = new ReadUnityConsoleLogsTool(limit =>
+            ReadUnityConsoleLogsTool tool = new(limit =>
             {
                 capturedLimit = limit;
-                return ("ok", false);
+                return CreateReaderResult(new UnityConsoleLogEntry("ok", null, UnityConsoleLogSeverity.Info));
             });
 
-            var args = JsonHelper.ParseElement("{\"max_entries\": -5}");
+            JsonElement args = JsonHelper.ParseElement("{\"max_entries\": -5}");
             tool.Execute(args);
 
             Assert.AreEqual(200, capturedLimit);
@@ -83,9 +83,9 @@ namespace UnityCodeMcpServer.Tests.EditMode
         [Test]
         public void Execute_PropagatesReaderError()
         {
-            var tool = new ReadUnityConsoleLogsTool(_ => ("reader failure", true));
+            ReadUnityConsoleLogsTool tool = new(_ => new UnityConsoleLogReadResult(Array.Empty<UnityConsoleLogEntry>(), 0, "reader failure", true));
 
-            var result = tool.Execute(JsonHelper.ParseElement("{}"));
+            ToolsCallResult result = tool.Execute(JsonHelper.ParseElement("{}"));
 
             Assert.IsTrue(result.IsError);
             StringAssert.Contains("reader failure", result.Content[0].Text);
@@ -94,11 +94,11 @@ namespace UnityCodeMcpServer.Tests.EditMode
         [Test]
         public void Execute_ReadsUnityLogs_AndReturnsContent()
         {
-            var tool = new ReadUnityConsoleLogsTool();
+            ReadUnityConsoleLogsTool tool = new();
             string uniqueMessage = "ConsoleLog_" + Guid.NewGuid();
             Debug.Log(uniqueMessage);
 
-            var result = tool.Execute(JsonHelper.ParseElement("{}"));
+            ToolsCallResult result = tool.Execute(JsonHelper.ParseElement("{}"));
 
             Assert.IsFalse(result.IsError);
             Assert.IsNotEmpty(result.Content);
@@ -109,13 +109,20 @@ namespace UnityCodeMcpServer.Tests.EditMode
         public void Execute_EmitsTruncationHeader_WhenReaderIndicatesTruncation()
         {
             int capturedLimit = -1;
-            var tool = new ReadUnityConsoleLogsTool(limit =>
+            ReadUnityConsoleLogsTool tool = new(limit =>
             {
                 capturedLimit = limit;
-                return ($"--- Showing last {limit} logs (Total: {limit + 1}) ---\nold\nnew", false);
+                return new UnityConsoleLogReadResult(
+                    new[]
+                    {
+                        new UnityConsoleLogEntry("new", null, UnityConsoleLogSeverity.Info)
+                    },
+                    limit + 1,
+                    null,
+                    false);
             });
 
-            var result = tool.Execute(JsonHelper.ParseElement("{\"max_entries\": 1}"));
+            ToolsCallResult result = tool.Execute(JsonHelper.ParseElement("{\"max_entries\": 1}"));
 
             Assert.AreEqual(1, capturedLimit);
             Assert.IsFalse(result.IsError);
@@ -125,9 +132,9 @@ namespace UnityCodeMcpServer.Tests.EditMode
         [Test]
         public void Execute_Replaces_EmptyReaderText_WithPlaceholder()
         {
-            var tool = new ReadUnityConsoleLogsTool(_ => ("   ", false));
+            ReadUnityConsoleLogsTool tool = new(_ => new UnityConsoleLogReadResult(Array.Empty<UnityConsoleLogEntry>(), 0, null, false));
 
-            var result = tool.Execute(JsonHelper.ParseElement("{}"));
+            ToolsCallResult result = tool.Execute(JsonHelper.ParseElement("{}"));
 
             Assert.IsFalse(result.IsError);
             StringAssert.Contains("(No console logs available)", result.Content[0].Text);
@@ -139,9 +146,9 @@ namespace UnityCodeMcpServer.Tests.EditMode
             IReadOnlyList<UnityConsoleLogEntry> tail = UnityConsoleLogReader.SelectTail(
                 new[]
                 {
-                    new UnityConsoleLogEntry("oldest", null),
-                    new UnityConsoleLogEntry("middle", null),
-                    new UnityConsoleLogEntry("newest", null)
+                    new UnityConsoleLogEntry("oldest"),
+                    new UnityConsoleLogEntry("middle"),
+                    new UnityConsoleLogEntry("newest")
                 },
                 2);
 
@@ -151,17 +158,71 @@ namespace UnityCodeMcpServer.Tests.EditMode
         }
 
         [Test]
-        public void FormatEntries_IncludesTimestamp_WhenAvailable()
+        public void FormatEntries_RendersMessageWithoutTimestampPrefix()
         {
-            string text = UnityConsoleLogReader.FormatEntries(
+            string text = ReadUnityConsoleLogsTool.FormatEntries(
                 new[]
                 {
-                    new UnityConsoleLogEntry("message", "[11:07:59]")
+                    new UnityConsoleLogEntry("message")
                 },
                 1,
                 1);
 
-            StringAssert.Contains("[11:07:59] message", text);
+            Assert.AreEqual("message", text);
+        }
+
+        [Test]
+        public void FormatEntries_StripsUnknownSeverityStackTrace()
+        {
+            string text = ReadUnityConsoleLogsTool.FormatEntries(
+                new[]
+                {
+                    new UnityConsoleLogEntry("message\nsecond-line", "unknown-stack", UnityConsoleLogSeverity.Unknown)
+                },
+                1,
+                1);
+
+            StringAssert.Contains("message\nsecond-line", text);
+            StringAssert.DoesNotContain("unknown-stack", text);
+        }
+
+        [Test]
+        public void Execute_StripsStackTrace_ForPlainLogs_AndWarnings()
+        {
+            ReadUnityConsoleLogsTool tool = new();
+            string probeId = Guid.NewGuid().ToString("N");
+            string plainLog = "plain-log-" + probeId;
+            string warningLog = "warning-log-" + probeId;
+
+            Debug.Log(plainLog);
+            Debug.LogWarning(warningLog);
+
+            ToolsCallResult result = tool.Execute(JsonHelper.ParseElement("{\"max_entries\": 5}"));
+            string text = result.Content[0].Text;
+
+            StringAssert.DoesNotContain($"{plainLog}\nUnityEngine.Debug:Log (object)", text);
+            StringAssert.Contains(warningLog, text);
+            StringAssert.DoesNotContain($"{warningLog}\nUnityEngine.Debug:LogWarning (object)", text);
+        }
+
+        [Test]
+        public void FormatEntries_KeepsStackTrace_ForErrors()
+        {
+            string text = ReadUnityConsoleLogsTool.FormatEntries(
+                new[]
+                {
+                    new UnityConsoleLogEntry("error-message", "error-stack", UnityConsoleLogSeverity.Error)
+                },
+                1,
+                1);
+
+            StringAssert.Contains("error-message", text);
+            StringAssert.Contains("error-stack", text);
+        }
+
+        private static UnityConsoleLogReadResult CreateReaderResult(params UnityConsoleLogEntry[] entries)
+        {
+            return new UnityConsoleLogReadResult(entries, entries.Length, null, false);
         }
     }
 }

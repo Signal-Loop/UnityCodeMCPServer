@@ -1,6 +1,6 @@
 using System.Collections.Generic;
-using UnityEditor.TestTools.TestRunner.Api;
 using NUnit.Framework.Interfaces;
+using UnityEditor.TestTools.TestRunner.Api;
 
 namespace UnityCodeMcpServer.Tests.EditMode
 {

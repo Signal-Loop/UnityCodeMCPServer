@@ -1,20 +1,21 @@
-using UnityCodeMcpServer.Helpers;
-using System;
+﻿using System;
 using System.IO;
-using System.Collections.Generic;
-using System.Linq;
+using UnityCodeMcpServer.Helpers;
 
 namespace UnityCodeMcpServer.Editor.Installer
 {
     public class PackageInstaller
     {
+        private const string SourceFolder = "Editor/STDIO~";
+        private const string TargetFolder = "Assets/Plugins/UnityCodeMcpServer/Editor/STDIO~";
+
         private readonly IFileSystem _fileSystem;
 
         // Files to copy relative to source directory
         private static readonly string[] FilesToCopy =
         {
             "src/unity_code_mcp_stdio/__init__.py",
-            "src/unity_code_mcp_stdio/unity_code_mcp_bridge_stdio.py",
+            "src/unity_code_mcp_stdio/unity_code_mcp_stdio.py",
             "pyproject.toml",
             "uv.lock"
         };
@@ -24,18 +25,27 @@ namespace UnityCodeMcpServer.Editor.Installer
             _fileSystem = fileSystem;
         }
 
-        public static bool InstallContent(Func<bool> installPackageFiles, Func<bool> installSkills)
+        public bool Install(string packageRoot)
         {
-            bool packageFilesChanged = installPackageFiles != null && installPackageFiles();
-            bool skillsChanged = installSkills != null && installSkills();
-            return packageFilesChanged || skillsChanged;
+            string sourcePath = NormalizePath(Path.Combine(packageRoot, SourceFolder));
+            string targetPath = NormalizePath(Path.GetFullPath(TargetFolder));
+
+            UnityCodeMcpServerLogger.Debug($"[PackageInstaller] Installing from {sourcePath} to {targetPath}");
+
+            return Install(sourcePath, targetPath);
         }
 
         public bool Install(string sourcePath, string targetPath)
         {
+            if (PathsMatch(sourcePath, targetPath))
+            {
+                UnityCodeMcpServerLogger.Debug($"[PackageInstaller] Source and target are the same, skipping STDIO installation.");
+                return false;
+            }
+
             if (!_fileSystem.DirectoryExists(sourcePath))
             {
-                LoopLogger.Error($"{Protocol.McpProtocol.LogPrefix} Source directory not found: {sourcePath}");
+                UnityCodeMcpServerLogger.Error($"[PackageInstaller] Source directory not found: {sourcePath}");
                 return false;
             }
 
@@ -45,18 +55,18 @@ namespace UnityCodeMcpServer.Editor.Installer
 
                 if (anyFilesCopied)
                 {
-                    LoopLogger.Info($"{Protocol.McpProtocol.LogPrefix} Successfully installed assets to: {targetPath}");
+                    UnityCodeMcpServerLogger.Info($"[PackageInstaller] Successfully installed assets to: {targetPath}");
                 }
                 else
                 {
-                    LoopLogger.Debug($"{Protocol.McpProtocol.LogPrefix} No files needed updating in: {targetPath}");
+                    UnityCodeMcpServerLogger.Trace($"[PackageInstaller] No files needed updating in: {targetPath}");
                 }
 
                 return anyFilesCopied;
             }
             catch (System.Exception ex)
             {
-                LoopLogger.Error($"{Protocol.McpProtocol.LogPrefix} Failed to install assets. Error: {ex.Message}");
+                UnityCodeMcpServerLogger.Error($"[PackageInstaller] Failed to install assets. Error: {ex.Message}");
                 return false;
             }
         }
@@ -65,14 +75,14 @@ namespace UnityCodeMcpServer.Editor.Installer
         {
             bool anyFilesCopied = false;
 
-            foreach (var relativeFilePath in FilesToCopy)
+            foreach (string relativeFilePath in FilesToCopy)
             {
                 string sourcePath = NormalizePath(Path.Combine(sourceDir, relativeFilePath));
                 string destPath = NormalizePath(Path.Combine(targetDir, relativeFilePath));
 
                 if (!_fileSystem.FileExists(sourcePath))
                 {
-                    LoopLogger.Error($"{Protocol.McpProtocol.LogPrefix} Required file not found: {sourcePath}");
+                    UnityCodeMcpServerLogger.Error($"[PackageInstaller] Required file not found: {sourcePath}");
                     continue;
                 }
 
@@ -85,16 +95,16 @@ namespace UnityCodeMcpServer.Editor.Installer
                     if (!string.IsNullOrEmpty(destDirectory) && !_fileSystem.DirectoryExists(destDirectory))
                     {
                         _fileSystem.CreateDirectory(destDirectory);
-                        LoopLogger.Debug($"{Protocol.McpProtocol.LogPrefix} Created directory: {destDirectory}");
+                        UnityCodeMcpServerLogger.Debug($"[PackageInstaller] Created directory: {destDirectory}");
                     }
 
                     _fileSystem.CopyFile(sourcePath, destPath, true);
-                    LoopLogger.Info($"{Protocol.McpProtocol.LogPrefix} Copied: {NormalizePath(Path.Combine(targetDir, relativeFilePath))}");
+                    UnityCodeMcpServerLogger.Info($"[PackageInstaller] Copied: {NormalizePath(Path.Combine(targetDir, relativeFilePath))}");
                     anyFilesCopied = true;
                 }
                 else
                 {
-                    LoopLogger.Debug($"{Protocol.McpProtocol.LogPrefix} Skipped (unchanged): {NormalizePath(Path.Combine(targetDir, relativeFilePath))}");
+                    UnityCodeMcpServerLogger.Trace($"[PackageInstaller] Skipped (unchanged): {NormalizePath(Path.Combine(targetDir, relativeFilePath))}");
                 }
             }
 
@@ -118,9 +128,16 @@ namespace UnityCodeMcpServer.Editor.Installer
             }
             catch (System.Exception ex)
             {
-                LoopLogger.Warn($"{Protocol.McpProtocol.LogPrefix} Failed to compute hash, will copy file. Error: {ex.Message}");
+                UnityCodeMcpServerLogger.Warn($"[PackageInstaller] Failed to compute hash, will copy file. Error: {ex.Message}");
                 return true; // Copy on hash error to be safe
             }
+        }
+
+        private static bool PathsMatch(string leftPath, string rightPath)
+        {
+            string normalizedLeftPath = NormalizePath(Path.GetFullPath(leftPath)).TrimEnd('/');
+            string normalizedRightPath = NormalizePath(Path.GetFullPath(rightPath)).TrimEnd('/');
+            return string.Equals(normalizedLeftPath, normalizedRightPath, StringComparison.OrdinalIgnoreCase);
         }
 
         // Normalize to forward slashes so tests and Unity paths stay consistent across platforms.

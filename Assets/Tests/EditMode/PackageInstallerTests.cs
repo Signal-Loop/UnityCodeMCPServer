@@ -1,8 +1,10 @@
-using NUnit.Framework;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
+using System.IO;
 using System.Linq;
-using System.Text;
+using System.Reflection;
 using System.Security.Cryptography;
+using System.Text;
+using NUnit.Framework;
 using UnityCodeMcpServer.Editor.Installer;
 using UnityEngine.TestTools;
 
@@ -13,9 +15,9 @@ namespace UnityCodeMcpServer.Tests.EditMode
         // Mock class to simulate File System
         public class MockFileSystem : IFileSystem
         {
-            public HashSet<string> Directories = new HashSet<string>();
-            public Dictionary<string, string> Files = new Dictionary<string, string>(); // Path, Content
-            public List<string> CopiedFiles = new List<string>();
+            public HashSet<string> Directories = new();
+            public Dictionary<string, string> Files = new(); // Path, Content
+            public List<string> CopiedFiles = new();
 
             public bool DirectoryExists(string path) => Directories.Contains(path);
             public bool FileExists(string path) => Files.ContainsKey(path);
@@ -30,8 +32,8 @@ namespace UnityCodeMcpServer.Tests.EditMode
             {
                 if (!Files.ContainsKey(filePath)) return "";
 
-                var content = Files[filePath];
-                using (var sha256 = SHA256.Create())
+                string content = Files[filePath];
+                using (SHA256 sha256 = SHA256.Create())
                 {
                     byte[] hash = sha256.ComputeHash(Encoding.UTF8.GetBytes(content));
                     return string.Concat(hash.Select(b => b.ToString("x2")));
@@ -41,8 +43,8 @@ namespace UnityCodeMcpServer.Tests.EditMode
             public string[] GetFiles(string path)
             {
                 // Simple mock implementation for finding files in "path"
-                var list = new List<string>();
-                foreach (var k in Files.Keys) if (k.StartsWith(path) && !k.EndsWith(".meta")) list.Add(k);
+                List<string> list = new();
+                foreach (string k in Files.Keys) if (k.StartsWith(path) && !k.EndsWith(".meta")) list.Add(k);
                 return list.ToArray();
             }
 
@@ -53,17 +55,17 @@ namespace UnityCodeMcpServer.Tests.EditMode
         public void Install_CopiesSpecificFiles_WhenTargetDoesNotExist()
         {
             // Arrange
-            var mockFS = new MockFileSystem();
+            MockFileSystem mockFS = new();
             string source = "Packages/MyPkg/STDIO~";
             string target = "Assets/Plugins/MyPkg/STDIO~";
 
             mockFS.Directories.Add(source);
             mockFS.Files.Add(source + "/src/unity_code_mcp_stdio/__init__.py", "init");
-            mockFS.Files.Add(source + "/src/unity_code_mcp_stdio/unity_code_mcp_bridge_stdio.py", "python code");
+            mockFS.Files.Add(source + "/src/unity_code_mcp_stdio/unity_code_mcp_stdio.py", "python code");
             mockFS.Files.Add(source + "/pyproject.toml", "toml content");
             mockFS.Files.Add(source + "/uv.lock", "lock content");
 
-            var installer = new PackageInstaller(mockFS);
+            PackageInstaller installer = new(mockFS);
 
             // Act
             bool result = installer.Install(source, target);
@@ -72,7 +74,7 @@ namespace UnityCodeMcpServer.Tests.EditMode
             Assert.IsTrue(result);
             Assert.AreEqual(4, mockFS.CopiedFiles.Count);
             Assert.IsTrue(mockFS.CopiedFiles.Any(f => f.Contains("__init__.py")));
-            Assert.IsTrue(mockFS.CopiedFiles.Any(f => f.Contains("unity_code_mcp_bridge_stdio.py")));
+            Assert.IsTrue(mockFS.CopiedFiles.Any(f => f.Contains("unity_code_mcp_stdio.py")));
             Assert.IsTrue(mockFS.CopiedFiles.Any(f => f.Contains("pyproject.toml")));
             Assert.IsTrue(mockFS.CopiedFiles.Any(f => f.Contains("uv.lock")));
         }
@@ -81,7 +83,7 @@ namespace UnityCodeMcpServer.Tests.EditMode
         public void Install_SkipsUnchangedFiles_WhenHashMatches()
         {
             // Arrange
-            var mockFS = new MockFileSystem();
+            MockFileSystem mockFS = new();
             string source = "Packages/MyPkg/STDIO~";
             string target = "Assets/Plugins/MyPkg/STDIO~";
 
@@ -90,17 +92,17 @@ namespace UnityCodeMcpServer.Tests.EditMode
 
             // Add source files
             mockFS.Files.Add(source + "/src/unity_code_mcp_stdio/__init__.py", "init");
-            mockFS.Files.Add(source + "/src/unity_code_mcp_stdio/unity_code_mcp_bridge_stdio.py", "python code");
+            mockFS.Files.Add(source + "/src/unity_code_mcp_stdio/unity_code_mcp_stdio.py", "python code");
             mockFS.Files.Add(source + "/pyproject.toml", "toml content");
             mockFS.Files.Add(source + "/uv.lock", "lock content");
 
             // Add existing target files with same content (same hash)
             mockFS.Files.Add(target + "/src/unity_code_mcp_stdio/__init__.py", "init");
-            mockFS.Files.Add(target + "/src/unity_code_mcp_stdio/unity_code_mcp_bridge_stdio.py", "python code");
+            mockFS.Files.Add(target + "/src/unity_code_mcp_stdio/unity_code_mcp_stdio.py", "python code");
             mockFS.Files.Add(target + "/pyproject.toml", "toml content");
             mockFS.Files.Add(target + "/uv.lock", "lock content");
 
-            var installer = new PackageInstaller(mockFS);
+            PackageInstaller installer = new(mockFS);
 
             // Act
             bool result = installer.Install(source, target);
@@ -114,7 +116,7 @@ namespace UnityCodeMcpServer.Tests.EditMode
         public void Install_CopiesOnlyChangedFiles_WhenHashDiffers()
         {
             // Arrange
-            var mockFS = new MockFileSystem();
+            MockFileSystem mockFS = new();
             string source = "Packages/MyPkg/STDIO~";
             string target = "Assets/Plugins/MyPkg/STDIO~";
 
@@ -123,26 +125,26 @@ namespace UnityCodeMcpServer.Tests.EditMode
 
             // Add source files
             mockFS.Files.Add(source + "/src/unity_code_mcp_stdio/__init__.py", "init");
-            mockFS.Files.Add(source + "/src/unity_code_mcp_stdio/unity_code_mcp_bridge_stdio.py", "NEW python code");
+            mockFS.Files.Add(source + "/src/unity_code_mcp_stdio/unity_code_mcp_stdio.py", "NEW python code");
             mockFS.Files.Add(source + "/pyproject.toml", "toml content");
             mockFS.Files.Add(source + "/uv.lock", "NEW lock content");
 
             // Add existing target files - only pyproject.toml matches
             mockFS.Files.Add(target + "/src/unity_code_mcp_stdio/__init__.py", "init"); // Same
-            mockFS.Files.Add(target + "/src/unity_code_mcp_stdio/unity_code_mcp_bridge_stdio.py", "OLD python code");
+            mockFS.Files.Add(target + "/src/unity_code_mcp_stdio/unity_code_mcp_stdio.py", "OLD python code");
             mockFS.Files.Add(target + "/pyproject.toml", "toml content"); // Same content
             mockFS.Files.Add(target + "/uv.lock", "OLD lock content");
 
-            var installer = new PackageInstaller(mockFS);
+            PackageInstaller installer = new(mockFS);
 
             // Act
             bool result = installer.Install(source, target);
 
             // Assert
             Assert.IsTrue(result); // Changed files were copied
-            Assert.AreEqual(2, mockFS.CopiedFiles.Count); // Only 2 changed files
+            Assert.AreEqual(2, mockFS.CopiedFiles.Count); // Only changed files
             Assert.IsFalse(mockFS.CopiedFiles.Any(f => f.Contains("__init__.py"))); // Unchanged
-            Assert.IsTrue(mockFS.CopiedFiles.Any(f => f.Contains("unity_code_mcp_bridge_stdio.py")));
+            Assert.IsTrue(mockFS.CopiedFiles.Any(f => f.Contains("unity_code_mcp_stdio.py")));
             Assert.IsFalse(mockFS.CopiedFiles.Any(f => f.Contains("pyproject.toml"))); // Unchanged
             Assert.IsTrue(mockFS.CopiedFiles.Any(f => f.Contains("uv.lock")));
         }
@@ -151,14 +153,14 @@ namespace UnityCodeMcpServer.Tests.EditMode
         public void Install_ReturnsFalse_WhenSourceNotFound()
         {
             // Arrange
-            var mockFS = new MockFileSystem();
+            MockFileSystem mockFS = new();
             string source = "Packages/NonExistent";
             string target = "Assets/Plugins/MyPkg/STDIO~";
 
-            var installer = new PackageInstaller(mockFS);
+            PackageInstaller installer = new(mockFS);
 
             // Expect error log
-            LogAssert.Expect(UnityEngine.LogType.Error, $"[ERROR] #UnityCodeMcpServer Source directory not found: {source}");
+            LogAssert.Expect(UnityEngine.LogType.Error, $"[ERROR] #UnityCodeMcpServer [PackageInstaller] Source directory not found: {source}");
 
             // Act
             bool result = installer.Install(source, target);
@@ -169,12 +171,45 @@ namespace UnityCodeMcpServer.Tests.EditMode
         }
 
         [Test]
-        public void InstallContent_ReturnsTrue_WhenSkillsInstallerCopiesFiles()
+        public void Install_ReturnsFalse_WhenSourceAndTargetAreTheSame()
+        {
+            MockFileSystem mockFS = new();
+            string source = "Packages/MyPkg/STDIO~";
+
+            mockFS.Directories.Add(source);
+
+            PackageInstaller installer = new(mockFS);
+
+            bool result = installer.Install(source, source);
+
+            Assert.IsFalse(result);
+            Assert.AreEqual(0, mockFS.CopiedFiles.Count);
+        }
+
+        [Test]
+        public void InstallerFileManifest_ReferencesOnlyFilesThatExistInThePackagedSource()
+        {
+            FieldInfo filesToCopyField = typeof(PackageInstaller).GetField("FilesToCopy", BindingFlags.NonPublic | BindingFlags.Static);
+
+            Assert.IsNotNull(filesToCopyField, "PackageInstaller.FilesToCopy field was not found.");
+
+            string[] filesToCopy = (string[])filesToCopyField.GetValue(null);
+            string sourceRoot = Path.GetFullPath("Assets/Plugins/UnityCodeMcpServer/Editor/STDIO~").Replace("\\", "/");
+            string[] missingFiles = filesToCopy
+                .Select(relativePath => relativePath.Replace("\\", "/"))
+                .Where(relativePath => !File.Exists(Path.Combine(sourceRoot, relativePath)))
+                .ToArray();
+
+            Assert.IsEmpty(missingFiles, $"Installer manifest references missing packaged files: {string.Join(", ", missingFiles)}");
+        }
+
+        [Test]
+        public void RunInstallers_ReturnsTrue_WhenEitherInstallerChanges()
         {
             bool packageInstallerCalled = false;
             bool skillsInstallerCalled = false;
 
-            bool result = PackageInstaller.InstallContent(
+            bool result = PackageInit.RunInstallers(
                 installPackageFiles: () =>
                 {
                     packageInstallerCalled = true;
@@ -192,9 +227,9 @@ namespace UnityCodeMcpServer.Tests.EditMode
         }
 
         [Test]
-        public void InstallContent_ReturnsFalse_WhenNothingChanges()
+        public void RunInstallers_ReturnsFalse_WhenNothingChanges()
         {
-            bool result = PackageInstaller.InstallContent(
+            bool result = PackageInit.RunInstallers(
                 installPackageFiles: () => false,
                 installSkills: () => false);
 
@@ -202,26 +237,25 @@ namespace UnityCodeMcpServer.Tests.EditMode
         }
 
         [Test]
-        public void RunInstallSteps_RunsSkills_WhenPackageInstallIsSkipped()
+        public void RunInstallers_RunsSkills_WhenPackageInstallReportsNoChanges()
         {
             bool packageInstallerCalled = false;
             bool skillsInstallerCalled = false;
 
-            bool result = PackageInit.RunInstallSteps(
-                skipPackageInstall: true,
+            bool result = PackageInit.RunInstallers(
                 installPackageFiles: () =>
                 {
                     packageInstallerCalled = true;
-                    return true;
+                    return false;
                 },
                 installSkills: () =>
                 {
                     skillsInstallerCalled = true;
-                    return true;
+                    return false;
                 });
 
-            Assert.IsTrue(result);
-            Assert.IsFalse(packageInstallerCalled);
+            Assert.IsFalse(result);
+            Assert.IsTrue(packageInstallerCalled);
             Assert.IsTrue(skillsInstallerCalled);
         }
     }

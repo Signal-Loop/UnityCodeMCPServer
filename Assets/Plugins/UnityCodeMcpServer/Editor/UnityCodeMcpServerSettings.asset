@@ -12,20 +12,11 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 712518e95d94d2044b882cb08e60909e, type: 3}
   m_Name: UnityCodeMcpServerSettings
   m_EditorClassIdentifier: UnityCodeMcpServer::UnityCodeMcpServer.Settings.UnityCodeMcpServerSettings
-  StartupServer: 0
   MinLogLevel: 2
-  _lastPort: 21088
-  _hasInitializedPortTracking: 1
-  _lastHttpPort: 3001
-  _hasInitializedHttpPortTracking: 1
-  StdioPort: 21088
-  Backlog: 10
-  ReadTimeoutMs: 30000
-  WriteTimeoutMs: 30000
-  HttpPort: 3001
-  SessionTimeoutSeconds: 3600
-  SseKeepAliveIntervalSeconds: 30
-  AdditionalAssemblyNames: []
+  LogToFile: 1
+  AdditionalAssemblyNames:
+  - Newtonsoft.Json
+  InputActionsAssetPath: 
   SkillsInstallTarget: 2
   SkillsTargetPath: .agents/skills/
   _hasInitializedSkillsInstallTarget: 1

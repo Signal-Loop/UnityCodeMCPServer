@@ -1,9 +1,8 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using UnityCodeMcpServer.Helpers;
-using UnityEngine;
 using UnityEditor;
+using UnityEngine;
 
 namespace UnityCodeMcpServer.Settings
 {
@@ -30,12 +29,6 @@ namespace UnityCodeMcpServer.Settings
         {
             _settingsAssetPath = _defaultSettingsAssetPath;
         }
-        public enum ServerStartupMode
-        {
-            Stdio,
-            Http
-        }
-
         public enum SkillInstallTarget
         {
             GitHub,
@@ -57,52 +50,20 @@ namespace UnityCodeMcpServer.Settings
             "Assembly-CSharp-Editor"
         };
 
-        [Header("Server Selection")]
-        [Tooltip("Select which server automatically starts in the Unity Editor")]
-        public ServerStartupMode StartupServer = ServerStartupMode.Stdio;
-
+        [Header("Logging")]
         [Tooltip("Minimum log level. Messages below this level are suppressed.")]
-        public Helpers.LoopLogger.LogLevel MinLogLevel = Helpers.LoopLogger.LogLevel.Info;
+        public Helpers.UnityCodeMcpServerLogger.LogLevel MinLogLevel = Helpers.UnityCodeMcpServerLogger.LogLevel.Info;
 
-        [SerializeField, HideInInspector]
-        private int _lastPort;
-
-        [SerializeField, HideInInspector]
-        private bool _hasInitializedPortTracking;
-
-        [SerializeField, HideInInspector]
-        private int _lastHttpPort;
-
-        [SerializeField, HideInInspector]
-        private bool _hasInitializedHttpPortTracking;
-
-        [Header("STDIO Server Configuration")]
-        [Tooltip("The port the STDIO bridge will use to connect to Unity")]
-        [UnityEngine.Serialization.FormerlySerializedAs("Port")]
-        public int StdioPort = 21088;
-
-        [Tooltip("Maximum number of pending connections in the listen queue")]
-        public int Backlog = 10;
-
-        [Tooltip("Read timeout in milliseconds (0 = infinite)")]
-        public int ReadTimeoutMs = 30000;
-
-        [Tooltip("Write timeout in milliseconds (0 = infinite)")]
-        public int WriteTimeoutMs = 30000;
-
-        [Header("Streamable HTTP Server Configuration")]
-        [Tooltip("The port the HTTP server will listen on")]
-        public int HttpPort = 3001;
-
-        [Tooltip("Session timeout in seconds (0 = no timeout)")]
-        public int SessionTimeoutSeconds = 3600;
-
-        [Tooltip("Interval for SSE keep-alive pings in seconds")]
-        public int SseKeepAliveIntervalSeconds = 30;
+        [Tooltip("Enable logging to file (UnityCodeMcpServerLog.log in project root)")]
+        public bool LogToFile = false;
 
         [Header("Script Execution Assemblies")]
         [Tooltip("Additional assemblies to load for C# script execution (beyond default assemblies)")]
-        public List<string> AdditionalAssemblyNames = new List<string>();
+        public List<string> AdditionalAssemblyNames = new();
+
+        [Header("Input Actions")]
+        [Tooltip("AssetDatabase path to the InputActionAsset used by play_unity_game")]
+        public string InputActionsAssetPath = string.Empty;
 
         [Header("Skills Installer")]
         [HideInInspector]
@@ -126,8 +87,8 @@ namespace UnityCodeMcpServer.Settings
                 return DefaultAssemblyNames;
             }
 
-            var allAssemblies = new List<string>(DefaultAssemblyNames);
-            foreach (var assemblyName in AdditionalAssemblyNames)
+            List<string> allAssemblies = new(DefaultAssemblyNames);
+            foreach (string assemblyName in AdditionalAssemblyNames)
             {
                 if (!string.IsNullOrWhiteSpace(assemblyName) && !allAssemblies.Contains(assemblyName))
                 {
@@ -276,13 +237,21 @@ namespace UnityCodeMcpServer.Settings
                 return false;
             }
 
-            var removed = AdditionalAssemblyNames.Remove(assemblyName);
+            bool removed = AdditionalAssemblyNames.Remove(assemblyName);
             if (removed)
             {
                 EditorUtility.SetDirty(this);
             }
 
             return removed;
+        }
+
+        public void SetInputActionsAssetPath(string path)
+        {
+            InputActionsAssetPath = string.IsNullOrWhiteSpace(path)
+                ? string.Empty
+                : NormalizePath(path.Trim());
+            EditorUtility.SetDirty(this);
         }
 
         /// <summary>
@@ -307,9 +276,19 @@ namespace UnityCodeMcpServer.Settings
 
                 SaveInstance(_instance);
 
+                // Asset creation/import can invalidate the transient ScriptableObject reference.
+                // Reload the persisted asset so subsequent calls return the canonical cached instance.
+                UnityCodeMcpServerSettings unityCodeMcpServerSettings = LoadSettingsAsset(_settingsAssetPath);
+                _instance = unityCodeMcpServerSettings == null ? _instance : unityCodeMcpServerSettings;
+
                 return _instance;
             }
 
+        }
+
+        private void OnValidate()
+        {
+            _instance = null;
         }
 
         public static void SaveInstance(UnityCodeMcpServerSettings instance)
@@ -339,73 +318,17 @@ namespace UnityCodeMcpServer.Settings
             Debug.Log($"{Protocol.McpProtocol.LogPrefix} Created new UnityCodeMcpServerSettings asset at {_settingsAssetPath}");
         }
 
-        private void OnValidate()
-        {
-            var shouldRestartStdio = ShouldRestartStdioForPortChange();
-            var shouldRestartHttp = ShouldRestartHttpForPortChange();
-            ServerLifecycleCoordinator.UpdateServerState(StartupServer, shouldRestartStdio, shouldRestartHttp);
-        }
-
-        private bool ShouldRestartStdioForPortChange()
-        {
-            if (!_hasInitializedPortTracking)
-            {
-                _hasInitializedPortTracking = true;
-                _lastPort = StdioPort;
-                return false;
-            }
-
-            if (_lastPort == StdioPort)
-            {
-                return false;
-            }
-
-            _lastPort = StdioPort;
-
-            // Only restart the STDIO server when it's the selected transport.
-            return StartupServer == ServerStartupMode.Stdio;
-        }
-
-        private bool ShouldRestartHttpForPortChange()
-        {
-            if (!_hasInitializedHttpPortTracking)
-            {
-                _hasInitializedHttpPortTracking = true;
-                _lastHttpPort = HttpPort;
-                return false;
-            }
-
-            if (_lastHttpPort == HttpPort)
-            {
-                return false;
-            }
-
-            _lastHttpPort = HttpPort;
-
-            // Only restart the HTTP server when it's the selected transport.
-            return StartupServer == ServerStartupMode.Http;
-        }
-
-        /// <summary>
-        /// Start/stop servers according to the current startup selection.
-        /// Exposed for tests and editor automation.
-        /// </summary>
-        public void ApplySelection()
-        {
-            ServerLifecycleCoordinator.UpdateServerState(StartupServer);
-        }
-
         /// <summary>
         /// Show the settings asset in the inspector
         /// </summary>
         [MenuItem("Tools/UnityCodeMcpServer/Show or Create Settings")]
         public static void ShowSettings()
         {
-            var guids = AssetDatabase.FindAssets($"t:{typeof(UnityCodeMcpServerSettings).Name}");
+            string[] guids = AssetDatabase.FindAssets($"t:{typeof(UnityCodeMcpServerSettings).Name}");
             UnityCodeMcpServerSettings settings;
             if (guids.Length > 0)
             {
-                var assetPath = AssetDatabase.GUIDToAssetPath(guids[0]);
+                string assetPath = AssetDatabase.GUIDToAssetPath(guids[0]);
                 settings = AssetDatabase.LoadAssetAtPath<UnityCodeMcpServerSettings>(assetPath);
             }
             else
@@ -423,7 +346,7 @@ namespace UnityCodeMcpServer.Settings
         public static UnityCodeMcpServerSettings GetOrCreateSettingsAsset()
         {
             // Check if asset file already exists
-            var settingsAsset = LoadSettingsAsset(_settingsAssetPath);
+            UnityCodeMcpServerSettings settingsAsset = LoadSettingsAsset(_settingsAssetPath);
             if (settingsAsset != null)
             {
                 settingsAsset.InitializeSkillsTarget();
@@ -444,7 +367,7 @@ namespace UnityCodeMcpServer.Settings
                 return null;
             }
 
-            var settings = AssetDatabase.LoadAssetAtPath<UnityCodeMcpServerSettings>(settingsAssetPath);
+            UnityCodeMcpServerSettings settings = AssetDatabase.LoadAssetAtPath<UnityCodeMcpServerSettings>(settingsAssetPath);
             if (settings != null)
             {
                 settings.InitializeSkillsTarget();

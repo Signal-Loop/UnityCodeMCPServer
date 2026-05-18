@@ -1,48 +1,22 @@
 # Unity Code MCP Server
 
-Unity Code MCP Server is a powerful tool for the Unity Editor that gives AI Agents ability to perform any action using Unity Editor API. This includes scripts, scenes, prefabs, assets, configuration changes, and more.
+## TL;DR
+
+- Connect your MCP client to Unity through the bundled `unity-code-mcp-stdio` bridge.
+- Let agents execute C# inside the Unity Editor, read logs, run tests, enter Play Mode, simulate input, and capture Game View screenshots.
+- Unity Code MCP Server is designed specifically for long-running agent harness.
+
+Unity Code MCP Server gives AI agents direct access to the Unity Editor through C# execution inside the Editor process. Agents can inspect projects, modify scenes and assets, run tests, and drive Play Mode workflows without custom glue code.
+
+![Play Pong game example](images/PongVideoShort.gif)
+Example agent workflow: Play Pong game in a loop, using `enter_play_mode`, `play_unity_game`, `read_unity_console_logs`, and `execute_csharp_script_in_unity_editor` to adaptively sense the scene, make decisions, and act.
 
 ![diagram](images/UnityCodeMCP.png)
+Architecture diagram: The Unity Code MCP Server package runs inside the Unity Editor and communicates with an external MCP client (like an LLM agent) through a file-backed STDIO bridge.
 
 ## Real workflow example
 
-<details>
-<summary><strong>User prompt</strong></summary>
-
-```
-Add following feature to Unity using execute script tool:
-
-- Read cities list from csv file #file:cities.csv
-- Create CitySO ScriptableObject class with properties based on csv columns, place it in Assets/Scripts/ScriptableObjects
-- Create assets for each city in the csv file, populate properties with data from the file, place them in Assets/ScriptableObjects
-- Create CityComponent MonoBehaviour class with a reference to CitySO ScriptableObject and place it in Assets/Scripts
-- Create Map root gameobject in the current scene
-- For each city asset, create a City gameobject as a child of Map, set its position based on the coordinates from the asset, add CityComponent and assign the corresponding CitySO asset
-- To each City gameObject add SpriteRenderer component and assign a default sprite from Assets/Images/City.png
-```
-
-</details>
-<details>
-<summary><strong>AI Agent Result</strong></summary>
-
-```
-Implemented the full “cities from CSV → assets → scene” pipeline.
-
-- Added `CitySO` ScriptableObject: CitySO.cs
-- Added `CityComponent` MonoBehaviour: CityComponent.cs
-- Added the CSV data file: cities.csv
-- Ran an Editor execution script that:
-  - Created 49 `CitySO` assets in ScriptableObjects
-  - Created a `Map` root GameObject in the active scene with 49 `City` children
-  - Set each city position from `Coordinates`, added `CityComponent` and assigned the matching `CitySO`
-  - Added `SpriteRenderer` to each city and assigned the default sprite from City.png
-```
-
-</details>
-
-![animation](images/UnityCodeMcpShort_Sharp_10.gif)
-
-Full chat transcript: [ChatTranscript.md](Assets/Plugins/UnityCodeMcpServer/Documentation~/Examples/ChatTranscript.md). Repository contains solution with result.
+See [the full cities workflow example and transcript](Assets/Plugins/UnityCodeMcpServer/Documentation~/Examples/UsageExample_CitiesWorkflow.md).
 
 ## Table of contents
 
@@ -61,11 +35,9 @@ Full chat transcript: [ChatTranscript.md](Assets/Plugins/UnityCodeMcpServer/Docu
 
 ## Features
 
-- **Unity Editor / Unity Engine API access**: Perform any tasks available through public APIs or reflection
-- **Play Mode automation**: Enter Play Mode, simulate player input while the game runs, capture screenshots/logs, and exit Play Mode cleanly
-- **STDIO transport (via bridge)**: No separate server process required for MCP clients. Domain-reload safe, retries if domain reload is in progress. `uv` (Python package manager) is required.
-- **Streamable HTTP transport**: Alternative to STDIO bridge for MCP clients that support HTTP. No separate server process required. No uv required. Responds with error if domain reload is in progress.
-- **Extensible**: Add new tools, async tools, resources, or prompts by implementing interfaces anywhere in the codebase
+- **Maximum Project Visibility:** Inspect the active scene, components, and project assets from an MCP client.
+- **Autonomous Scene & Asset Authoring:** Create and modify GameObjects, prefabs, ScriptableObjects, and other Unity assets by executing C# in the Editor.
+- **Intelligent Play-Testing & QA:** Run Edit Mode and Play Mode tests, enter Play Mode, simulate input, capture screenshots, and read Unity console logs.
 
 ### Tools
 
@@ -87,11 +59,19 @@ Enter Unity Play Mode, pause time and return immediately after triggering the tr
 
 #### play_unity_game
 
-Temporarily unpause time, simulate configured Input System actions, capture a Game View screenshot, collect logs, and pause again when finished.
+Temporarily unpause time, simulate configured Input System actions, collect logs, and pause again when finished.
+
+#### get_unity_game_view_window_screenshot
+
+Capture the current Unity Game View as an image without routing screenshot capture through gameplay input calls.
 
 #### exit_play_mode
 
 Exit Unity Play Mode, unpause time, and return immediately after triggering the transition.
+
+#### get_unity_info
+
+Returns information about the current Unity Editor project and the UnityCodeMcpServer settings.
 
 ## Security considerations
 
@@ -108,20 +88,14 @@ You are responsible for securing your environment and for any changes or data lo
 
 ### STDIO Transport
 
-```
-┌─────────────┐     STDIO      ┌─────────────────┐      TCP      ┌────────────────────────────┐
-│  MCP Client │ ◄────────────► │  STDIO Bridge   │ ◄───────────► │   Unity Code MCP Server    │
-│  (AI Agent) │                │ (Python script) │               │       (Unity Editor)       │
-└─────────────┘                └─────────────────┘               └────────────────────────────┘
-```
+```mermaid
+graph LR
+    A["MCP Client<br/>AI Agent"] -->|STDIO| B["STDIO Bridge<br/>Python script"]
+    B <-->|request/response files| C["Unity Code MCP Server<br/>Unity Editor"]
 
-### HTTP Transport
-
-```
-┌─────────────┐             HTTP / SSE              ┌────────────────────────────┐
-│  MCP Client │ ◄─────────────────────────────────► │   Unity Code MCP Server    │
-│  (AI Agent) │                                     │       (Unity Editor)       │
-└─────────────┘                                     └────────────────────────────┘
+    style A fill:#e1f5ff
+    style B fill:#fff3e0
+    style C fill:#f3e5f5
 ```
 
 ## Quick start
@@ -130,49 +104,38 @@ You are responsible for securing your environment and for any changes or data lo
 
 - Unity 2022.3 LTS or higher (tested on 2022.3.62f3 and 6000.2.7f2)
 - UniTask (async/await integration): https://github.com/Cysharp/UniTask
-- `uv` (Python package manager) for the STDIO transport: https://docs.astral.sh/uv/, RECOMMENDED
+- `uv` (Python package manager) for the bundled STDIO bridge: https://docs.astral.sh/uv/.
 
 ### Installation
 
-1. Install `uv` (if using STDIO transport, Recommended):
+1. Install `uv`:
    - Follow instructions at https://docs.astral.sh/uv/getting-started/installation
-2. Install UniTask package in your Unity project:
-   - Open Unity Package Manager: **Window > Package Manager**
-   - Click the **+** button and select **Add package from git URL...**
-   - Enter Git URL
+2. Install UniTask in your Unity project. Open **Window > Package Manager**, click the **+** button, select **Add package from git URL...**, and enter:
 
 ```
 https://github.com/Cysharp/UniTask.git?path=src/UniTask/Assets/Plugins/UniTask
 ```
 
-3. Install Unity Code MCP Server package:
-   - Open Unity Package Manager: **Window > Package Manager**
-   - Click the **+** button and select **Add package from git URL...**
-
-- Enter the Git URL:
+3. Install Unity Code MCP Server from Unity Package Manager. Open **Window > Package Manager**, click the **+** button, select **Add package from git URL...**, and enter:
 
 ```
 https://github.com/Signal-Loop/UnityCodeMCPServer.git?path=Assets/Plugins/UnityCodeMcpServer
 ```
 
-4. Configure Skill install location (Markdown files that teach your agent how to use the server's tools effectively):
-  - In Unity Editor, open server settings: **Tools/UnityCodeMcpServer/Show or Create Settings**
-  - Scroll to the **Skills** section
-  - By default, first-time installs target `.agents/skills/`
-  - If needed, change the install directory to `.github/skills/`, `.claude/skills/`, `.agents/skills/`, or a custom folder
-  - Skills are installed and updated automatically when the package is installed or updated
+4. Configure the skill install location. Open **Tools/UnityCodeMcpServer/Show or Create Settings**, scroll to the **Skills** section, and confirm or change the install directory. By default, first-time installs target `.agents/skills/`. Skills are installed and updated automatically when the package is installed or updated.
 
 ### First Run
 
 ### MCP client configuration
 
-1. Open your Unity project (the STDIO server auto-starts with the Editor).
-2. In Unity, run menu item: **Tools/UnityCodeMcpServer/STDIO or HTTP/Print MCP Configuration to Console**.
-3. Copy the printed MCP configuration into your MCP client.
+1. Open your Unity project. Unity auto-starts the file-backed transport and watches `.unityCodeMcpServer/messages` in the project root.
+2. Configure your MCP client to run the bundled STDIO bridge.
 
 #### STDIO
 
 Example configuration (using `uv` to run the bridge):
+
+The `unity-code-mcp-stdio` bridge forwards STDIO traffic to Unity through `.unityCodeMcpServer/messages`.
 
 ```json
 {
@@ -182,7 +145,7 @@ Example configuration (using `uv` to run the bridge):
       "args": [
         "run",
         "--directory",
-        "C:/Users/YOUR_USERNAME/path/to/UnityProject/Assets/Plugins/UnityCodeMcpServer/Editor/STDIO~",
+        "C:/path/to/UnityProject/Assets/Plugins/UnityCodeMcpServer/Editor/STDIO~",
         "unity-code-mcp-stdio"
       ]
     }
@@ -190,28 +153,12 @@ Example configuration (using `uv` to run the bridge):
 }
 ```
 
-#### Streamable HTTP
-
-```json
-{
-  "servers": {
-    "unity-code-mcp-http": {
-      "url": "http://127.0.0.1:3001/mcp/",
-      "type": "http"
-    }
-  }
-}
-```
-
 ### Server configuration (Unity)
 
-1. Access (and create if necessary) settings via **Tools/UnityCodeMcpServer/Show or Create Settings**.
-2. Configure options:
-   - **Server Selection**: Choose STDIO (TCP) or HTTP server for auto-start
-   - **Verbose Logging**: Enable detailed logging for debugging
+1. Access the settings via **Tools/UnityCodeMcpServer/Show or Create Settings**.
+2. Configure **Verbose Logging** for detailed diagnostics and optionally set **Input Actions Asset** for `play_unity_game`.
 
-- **TCP Server**: Port (default: `21088`), backlog, timeouts (changing the port restarts the STDIO server if running)
-- **HTTP Server**: Port (default: `3001`), session timeout, SSE keep-alive interval (changing the port restarts the HTTP server if running)
+The file-backed transport exchanges request and response files through `.unityCodeMcpServer/messages` in the Unity project root.
 
 ### Menu commands
 
@@ -219,97 +166,6 @@ Example configuration (using `uv` to run the bridge):
 
 - **Tools/UnityCodeMcpServer/Show or Create Settings** — Open the server settings asset in the inspector
 
-#### STDIO Server (TCP)
-
-- **Tools/UnityCodeMcpServer/STDIO/Refresh Registry** — Re-scan for new tools/prompts/resources
-- **Tools/UnityCodeMcpServer/STDIO/Restart Server** — Restart the TCP server
-- **Tools/UnityCodeMcpServer/STDIO/Print MCP configuration to console** — Log MCP client configuration for STDIO bridge
-
-#### HTTP Server
-
-- **Tools/UnityCodeMcpServer/HTTP/Refresh Registry** — Re-scan for new tools/prompts/resources
-- **Tools/UnityCodeMcpServer/HTTP/Restart Server** — Restart the HTTP server
-- **Tools/UnityCodeMcpServer/HTTP/Log Server Status** — Display current HTTP server status
-- **Tools/UnityCodeMcpServer/HTTP/Print MCP configuration to console** — Log MCP client configuration for HTTP server
-
-## Built-in tools
-
-### execute_csharp_script_in_unity_editor
-
-```
-Use this tool to perform changes or automate tasks in Unity Editor by creating and executing C# scripts.
-Scripts run in the Unity Editor context using Roslyn with full access to UnityEngine, UnityEditor, and any project assembly.
-Perfect for creating GameObjects, modifying scenes, configuring components, or automating Unity Editor tasks.
-Returns execution status, output, and any logs/errors.
-
-**ALWAYS use `execute_csharp_script_in_unity_editor` tool for ANY Unity Editor modifications or automation tasks.**
-
-**ALWAYS prefer `execute_csharp_script_in_unity_editor` tool to modification of Unity Yaml files.**
-
-### When to Use This Tool (Use for ALL of these scenarios):
-- Creating, modifying, or deleting GameObjects in scenes
-- Adding, configuring, or removing Components
-- Adjusting Transform properties (position, rotation, scale)
-- Setting up UI elements and Canvas hierarchies
-- Creating or modifying Prefabs
-- Configuring ScriptableObject instances
-- Scene management (creating, loading, switching scenes)
-- Asset manipulation (importing, configuring, organizing, modifying)
-- Batch operations on multiple GameObjects
-- Editor window automation
-- Project structure setup
-- ANY task that modifies Unity Editor state
-
-### Why This Tool is Required:
-- **Direct execution**: Scripts run immediately in the Unity Editor context using Roslyn
-- **Full API access**: Complete access to UnityEngine, UnityEditor, and all project assemblies
-- **Immediate feedback**: Returns execution status, output, and logs instantly
-- **Scene persistence**: Automatically marks scenes dirty after execution
-- **Selection context**: Automatically captures current Unity Editor selection
-```
-
-### read_unity_console_logs
-
-```
-Reads Unity Editor Console logs. Returns recent log entries as text with an optional max_entries limit.
-```
-
-### run_unity_tests
-
-```
-Runs Unity tests using the TestRunnerApi. Can run all tests or specific tests by name.
-Returns the test results including status and logs.
-```
-
-### enter_play_mode
-
-```
-Enters Unity Play Mode in the Editor.
-Use this before calling `play_unity_game`.
-Pauses time and returns immediately after triggering the play mode transition.
-```
-
-### play_unity_game
-
-```
-Advances the Unity game state and simulates player input for a specified duration.
-Temporarily unpauses time, triggers Input System actions, captures a Game View screenshot,
-collects logs produced during gameplay, and pauses again when finished.
-Requires Unity to already be in Play Mode.
-```
-
-### exit_play_mode
-
-```
-Exits Unity Play Mode in the Editor.
-Unpauses time and returns immediately after triggering the exit transition.
-```
-
-### get_unity_info
-
-```
-Returns Unity Editor project path, Unity version, and current server settings. Useful for verifying server configuration and troubleshooting connectivity issues.
-```
 
 ## Agent skills
 
@@ -320,10 +176,12 @@ Unity Code MCP Server ships a set of **AI agent skill files** (Markdown document
 1. Open the server settings: **Tools/UnityCodeMcpServer/Show or Create Settings**.
 2. Scroll to the **Skills** section.
 3. Choose the install directory from the dropdown:
-  - `GitHub` targets `.github/skills/`
-  - `Claude` targets `.claude/skills/`
-  - `Agents` targets `.agents/skills/`
-  - `Custom` shows a folder picker so you can select any directory
+
+- `GitHub` targets `.github/skills/`
+- `Claude` targets `.claude/skills/`
+- `Agents` targets `.agents/skills/`
+- `Custom` shows a folder picker so you can select any directory
+
 4. The inspector shows the currently selected target directory label so you can verify exactly where skills will be copied.
 5. Package install and update runs copy the skills automatically.
 
@@ -442,12 +300,6 @@ See the bridge docs at [README_STDIO.md](README_STDIO.md).
 Unity tests are in `Assets/Tests/` and can be run via the Unity Test Runner.
 
 ## Known Issues
-
-### Assembly-CSharp.dll: Copying the file failed: The process cannot access the file because it is being used by another process.
-
-- This issue may occur when Assembly-CSharp.dll is locked by script execution tool (which loads assemblies) and Unity tries to recompile scripts (which rebuilds Assembly-CSharp.dll). This issue is not solved yet. Workarounds:
-  - Change any script to force rebuild, usually adding some spaces or comments is enough. May require multiple attempts.
-  - If it still does not work, reopen the project.
 
 ### GUID conflicts with existing dll files in the project
 

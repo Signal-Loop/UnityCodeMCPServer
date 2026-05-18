@@ -48,10 +48,12 @@ namespace UnityCodeMcpServer.Protocol
         public JsonRpcError Error { get; set; }
 
         public static JsonRpcResponse Success(object id, object result) =>
-            new JsonRpcResponse { Id = id, Result = result };
+            new()
+            { Id = id, Result = result };
 
         public static JsonRpcResponse Failure(object id, int code, string message, object data = null) =>
-            new JsonRpcResponse { Id = id, Error = new JsonRpcError { Code = code, Message = message, Data = data } };
+            new()
+            { Id = id, Error = new JsonRpcError { Code = code, Message = message, Data = data } };
     }
 
     /// <summary>
@@ -215,13 +217,16 @@ namespace UnityCodeMcpServer.Protocol
         public bool IsError { get; set; }
 
         public static ToolsCallResult TextResult(string text, bool isError = false) =>
-            new ToolsCallResult { Content = new List<ContentItem> { ContentItem.TextContent(text) }, IsError = isError };
+            new()
+            { Content = new List<ContentItem> { ContentItem.TextContent(text) }, IsError = isError };
 
         public static ToolsCallResult ImageResult(string base64Data, string mimeType) =>
-            new ToolsCallResult { Content = new List<ContentItem> { ContentItem.ImageContent(base64Data, mimeType) } };
+            new()
+            { Content = new List<ContentItem> { ContentItem.ImageContent(base64Data, mimeType) } };
 
         public static ToolsCallResult ErrorResult(string errorMessage) =>
-            new ToolsCallResult { Content = new List<ContentItem> { ContentItem.TextContent(errorMessage) }, IsError = true };
+            new()
+            { Content = new List<ContentItem> { ContentItem.TextContent(errorMessage) }, IsError = true };
     }
 
     [Serializable]
@@ -247,13 +252,16 @@ namespace UnityCodeMcpServer.Protocol
         public ResourceContent Resource { get; set; }
 
         public static ContentItem TextContent(string text) =>
-            new ContentItem { Type = McpContentTypes.Text, Text = text };
+            new()
+            { Type = McpContentTypes.Text, Text = text };
 
         public static ContentItem ImageContent(string base64Data, string mimeType) =>
-            new ContentItem { Type = McpContentTypes.Image, Data = base64Data, MimeType = mimeType };
+            new()
+            { Type = McpContentTypes.Image, Data = base64Data, MimeType = mimeType };
 
         public static ContentItem ResourceTextContent(string uri, string mimeType, string text) =>
-            new ContentItem { Type = McpContentTypes.Resource, Resource = new ResourceContent { Uri = uri, MimeType = mimeType, Text = text } };
+            new()
+            { Type = McpContentTypes.Resource, Resource = new ResourceContent { Uri = uri, MimeType = mimeType, Text = text } };
     }
 
     #endregion

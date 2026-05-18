@@ -1,13 +1,14 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Text;
+using System.Text.Encodings.Web;
 using System.Text.Json;
 using System.Text.Json.Serialization;
-using System.Text.Encodings.Web;
-using UnityEditor;
-using UnityEngine;
 using UnityCodeMcpServer.Helpers;
 using UnityCodeMcpServer.Services;
+using UnityEditor;
+using UnityEngine;
 
 namespace UnityCodeMcpServer.Editor.EditorTools
 {
@@ -15,13 +16,13 @@ namespace UnityCodeMcpServer.Editor.EditorTools
     {
         private const float MinimumScriptAreaHeight = 100f;
 
-        private static readonly JsonSerializerOptions JsonOptions = new JsonSerializerOptions
+        private static readonly JsonSerializerOptions JsonOptions = new()
         {
             WriteIndented = true,
             Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping
         };
 
-        private readonly List<FavouriteScript> _favourites = new List<FavouriteScript>();
+        private readonly List<FavouriteScript> _favourites = new();
         [SerializeField] private string _selectedScriptName = string.Empty;
         private string _scriptName = string.Empty;
         private string _scriptContent = string.Empty;
@@ -118,11 +119,11 @@ namespace UnityCodeMcpServer.Editor.EditorTools
             EditorGUILayout.LabelField("Script", EditorStyles.boldLabel);
 
             _textAreaStyle ??= new GUIStyle(EditorStyles.textArea) { wordWrap = true };
-            var scrollViewRect = GUILayoutUtility.GetRect(GUIContent.none, GUIStyle.none, CreateScriptAreaLayoutOptions());
+            Rect scrollViewRect = GUILayoutUtility.GetRect(GUIContent.none, GUIStyle.none, CreateScriptAreaLayoutOptions());
             float contentWidth = CalculateScriptContentWidth(scrollViewRect.width);
             float minimumContentHeight = CalculateScriptContentHeight(scrollViewRect.height);
             float contentHeight = Mathf.Max(minimumContentHeight, CalculateMeasuredTextHeight(contentWidth));
-            var textAreaRect = new Rect(0f, 0f, contentWidth, contentHeight);
+            Rect textAreaRect = new(0f, 0f, contentWidth, contentHeight);
 
             _scriptScrollPosition = GUI.BeginScrollView(scrollViewRect, _scriptScrollPosition, textAreaRect);
             _scriptContent = EditorGUI.TextArea(textAreaRect, _scriptContent, _textAreaStyle);
@@ -156,7 +157,7 @@ namespace UnityCodeMcpServer.Editor.EditorTools
 
         private float CalculateMeasuredTextHeight(float contentWidth)
         {
-            var content = EditorGUIUtility.TrTextContent(_scriptContent ?? string.Empty);
+            GUIContent content = EditorGUIUtility.TrTextContent(_scriptContent ?? string.Empty);
             return Mathf.Max(MinimumScriptAreaHeight, _textAreaStyle.CalcHeight(content, contentWidth));
         }
 
@@ -207,7 +208,7 @@ namespace UnityCodeMcpServer.Editor.EditorTools
         {
             if (_selectedFavouriteIndex >= 0 && _selectedFavouriteIndex < _favourites.Count)
             {
-                var selected = _favourites[_selectedFavouriteIndex];
+                FavouriteScript selected = _favourites[_selectedFavouriteIndex];
                 _scriptName = selected.Name;
                 _scriptContent = selected.Script;
                 _selectedScriptName = selected.Name;
@@ -252,7 +253,7 @@ namespace UnityCodeMcpServer.Editor.EditorTools
                 try
                 {
                     string json = File.ReadAllText(FavouritesPath);
-                    var loaded = JsonSerializer.Deserialize<List<FavouriteScript>>(json);
+                    List<FavouriteScript> loaded = JsonSerializer.Deserialize<List<FavouriteScript>>(json);
                     if (loaded != null)
                     {
                         _favourites.AddRange(loaded);
@@ -260,7 +261,7 @@ namespace UnityCodeMcpServer.Editor.EditorTools
                 }
                 catch (Exception ex)
                 {
-                    LoopLogger.Error($"Failed to load favourites: {ex.Message}");
+                    UnityCodeMcpServerLogger.Error($"Failed to load favourites: {ex.Message}");
                 }
             }
 
@@ -272,11 +273,11 @@ namespace UnityCodeMcpServer.Editor.EditorTools
         {
             if (string.IsNullOrWhiteSpace(_scriptName))
             {
-                LoopLogger.Warn("Script name is required to save a favourite.");
+                UnityCodeMcpServerLogger.Warn("Script name is required to save a favourite.");
                 return;
             }
 
-            var entry = new FavouriteScript
+            FavouriteScript entry = new()
             {
                 Name = _scriptName.Trim(),
                 Script = _scriptContent ?? string.Empty
@@ -296,7 +297,7 @@ namespace UnityCodeMcpServer.Editor.EditorTools
 
             _selectedScriptName = entry.Name;
             PersistFavourites();
-            LoopLogger.Debug($"Saved favourite '{entry.Name}'.");
+            UnityCodeMcpServerLogger.Debug($"Saved favourite '{entry.Name}'.");
             Repaint();
         }
 
@@ -304,20 +305,20 @@ namespace UnityCodeMcpServer.Editor.EditorTools
         {
             if (string.IsNullOrWhiteSpace(_scriptName))
             {
-                LoopLogger.Warn("No script name provided to delete.");
+                UnityCodeMcpServerLogger.Warn("No script name provided to delete.");
                 return;
             }
 
             int removed = _favourites.RemoveAll(f => string.Equals(f.Name, _scriptName, StringComparison.OrdinalIgnoreCase));
             if (removed == 0)
             {
-                LoopLogger.Warn($"Favourite '{_scriptName}' not found.");
+                UnityCodeMcpServerLogger.Warn($"Favourite '{_scriptName}' not found.");
                 return;
             }
 
             PersistFavourites();
             ReloadFavourites();
-            LoopLogger.Debug($"Deleted favourite '{_scriptName}'.");
+            UnityCodeMcpServerLogger.Debug($"Deleted favourite '{_scriptName}'.");
         }
 
         private void PersistFavourites()
@@ -345,10 +346,10 @@ namespace UnityCodeMcpServer.Editor.EditorTools
 
             try
             {
-                var result = await _scriptExecutionService.ExecuteScriptAsync(_scriptContent);
+                ScriptExecutionService.ExecutionResult result = await _scriptExecutionService.ExecuteScriptAsync(_scriptContent);
 
-                var output = FormatExecutionOutput(result);
-                LoopLogger.Info(output);
+                string output = FormatExecutionOutput(result);
+                UnityCodeMcpServerLogger.Info(output);
             }
             catch (Exception ex)
             {
@@ -360,7 +361,7 @@ namespace UnityCodeMcpServer.Editor.EditorTools
 
         private string FormatExecutionOutput(ScriptExecutionService.ExecutionResult result)
         {
-            var output = new System.Text.StringBuilder();
+            StringBuilder output = new();
             output.AppendLine($"Script Execution Status: {result.Status}, Result: {result.ResultText}");
 
             if (!string.IsNullOrWhiteSpace(result.Logs))

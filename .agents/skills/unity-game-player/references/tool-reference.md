@@ -31,15 +31,14 @@ Enters Unity Play Mode and pauses the game (`Time.timeScale = 0`).
 
 ## 2. play_unity_game
 
-The primary gameplay tool. Unpauses for a specified duration, simulates inputs, captures a screenshot and console logs, then re-pauses.
+The primary gameplay tool. Unpauses for a specified duration, simulates inputs, captures console logs, then re-pauses.
 
 ### Parameters
 
 | Parameter    | Type    | Required | Default | Description                                         |
 | ------------ | ------- | -------- | ------- | --------------------------------------------------- |
-| `duration`   | integer | Yes      | —       | Milliseconds to run. `0` = instant screenshot only. |
+| `duration`   | integer | Yes      | —       | Milliseconds to run. `0` = instant return. |
 | `input`      | array   | No       | `[]`    | Input actions to simulate.                          |
-| `max_height` | integer | No       | `640`   | Max pixel height for returned screenshot.           |
 
 ### Input array items
 
@@ -59,15 +58,13 @@ The primary gameplay tool. Unpauses for a specified duration, simulates inputs, 
    - `hold`: Triggers every frame for the full duration.
    - `press`: Triggers once, releases after 1 frame.
 5. Waits for `duration` ms (realtime).
-6. Captures Game View screenshot (PNG, scaled to `max_height`).
-7. Captures console logs generated during play.
-8. Sets `Time.timeScale = 0`.
-9. Releases all inputs and resets keyboard state.
+6. Captures console logs generated during play.
+7. Sets `Time.timeScale = 0`.
+8. Releases all inputs and resets keyboard state.
 
 ### Returns
 
-- **Image:** Base64-encoded PNG screenshot of the Game View.
-- **Text:** Console logs captured during the play duration.
+Console logs captured during the play duration.
 
 ### Supported control types
 
@@ -83,7 +80,6 @@ The tool handles these Unity Input System control types:
 - Not in Play Mode → error message (call `enter_play_mode` first).
 - InputActionAsset not found → error message.
 - Action name not found → warning logged, action skipped.
-- Screenshot capture failed → error message.
 
 ---
 

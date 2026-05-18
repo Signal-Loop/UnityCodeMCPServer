@@ -1,13 +1,10 @@
-using System;
-using System.Linq;
-using System.Text;
+﻿using System.Text;
 using System.Text.Json;
 using Cysharp.Threading.Tasks;
 using UnityCodeMcpServer.Helpers;
 using UnityCodeMcpServer.Interfaces;
 using UnityCodeMcpServer.Protocol;
 using UnityCodeMcpServer.Services;
-using UnityEngine;
 using UnityEditor;
 
 namespace UnityCodeMcpServer.McpTools
@@ -61,9 +58,9 @@ Executes a C# script in the Unity Editor context using Roslyn scripting. Use thi
 <intent>Find a player, handle null, and get position</intent>
 <script>
 var go = GameObject.Find(""Player"");
-if (go == null) { 
-    Debug.LogError(""Player not found""); 
-    return; 
+if (go == null) {
+    Debug.LogError(""Player not found"");
+    return;
 }
 Debug.Log($""Player position: {go.transform.position}"");
 </script>
@@ -86,28 +83,27 @@ Debug.Log($""Player position: {go.transform.position}"");
 
         public async UniTask<ToolsCallResult> ExecuteAsync(JsonElement arguments)
         {
-            var script = arguments.GetStringOrDefault("script", string.Empty)?.Trim();
+            string script = arguments.GetStringOrDefault("script", string.Empty)?.Trim();
             if (string.IsNullOrWhiteSpace(script))
             {
-                return CreateToolCallResult(isError: true, status: "error", resultText: null, logs: null, errors: "Script is empty or missing.", script: script);
+                return CreateToolCallResult(isError: true, status: "error", resultText: null, logs: null, errors: "Script is empty or missing.");
             }
 
-            var compilationBlockedResult = GetCompilationBlockedResult(script);
+            ToolsCallResult compilationBlockedResult = GetCompilationBlockedResult();
             if (compilationBlockedResult != null)
             {
                 return compilationBlockedResult;
             }
 
-            var executionService = new ScriptExecutionService();
-            var result = await executionService.ExecuteScriptAsync(script);
+            ScriptExecutionService executionService = new();
+            ScriptExecutionService.ExecutionResult result = await executionService.ExecuteScriptAsync(script);
 
-            var toolCallResult = CreateToolCallResult(
+            ToolsCallResult toolCallResult = CreateToolCallResult(
                 isError: !result.IsSuccess,
                 status: result.Status,
                 resultText: result.ResultText,
                 logs: result.Logs,
                 errors: result.Errors,
-                script: script,
                 assemblies: result.LoadedAssemblies);
 
             LogToolCallResult(toolCallResult);
@@ -116,24 +112,24 @@ Debug.Log($""Player position: {go.transform.position}"");
 
         public static ToolsCallResult BuildCompilationBlockedResult(bool isCompiling, bool hasCompileErrors)
         {
-            var message = EditorCompilationGate.BuildBlockedMessage("execute C# scripts", isCompiling, hasCompileErrors);
-            return CreateToolCallResult(isError: true, status: "error", resultText: null, logs: null, errors: message, script: null);
+            string message = EditorCompilationGate.BuildBlockedMessage("execute C# scripts", isCompiling, hasCompileErrors);
+            return CreateToolCallResult(isError: true, status: "error", resultText: null, logs: null, errors: message);
         }
 
-        private static ToolsCallResult GetCompilationBlockedResult(string script)
+        private static ToolsCallResult GetCompilationBlockedResult()
         {
-            if (!EditorCompilationGate.TryGetBlockedMessage("execute C# scripts", out var message))
+            if (!EditorCompilationGate.TryGetBlockedMessage("execute C# scripts", out string message))
             {
                 return null;
             }
 
-            return CreateToolCallResult(isError: true, status: "error", resultText: null, logs: null, errors: message, script: script);
+            return CreateToolCallResult(isError: true, status: "error", resultText: null, logs: null, errors: message);
         }
 
 
-        private static ToolsCallResult CreateToolCallResult(bool isError, string status, string resultText, string logs, string errors, string script, string[] assemblies = null)
+        private static ToolsCallResult CreateToolCallResult(bool isError, string status, string resultText, string logs, string errors, string[] assemblies = null)
         {
-            var response = new StringBuilder();
+            StringBuilder response = new();
             string mode = EditorApplication.isPlaying ? "Play Mode" : "Edit Mode";
             response.AppendLine($"**Unity Editor is in {mode}**");
             response.AppendLine();
@@ -147,11 +143,6 @@ Debug.Log($""Player position: {go.transform.position}"");
                 response.AppendLine("```");
             }
 
-            response.AppendLine("### Script");
-            response.AppendLine("```csharp");
-            response.AppendLine(string.IsNullOrWhiteSpace(script) ? "(not provided)" : script);
-            response.AppendLine("```");
-
             response.AppendLine("### Logs");
             response.AppendLine(string.IsNullOrWhiteSpace(logs) ? "(none)" : logs.TrimEnd());
 
@@ -162,7 +153,7 @@ Debug.Log($""Player position: {go.transform.position}"");
             {
                 response.AppendLine();
                 response.AppendLine("### Loaded Assemblies");
-                foreach (var assembly in assemblies)
+                foreach (string assembly in assemblies)
                 {
                     response.AppendLine($"- {assembly}");
                 }
@@ -176,17 +167,17 @@ Debug.Log($""Player position: {go.transform.position}"");
             string text = string.Empty;
             if (result.Content != null && result.Content.Count > 0)
             {
-                var first = result.Content[0];
+                ContentItem first = result.Content[0];
                 text = first != null ? first.Text ?? string.Empty : string.Empty;
             }
 
             if (result.IsError)
             {
-                LoopLogger.Error($"{McpProtocol.LogPrefix} ExecuteCSharpScriptInUnityEditor result:\n{text}");
+                UnityCodeMcpServerLogger.Error($"ExecuteCSharpScriptInUnityEditor result:\n{text}");
             }
             else
             {
-                LoopLogger.Debug($"{McpProtocol.LogPrefix} ExecuteCSharpScriptInUnityEditor result:\n{text}");
+                UnityCodeMcpServerLogger.Debug($"ExecuteCSharpScriptInUnityEditor result:\n{text}");
             }
         }
     }

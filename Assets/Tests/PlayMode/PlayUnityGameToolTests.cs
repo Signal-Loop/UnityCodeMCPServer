@@ -1,3 +1,4 @@
+﻿using System;
 using System.Collections.Generic;
 using System.Reflection;
 using NUnit.Framework;
@@ -12,20 +13,27 @@ public class PlayUnityGameToolTests
     private static MethodInfo GetPrivateMethod(string name) =>
         typeof(PlayUnityGameTool).GetMethod(name, BindingFlags.Instance | BindingFlags.NonPublic);
 
+    private static MethodInfo GetPrivateStaticMethod(string name) =>
+        typeof(PlayUnityGameTool).GetMethod(name, BindingFlags.Static | BindingFlags.NonPublic);
+
+    private static MethodInfo GetResolverMethod(string name) =>
+        Type.GetType("UnityCodeMcpServer.Helpers.InputActionAssetResolver, UnityCodeMcpServer")
+            ?.GetMethod(name, BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic);
+
     private static FieldInfo GetPrivateField(string name) =>
         typeof(PlayUnityGameTool).GetField(name, BindingFlags.Instance | BindingFlags.NonPublic);
 
     private static Keyboard EnsureKeyboardDevice(out bool createdKeyboard)
     {
-        var keyboard = Keyboard.current;
+        Keyboard keyboard = Keyboard.current;
         createdKeyboard = keyboard == null;
         return keyboard ?? InputSystem.AddDevice<Keyboard>();
     }
 
     private static InputActionAsset CreateKeyboardTestAsset()
     {
-        var asset = ScriptableObject.CreateInstance<InputActionAsset>();
-        var map = new InputActionMap("TestGameplay");
+        InputActionAsset asset = ScriptableObject.CreateInstance<InputActionAsset>();
+        InputActionMap map = new("TestGameplay");
         map.AddAction("Player1Up", InputActionType.Button, "<Keyboard>/w");
         map.AddAction("Player2Up", InputActionType.Button, "<Keyboard>/upArrow");
         asset.AddActionMap(map);
@@ -33,23 +41,111 @@ public class PlayUnityGameToolTests
     }
 
     [Test]
+    public void ResolveInputActionAssetPath_UsesConfiguredSettingsPathFirst()
+    {
+        MethodInfo resolveMethod = GetResolverMethod("ResolveInputActionAssetPath");
+        Assert.IsNotNull(resolveMethod, "Could not find InputActionAssetResolver.ResolveInputActionAssetPath method.");
+
+        object[] args =
+        {
+            "Assets/Configured.inputactions",
+            new[] { "Assets/FallbackProject.inputactions" },
+            new[] { "Packages/pkg/FallbackAny.inputactions" },
+            null,
+            null
+        };
+
+        string resolvedPath = (string)resolveMethod.Invoke(null, args);
+
+        Assert.That(resolvedPath, Is.EqualTo("Assets/Configured.inputactions"));
+        Assert.That((bool)args[3], Is.False);
+        Assert.That(args[4], Is.Null);
+    }
+
+    [Test]
+    public void ResolveInputActionAssetPath_UsesFirstProjectAssetWhenSettingsUnset()
+    {
+        MethodInfo resolveMethod = GetResolverMethod("ResolveInputActionAssetPath");
+        Assert.IsNotNull(resolveMethod, "Could not find InputActionAssetResolver.ResolveInputActionAssetPath method.");
+
+        object[] args =
+        {
+            string.Empty,
+            new[] { "Assets/Inputs/A.inputactions", "Assets/Inputs/B.inputactions" },
+            new[] { "Packages/pkg/FallbackAny.inputactions" },
+            null,
+            null
+        };
+
+        string resolvedPath = (string)resolveMethod.Invoke(null, args);
+
+        Assert.That(resolvedPath, Is.EqualTo("Assets/Inputs/A.inputactions"));
+        Assert.That((bool)args[3], Is.True);
+        StringAssert.Contains("Assets/Inputs/A.inputactions", (string)args[4]);
+    }
+
+    [Test]
+    public void ResolveInputActionAssetPath_UsesFirstAvailableAssetWhenProjectHasNone()
+    {
+        MethodInfo resolveMethod = GetResolverMethod("ResolveInputActionAssetPath");
+        Assert.IsNotNull(resolveMethod, "Could not find InputActionAssetResolver.ResolveInputActionAssetPath method.");
+
+        object[] args =
+        {
+            string.Empty,
+            Array.Empty<string>(),
+            new[] { "Packages/pkg/FallbackAny.inputactions", "Library/Other.inputactions" },
+            null,
+            null
+        };
+
+        string resolvedPath = (string)resolveMethod.Invoke(null, args);
+
+        Assert.That(resolvedPath, Is.EqualTo("Packages/pkg/FallbackAny.inputactions"));
+        Assert.That((bool)args[3], Is.True);
+        StringAssert.Contains("Packages/pkg/FallbackAny.inputactions", (string)args[4]);
+    }
+
+    [Test]
+    public void ResolveInputActionAssetPath_ReturnsNullWhenNoAssetsExist()
+    {
+        MethodInfo resolveMethod = GetResolverMethod("ResolveInputActionAssetPath");
+        Assert.IsNotNull(resolveMethod, "Could not find InputActionAssetResolver.ResolveInputActionAssetPath method.");
+
+        object[] args =
+        {
+            string.Empty,
+            Array.Empty<string>(),
+            Array.Empty<string>(),
+            null,
+            null
+        };
+
+        string resolvedPath = (string)resolveMethod.Invoke(null, args);
+
+        Assert.That(resolvedPath, Is.Null);
+        Assert.That((bool)args[3], Is.False);
+        Assert.That(args[4], Is.Null);
+    }
+
+    [Test]
     public void TriggerAction_WithTwoKeyboardActions_BothRemainPressed()
     {
-        var keyboard = EnsureKeyboardDevice(out var createdKeyboard);
+        Keyboard keyboard = EnsureKeyboardDevice(out bool createdKeyboard);
         Assert.IsNotNull(keyboard, "Expected a keyboard device for keyboard action tests.");
 
-        var asset = CreateKeyboardTestAsset();
+        InputActionAsset asset = CreateKeyboardTestAsset();
 
-        var player1Up = asset.FindAction("Player1Up", true);
-        var player2Up = asset.FindAction("Player2Up", true);
+        InputAction player1Up = asset.FindAction("Player1Up", true);
+        InputAction player2Up = asset.FindAction("Player2Up", true);
 
         player1Up.Enable();
         player2Up.Enable();
 
-        var triggerActionMethod = typeof(PlayUnityGameTool).GetMethod("TriggerAction", BindingFlags.Instance | BindingFlags.NonPublic);
+        MethodInfo triggerActionMethod = typeof(PlayUnityGameTool).GetMethod("TriggerAction", BindingFlags.Instance | BindingFlags.NonPublic);
         Assert.IsNotNull(triggerActionMethod, "Could not access PlayUnityGameTool.TriggerAction through reflection.");
 
-        var tool = new PlayUnityGameTool();
+        PlayUnityGameTool tool = new();
 
         try
         {
@@ -70,7 +166,7 @@ public class PlayUnityGameToolTests
 
             player1Up.Disable();
             player2Up.Disable();
-            Object.DestroyImmediate(asset);
+            UnityEngine.Object.DestroyImmediate(asset);
 
             if (createdKeyboard)
             {
@@ -88,22 +184,22 @@ public class PlayUnityGameToolTests
         // start of a new invocation) early-returns without resetting any keyboards.
         // Residual key presses from a previous invocation keep _gameState.VerticalInput != 0.
 
-        var keyboard = EnsureKeyboardDevice(out var createdKeyboard);
+        Keyboard keyboard = EnsureKeyboardDevice(out bool createdKeyboard);
         Assert.IsNotNull(keyboard, "Expected a keyboard device for keyboard action tests.");
 
-        var asset = CreateKeyboardTestAsset();
+        InputActionAsset asset = CreateKeyboardTestAsset();
 
-        var player1Up = asset.FindAction("Player1Up", true);
+        InputAction player1Up = asset.FindAction("Player1Up", true);
         player1Up.Enable();
 
-        var triggerAction = GetPrivateMethod("TriggerAction");
-        var resetAllInputDevices = GetPrivateMethod("ResetAllInputDevices");
-        var activeKeysField = GetPrivateField("_active_keys_by_keyboard");
+        MethodInfo triggerAction = GetPrivateMethod("TriggerAction");
+        MethodInfo resetAllInputDevices = GetPrivateMethod("ResetAllInputDevices");
+        FieldInfo activeKeysField = GetPrivateField("_active_keys_by_keyboard");
         Assert.IsNotNull(triggerAction, "Could not find TriggerAction method.");
         Assert.IsNotNull(resetAllInputDevices, "Could not find ResetAllInputDevices method.");
         Assert.IsNotNull(activeKeysField, "Could not find _active_keys_by_keyboard field.");
 
-        var tool = new PlayUnityGameTool();
+        PlayUnityGameTool tool = new();
 
         try
         {
@@ -114,7 +210,7 @@ public class PlayUnityGameToolTests
 
             // Simulate the start of a NEW invocation: clear the tracking dictionary
             // (this is what ExecuteAsync does at the top).
-            var activeKeys = (Dictionary<Keyboard, HashSet<Key>>)activeKeysField.GetValue(tool);
+            Dictionary<Keyboard, HashSet<Key>> activeKeys = (Dictionary<Keyboard, HashSet<Key>>)activeKeysField.GetValue(tool);
             activeKeys.Clear();
 
             // Call ResetAllInputDevices — it should release the residual key state.
@@ -130,7 +226,7 @@ public class PlayUnityGameToolTests
             triggerAction.Invoke(tool, new object[] { player1Up, 0f });
             InputSystem.Update();
             player1Up.Disable();
-            Object.DestroyImmediate(asset);
+            UnityEngine.Object.DestroyImmediate(asset);
 
             if (createdKeyboard)
             {
@@ -142,16 +238,16 @@ public class PlayUnityGameToolTests
     [Test]
     public void ResetAllInputDevices_ResetsResidualGamepadButtonState()
     {
-        var triggerAction = GetPrivateMethod("TriggerAction");
-        var resetAllInputDevices = GetPrivateMethod("ResetAllInputDevices");
+        MethodInfo triggerAction = GetPrivateMethod("TriggerAction");
+        MethodInfo resetAllInputDevices = GetPrivateMethod("ResetAllInputDevices");
         Assert.IsNotNull(triggerAction, "Could not find TriggerAction method.");
         Assert.IsNotNull(resetAllInputDevices, "Could not find ResetAllInputDevices method.");
 
-        var gamepad = InputSystem.AddDevice<Gamepad>();
-        var action = new InputAction(name: "TestGamepadButton", type: InputActionType.Button, binding: "<Gamepad>/buttonSouth");
+        Gamepad gamepad = InputSystem.AddDevice<Gamepad>();
+        InputAction action = new(name: "TestGamepadButton", type: InputActionType.Button, binding: "<Gamepad>/buttonSouth");
         action.Enable();
 
-        var tool = new PlayUnityGameTool();
+        PlayUnityGameTool tool = new();
 
         try
         {
@@ -177,16 +273,16 @@ public class PlayUnityGameToolTests
     [Test]
     public void ResetAllInputDevices_ResetsResidualGamepadAxisState()
     {
-        var triggerAction = GetPrivateMethod("TriggerAction");
-        var resetAllInputDevices = GetPrivateMethod("ResetAllInputDevices");
+        MethodInfo triggerAction = GetPrivateMethod("TriggerAction");
+        MethodInfo resetAllInputDevices = GetPrivateMethod("ResetAllInputDevices");
         Assert.IsNotNull(triggerAction, "Could not find TriggerAction method.");
         Assert.IsNotNull(resetAllInputDevices, "Could not find ResetAllInputDevices method.");
 
-        var gamepad = InputSystem.AddDevice<Gamepad>();
-        var action = new InputAction(name: "TestGamepadAxis", type: InputActionType.Value, binding: "<Gamepad>/leftStick/x");
+        Gamepad gamepad = InputSystem.AddDevice<Gamepad>();
+        InputAction action = new(name: "TestGamepadAxis", type: InputActionType.Value, binding: "<Gamepad>/leftStick/x");
         action.Enable();
 
-        var tool = new PlayUnityGameTool();
+        PlayUnityGameTool tool = new();
 
         try
         {

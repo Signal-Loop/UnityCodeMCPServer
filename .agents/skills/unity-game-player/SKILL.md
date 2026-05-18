@@ -8,7 +8,7 @@ description: >-
   Use when an agent must play, test, or demonstrate any Unity game in the Editor
   — regardless of genre (paddle, platformer, shooter, puzzle, etc.).
   Covers: dynamic scene discovery, trajectory prediction, input simulation
-  (press/hold), screenshot-based feedback, and adaptive re-sensing.
+  (press/hold) and adaptive re-sensing.
 ---
 
 # Unity Game Player
@@ -51,7 +51,7 @@ The `executing-csharp-scripts-in-unity-editor` skill is essential to properly ex
 | Tool                                    | Purpose                                                                                                             |
 | --------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
 | `enter_play_mode`                       | Enter Play Mode (paused). Call once at start.                                                                       |
-| `play_unity_game`                       | Unpause for N ms, simulate inputs, capture screenshot + logs.                                                       |
+| `play_unity_game`                       | Unpause for N ms, simulate inputs, capture console logs.                                                            |
 | `execute_csharp_script_in_unity_editor` | Run C# in the Editor to query/modify scene state. Read `executing-csharp-scripts-in-unity-editor` skill before use. |
 | `read_unity_console_logs`               | Read recent console entries (use sparingly — prefer logs from tool output).                                         |
 | `exit_play_mode`                        | Leave Play Mode. Call only when done.                                                                               |
@@ -197,9 +197,8 @@ input:
 ## 7. Phase 4 — REPEAT
 
 1. After every `play_unity_game` call, check the **returned logs** for game events (score changes, misses, resets, game-over).
-2. Examine the **returned screenshot** to verify visual state matches expectations.
-3. Return immediately to **SENSE+COMPUTE**. Never chain multiple ACTs without re-sensing.
-4. If game restarted or state changed drastically, re-run **INIT**.
+2. Return immediately to **SENSE+COMPUTE**. Never chain multiple ACTs without re-sensing.
+3. If game restarted or state changed drastically, re-run **INIT**.
 
 ### Fine-tune correction
 
@@ -229,7 +228,6 @@ After positioning, re-sense and check residual delta. If `abs(residual) > small_
 | Overshooting target position   | Use exact computed duration, not rounded/minimum values   |
 | Stale state after bounce/reset | Always re-sense; never chain actions blindly              |
 | `Action not found` error       | Verify action names during INIT from the InputActionAsset |
-| Screenshot shows no movement   | Ensure `duration > 0` and input actions are correct       |
 | Game not advancing             | Confirm Play Mode is active (`enter_play_mode` called)    |
 | Wrong entity moves             | Double-check action→entity mapping in INIT                |
 | Physics jitter after reset     | Idle 300–500 ms before re-sensing                         |

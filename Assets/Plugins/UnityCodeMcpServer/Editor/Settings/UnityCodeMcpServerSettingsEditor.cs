@@ -1,11 +1,14 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Reflection;
 using UnityCodeMcpServer.Editor.Installer;
 using UnityCodeMcpServer.Helpers;
 using UnityEditor;
+using UnityEditor.IMGUI.Controls;
 using UnityEngine;
+using UnityEngine.InputSystem;
 
 namespace UnityCodeMcpServer.Settings.Editor
 {
@@ -15,8 +18,10 @@ namespace UnityCodeMcpServer.Settings.Editor
     [CustomEditor(typeof(UnityCodeMcpServerSettings))]
     public class UnityCodeMcpServerSettingsEditor : UnityEditor.Editor
     {
+        private const string NoAssembliesAvailableLabel = "(No assemblies available)";
+
         // ── Assembly selector state ───────────────────────────────────────────
-        private int _selectedAssemblyIndex = 0;
+        private readonly AdvancedDropdownState _assemblyDropdownState = new();
         private string[] _availableAssemblyNames;
         private bool _showDefaultAssemblies = true;
         private bool _showAdditionalAssemblies = true;
@@ -28,15 +33,14 @@ namespace UnityCodeMcpServer.Settings.Editor
 
         public override void OnInspectorGUI()
         {
-            var settings = (UnityCodeMcpServerSettings)target;
+            UnityCodeMcpServerSettings settings = (UnityCodeMcpServerSettings)target;
+            bool wasDirtyBeforeGui = EditorUtility.IsDirty(settings);
             serializedObject.Update();
 
-            // Draw default properties
-            EditorGUILayout.LabelField("Server Configuration", EditorStyles.boldLabel);
+            DrawPropertiesExcluding(serializedObject, "m_Script", "AdditionalAssemblyNames", "InputActionsAssetPath", "SkillsInstallTarget", "SkillsTargetPath");
+
             EditorGUILayout.Space();
-
-            DrawPropertiesExcluding(serializedObject, "m_Script", "AdditionalAssemblyNames", "SkillsInstallTarget", "SkillsTargetPath");
-
+            DrawInputActionsSection(settings);
             EditorGUILayout.Space();
             DrawSkillsInstallerSection();
             EditorGUILayout.Space();
@@ -54,7 +58,7 @@ namespace UnityCodeMcpServer.Settings.Editor
             {
                 EditorGUI.indentLevel++;
                 GUI.enabled = false;
-                foreach (var assemblyName in UnityCodeMcpServerSettings.DefaultAssemblyNames)
+                foreach (string assemblyName in UnityCodeMcpServerSettings.DefaultAssemblyNames)
                 {
                     EditorGUILayout.LabelField("• " + assemblyName, EditorStyles.label);
                 }
@@ -73,23 +77,18 @@ namespace UnityCodeMcpServer.Settings.Editor
                 EditorGUILayout.BeginHorizontal();
                 EditorGUILayout.LabelField("Add Assembly:", GUILayout.Width(100));
 
-                _selectedAssemblyIndex = EditorGUILayout.Popup(_selectedAssemblyIndex, _availableAssemblyNames);
-
-                if (GUILayout.Button("Add", GUILayout.Width(50)))
+                using (new EditorGUI.DisabledScope(!HasAvailableAssemblies()))
                 {
-                    if (_availableAssemblyNames != null && _availableAssemblyNames.Length > 0 &&
-                        _selectedAssemblyIndex >= 0 && _selectedAssemblyIndex < _availableAssemblyNames.Length)
+                    if (EditorGUILayout.DropdownButton(
+                        new GUIContent(GetAssemblyDropdownLabel()),
+                        FocusType.Keyboard))
                     {
-                        var assemblyName = _availableAssemblyNames[_selectedAssemblyIndex];
-                        if (settings.AddAssembly(assemblyName))
-                        {
-                            LoopLogger.Info($"{Protocol.McpProtocol.LogPrefix} Added assembly: {assemblyName}");
-                            RefreshAvailableAssemblies();
-                        }
-                        else
-                        {
-                            LoopLogger.Warn($"{Protocol.McpProtocol.LogPrefix} Assembly already added or is a default assembly: {assemblyName}");
-                        }
+                        Rect buttonRect = GUILayoutUtility.GetLastRect();
+                        AssemblySearchableDropdown dropdown = new(
+                            _assemblyDropdownState,
+                            _availableAssemblyNames,
+                            assemblyName => HandleAssemblySelected(assemblyName));
+                        dropdown.Show(buttonRect);
                     }
                 }
 
@@ -100,9 +99,9 @@ namespace UnityCodeMcpServer.Settings.Editor
                 // List of additional assemblies with remove buttons
                 if (settings.AdditionalAssemblyNames != null && settings.AdditionalAssemblyNames.Count > 0)
                 {
-                    var assembliesToRemove = new List<string>();
+                    List<string> assembliesToRemove = new();
 
-                    foreach (var assemblyName in settings.AdditionalAssemblyNames)
+                    foreach (string assemblyName in settings.AdditionalAssemblyNames)
                     {
                         EditorGUILayout.BeginHorizontal();
                         EditorGUILayout.LabelField("• " + assemblyName);
@@ -114,11 +113,11 @@ namespace UnityCodeMcpServer.Settings.Editor
                     }
 
                     // Remove marked assemblies
-                    foreach (var assemblyName in assembliesToRemove)
+                    foreach (string assemblyName in assembliesToRemove)
                     {
                         if (settings.RemoveAssembly(assemblyName))
                         {
-                            LoopLogger.Info($"{Protocol.McpProtocol.LogPrefix} Removed assembly: {assemblyName}");
+                            UnityCodeMcpServerLogger.Info($"{Protocol.McpProtocol.LogPrefix} Removed assembly: {assemblyName}");
                             RefreshAvailableAssemblies();
                         }
                     }
@@ -131,10 +130,51 @@ namespace UnityCodeMcpServer.Settings.Editor
                 EditorGUI.indentLevel--;
             }
 
-            serializedObject.ApplyModifiedProperties();
-            if (EditorUtility.IsDirty(settings) && !EditorApplication.isUpdating && !EditorApplication.isCompiling)
+            bool appliedChanges = serializedObject.ApplyModifiedProperties();
+            if ((wasDirtyBeforeGui || appliedChanges || EditorUtility.IsDirty(settings))
+                && !EditorApplication.isUpdating
+                && !EditorApplication.isCompiling)
             {
+                EditorUtility.SetDirty(settings);
                 AssetDatabase.SaveAssetIfDirty(settings);
+            }
+        }
+
+        private void DrawInputActionsSection(UnityCodeMcpServerSettings settings)
+        {
+            EditorGUILayout.LabelField("Input Actions", EditorStyles.boldLabel);
+            EditorGUILayout.HelpBox(
+                "play_unity_game resolves this InputActionAsset path on every call. " +
+                "If left empty, the tool falls back to the first InputActionAsset under Assets, then the first one found anywhere.",
+                MessageType.Info);
+
+            InputActionAsset currentAsset = string.IsNullOrWhiteSpace(settings.InputActionsAssetPath)
+                ? null
+                : AssetDatabase.LoadAssetAtPath<InputActionAsset>(settings.InputActionsAssetPath);
+
+            InputActionAsset selectedAsset = (InputActionAsset)EditorGUILayout.ObjectField(
+                "Input Actions Asset",
+                currentAsset,
+                typeof(InputActionAsset),
+                false);
+
+            if (selectedAsset != currentAsset)
+            {
+                string assetPath = selectedAsset == null ? string.Empty : AssetDatabase.GetAssetPath(selectedAsset);
+                settings.SetInputActionsAssetPath(assetPath);
+            }
+
+            string enteredPath = EditorGUILayout.DelayedTextField("Asset Path", settings.InputActionsAssetPath);
+            if (!string.Equals(enteredPath, settings.InputActionsAssetPath, StringComparison.Ordinal))
+            {
+                settings.SetInputActionsAssetPath(enteredPath);
+            }
+
+            if (!string.IsNullOrWhiteSpace(settings.InputActionsAssetPath) && currentAsset == null)
+            {
+                EditorGUILayout.HelpBox(
+                    $"No InputActionAsset was found at '{settings.InputActionsAssetPath}'. The play tool will fall back to discovery.",
+                    MessageType.Warning);
             }
         }
 
@@ -142,7 +182,7 @@ namespace UnityCodeMcpServer.Settings.Editor
 
         private void DrawSkillsInstallerSection()
         {
-            var settings = (UnityCodeMcpServerSettings)target;
+            UnityCodeMcpServerSettings settings = (UnityCodeMcpServerSettings)target;
             settings.InitializeSkillsTarget();
 
             EditorGUILayout.LabelField("Skills", EditorStyles.boldLabel);
@@ -153,7 +193,7 @@ namespace UnityCodeMcpServer.Settings.Editor
 
             EditorGUILayout.Space(4);
 
-            var selectedTarget = (UnityCodeMcpServerSettings.SkillInstallTarget)EditorGUILayout.EnumPopup(
+            UnityCodeMcpServerSettings.SkillInstallTarget selectedTarget = (UnityCodeMcpServerSettings.SkillInstallTarget)EditorGUILayout.EnumPopup(
                 "Install Directory",
                 settings.SkillsInstallTarget);
             if (selectedTarget != settings.SkillsInstallTarget)
@@ -208,12 +248,12 @@ namespace UnityCodeMcpServer.Settings.Editor
             string sourcePath = ResolveSkillsSourcePath();
             if (string.IsNullOrEmpty(sourcePath))
             {
-                LoopLogger.Warn($"{Protocol.McpProtocol.LogPrefix} Could not locate the Skills source directory within the package. Skipping skill relocation.");
+                UnityCodeMcpServerLogger.Warn($"{Protocol.McpProtocol.LogPrefix} Could not locate the Skills source directory within the package. Skipping skill relocation.");
                 return;
             }
 
             IFileSystem fileSystem = new EditorFileSystem();
-            var installer = new SkillsInstaller(fileSystem);
+            SkillsInstaller installer = new(fileSystem);
             bool changed = installer.RelocateInstalledSkills(sourcePath, previousTargetPath, newTargetPath);
             if (changed)
             {
@@ -229,7 +269,7 @@ namespace UnityCodeMcpServer.Settings.Editor
         {
             const string relativePath = "Editor/Skills";
 
-            var packageInfo = UnityEditor.PackageManager.PackageInfo
+            UnityEditor.PackageManager.PackageInfo packageInfo = UnityEditor.PackageManager.PackageInfo
                 .FindForAssembly(typeof(UnityCodeMcpServerSettingsEditor).Assembly);
 
             if (packageInfo != null)
@@ -248,18 +288,57 @@ namespace UnityCodeMcpServer.Settings.Editor
 
         // ── Assembly selector section ─────────────────────────────────────────
 
+        private bool HandleAssemblySelected(string assemblyName)
+        {
+            if (string.IsNullOrWhiteSpace(assemblyName) || IsPlaceholderAssemblyName(assemblyName))
+            {
+                return false;
+            }
+
+            UnityCodeMcpServerSettings settings = (UnityCodeMcpServerSettings)target;
+            if (settings.AddAssembly(assemblyName))
+            {
+                UnityCodeMcpServerLogger.Info($"{Protocol.McpProtocol.LogPrefix} Added assembly: {assemblyName}");
+                RefreshAvailableAssemblies();
+                Repaint();
+                return true;
+            }
+
+            UnityCodeMcpServerLogger.Warn($"{Protocol.McpProtocol.LogPrefix} Assembly already added or is a default assembly: {assemblyName}");
+            return false;
+        }
+
+        private bool HasAvailableAssemblies()
+        {
+            return _availableAssemblyNames != null &&
+                _availableAssemblyNames.Length > 0 &&
+                !IsPlaceholderAssemblyName(_availableAssemblyNames[0]);
+        }
+
+        private string GetAssemblyDropdownLabel()
+        {
+            return HasAvailableAssemblies()
+                ? "Select Assembly..."
+                : NoAssembliesAvailableLabel;
+        }
+
+        private static bool IsPlaceholderAssemblyName(string assemblyName)
+        {
+            return string.Equals(assemblyName, NoAssembliesAvailableLabel, StringComparison.Ordinal);
+        }
+
         private void RefreshAvailableAssemblies()
         {
             try
             {
-                var loadedAssemblies = AppDomain.CurrentDomain.GetAssemblies();
-                var settings = (UnityCodeMcpServerSettings)target;
+                Assembly[] loadedAssemblies = AppDomain.CurrentDomain.GetAssemblies();
+                UnityCodeMcpServerSettings settings = (UnityCodeMcpServerSettings)target;
 
                 // Get assembly names that are not already in default or additional lists
-                var existingNames = new HashSet<string>(UnityCodeMcpServerSettings.DefaultAssemblyNames);
+                HashSet<string> existingNames = new(UnityCodeMcpServerSettings.DefaultAssemblyNames);
                 if (settings.AdditionalAssemblyNames != null)
                 {
-                    foreach (var name in settings.AdditionalAssemblyNames)
+                    foreach (string name in settings.AdditionalAssemblyNames)
                     {
                         existingNames.Add(name);
                     }
@@ -273,16 +352,51 @@ namespace UnityCodeMcpServer.Settings.Editor
 
                 if (_availableAssemblyNames.Length == 0)
                 {
-                    _availableAssemblyNames = new[] { "(No assemblies available)" };
+                    _availableAssemblyNames = new[] { NoAssembliesAvailableLabel };
                 }
-
-                _selectedAssemblyIndex = 0;
             }
             catch (Exception ex)
             {
-                LoopLogger.Error($"{Protocol.McpProtocol.LogPrefix} Error refreshing assemblies: {ex.Message}");
+                UnityCodeMcpServerLogger.Error($"{Protocol.McpProtocol.LogPrefix} Error refreshing assemblies: {ex.Message}");
                 _availableAssemblyNames = new[] { "(Error loading assemblies)" };
-                _selectedAssemblyIndex = 0;
+            }
+        }
+
+        private sealed class AssemblySearchableDropdown : AdvancedDropdown
+        {
+            private readonly string[] _assemblyNames;
+            private readonly Action<string> _onAssemblySelected;
+
+            public AssemblySearchableDropdown(
+                AdvancedDropdownState state,
+                string[] assemblyNames,
+                Action<string> onAssemblySelected)
+                : base(state)
+            {
+                _assemblyNames = assemblyNames ?? Array.Empty<string>();
+                _onAssemblySelected = onAssemblySelected;
+                minimumSize = new Vector2(260f, 300f);
+            }
+
+            protected override AdvancedDropdownItem BuildRoot()
+            {
+                AdvancedDropdownItem root = new("Assemblies");
+
+                for (int index = 0; index < _assemblyNames.Length; index++)
+                {
+                    root.AddChild(new AdvancedDropdownItem(_assemblyNames[index])
+                    {
+                        id = index,
+                    });
+                }
+
+                return root;
+            }
+
+            protected override void ItemSelected(AdvancedDropdownItem item)
+            {
+                base.ItemSelected(item);
+                _onAssemblySelected?.Invoke(item.name);
             }
         }
     }

@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.IO;
 using System.Reflection;
 using NUnit.Framework;
@@ -14,8 +14,8 @@ namespace UnityCodeMcpServer.Tests.EditMode
         [Test]
         public void SaveDirtyScenes_WhenSceneIsDirty_SavesTheScene()
         {
-            var tempScenePath = "Assets/Tests/EditMode/TempTestScene.unity";
-            var tempScene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+            string tempScenePath = "Assets/Tests/EditMode/TempTestScene.unity";
+            Scene tempScene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
             EditorSceneManager.SaveScene(tempScene, tempScenePath);
 
             try
@@ -40,8 +40,8 @@ namespace UnityCodeMcpServer.Tests.EditMode
         [Test]
         public void SaveDirtyScenes_WhenNoScenesDirty_DoesNotThrow()
         {
-            var tempScenePath = "Assets/Tests/EditMode/TempCleanScene.unity";
-            var tempScene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+            string tempScenePath = "Assets/Tests/EditMode/TempCleanScene.unity";
+            Scene tempScene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
             EditorSceneManager.SaveScene(tempScene, tempScenePath);
 
             try
@@ -62,16 +62,16 @@ namespace UnityCodeMcpServer.Tests.EditMode
         [Test]
         public void SaveDirtyScenes_WithMultipleDirtyScenes_SavesAllScenes()
         {
-            var baseScenePath = "Assets/Tests/EditMode/TempBaseScene.unity";
-            var baseScene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+            string baseScenePath = "Assets/Tests/EditMode/TempBaseScene.unity";
+            Scene baseScene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
             EditorSceneManager.SaveScene(baseScene, baseScenePath);
 
-            var tempScenePath1 = "Assets/Tests/EditMode/TempTestScene1.unity";
-            var tempScene1 = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Additive);
+            string tempScenePath1 = "Assets/Tests/EditMode/TempTestScene1.unity";
+            Scene tempScene1 = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Additive);
             EditorSceneManager.SaveScene(tempScene1, tempScenePath1);
 
-            var tempScenePath2 = "Assets/Tests/EditMode/TempTestScene2.unity";
-            var tempScene2 = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Additive);
+            string tempScenePath2 = "Assets/Tests/EditMode/TempTestScene2.unity";
+            Scene tempScene2 = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Additive);
             EditorSceneManager.SaveScene(tempScene2, tempScenePath2);
 
             try
@@ -109,13 +109,13 @@ namespace UnityCodeMcpServer.Tests.EditMode
         [Test]
         public void RestoreSceneState_ReopensOriginalBeforeClosingTemporaryScene()
         {
-            var originalScenePath = "Assets/Tests/EditMode/TempRestoreOriginalScene.unity";
-            var temporaryScenePath = "Assets/Tests/EditMode/TempRestoreTemporaryScene.unity";
+            string originalScenePath = "Assets/Tests/EditMode/TempRestoreOriginalScene.unity";
+            string temporaryScenePath = "Assets/Tests/EditMode/TempRestoreTemporaryScene.unity";
 
-            var originalScene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+            Scene originalScene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
             EditorSceneManager.SaveScene(originalScene, originalScenePath);
 
-            var temporaryScene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+            Scene temporaryScene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
             EditorSceneManager.SaveScene(temporaryScene, temporaryScenePath);
 
             try
@@ -151,7 +151,7 @@ namespace UnityCodeMcpServer.Tests.EditMode
         [Test]
         public void ShouldDeferSceneRestore_WhenEditorIsPlaying()
         {
-            var shouldDefer = EditorSceneStateRestorer.ShouldDeferSceneRestore(isPlaying: true, isPlayingOrWillChangePlaymode: true);
+            bool shouldDefer = EditorSceneStateRestorer.ShouldDeferSceneRestore(isPlaying: true, isPlayingOrWillChangePlaymode: true);
 
             Assert.IsTrue(shouldDefer);
         }
@@ -159,7 +159,7 @@ namespace UnityCodeMcpServer.Tests.EditMode
         [Test]
         public void ShouldDeferSceneRestore_WhenPlayModeStateIsChanging()
         {
-            var shouldDefer = EditorSceneStateRestorer.ShouldDeferSceneRestore(isPlaying: false, isPlayingOrWillChangePlaymode: true);
+            bool shouldDefer = EditorSceneStateRestorer.ShouldDeferSceneRestore(isPlaying: false, isPlayingOrWillChangePlaymode: true);
 
             Assert.IsTrue(shouldDefer);
         }
@@ -167,24 +167,24 @@ namespace UnityCodeMcpServer.Tests.EditMode
         [Test]
         public void ShouldNotDeferSceneRestore_WhenEditorIsStableInEditMode()
         {
-            var shouldDefer = EditorSceneStateRestorer.ShouldDeferSceneRestore(isPlaying: false, isPlayingOrWillChangePlaymode: false);
+            bool shouldDefer = EditorSceneStateRestorer.ShouldDeferSceneRestore(isPlaying: false, isPlayingOrWillChangePlaymode: false);
 
             Assert.IsFalse(shouldDefer);
         }
 
         private static void InvokeRestoreSceneState(List<string> originalScenePaths)
         {
-            var method = typeof(EditorSceneStateRestorer).GetMethod("RestoreSceneState", BindingFlags.NonPublic | BindingFlags.Static);
+            MethodInfo method = typeof(EditorSceneStateRestorer).GetMethod("RestoreSceneState", BindingFlags.NonPublic | BindingFlags.Static);
             Assert.IsNotNull(method, "RestoreSceneState method was not found.");
             method.Invoke(null, new object[] { originalScenePaths });
         }
 
         private static bool SceneIsOpen(string scenePath)
         {
-            var sceneCount = SceneManager.sceneCount;
+            int sceneCount = SceneManager.sceneCount;
             for (int i = 0; i < sceneCount; i++)
             {
-                var scene = SceneManager.GetSceneAt(i);
+                Scene scene = SceneManager.GetSceneAt(i);
                 if (scene.path == scenePath)
                 {
                     return true;

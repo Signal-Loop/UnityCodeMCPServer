@@ -1,4 +1,4 @@
-
+﻿
 using System;
 using System.Text;
 using UnityEngine;
@@ -7,8 +7,8 @@ namespace UnityCodeMcpServer.Handlers
 {
     public class LogCapture : IDisposable
     {
-        private readonly StringBuilder _logBuilder = new StringBuilder();
-        private readonly StringBuilder _errorBuilder = new StringBuilder();
+        private readonly StringBuilder _logBuilder = new();
+        private readonly StringBuilder _errorBuilder = new();
         private bool _isRunning;
 
         public string ErrorLog => _errorBuilder.ToString();
@@ -78,7 +78,7 @@ namespace UnityCodeMcpServer.Handlers
                 return _errorBuilder.ToString();
             }
 
-            var combined = new StringBuilder();
+            StringBuilder combined = new();
             combined.AppendLine("Standard Log:");
             combined.AppendLine(_logBuilder.ToString().TrimEnd());
             combined.AppendLine("Errors Log:");

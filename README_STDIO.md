@@ -1,13 +1,13 @@
 # Unity Code MCP STDIO Bridge
 
-A Python package that bridges MCP (Model Context Protocol) over STDIO to a Unity TCP Server.
+A Python package that bridges MCP (Model Context Protocol) over STDIO to Unity's file-backed transport.
 
 ## Overview
 
-This bridge enables MCP client to communicate with the UnityCodeMcpServer running inside Unity Editor via TCP. The bridge:
+This bridge enables MCP clients to communicate with UnityCodeMcpServer running inside the Unity Editor through `.unityCodeMcpServer/messages`. It:
 
 1. Receives MCP messages via STDIO
-2. Forwards them to the Unity TCP Server
+2. Writes them to Unity request files
 3. Returns responses back via STDIO
 
 ## Prerequisites
@@ -34,7 +34,7 @@ curl -LsSf https://astral.sh/uv/install.sh | sh
 
 ### Using uv (Recommended)
 
-No installation needed! uv runs the package directly:
+No installation step is required. Run the packaged bridge directly:
 
 ```bash
 uv run --directory /path/to/STDIO~ unity-code-mcp-stdio
@@ -51,12 +51,11 @@ unity-code-mcp-stdio
 
 ### Command Line Arguments
 
-| Argument        | Default | Description                          |
-| --------------- | ------- | ------------------------------------ |
-| `--retry-time`  | `2`     | Seconds between connection retries   |
-| `--retry-count` | `5`     | Maximum number of connection retries |
+| Argument            | Default | Description                                                     |
+| ------------------- | ------- | --------------------------------------------------------------- |
+| `--request-timeout` | `180`   | Seconds to wait for a Unity response file before failing        |
 
-> **Note:** The host is hardcoded to `localhost` and the port is read automatically from `UnityCodeMcpServerSettings.asset` inside the Unity project.
+> **Note:** The bridge resolves the Unity project root automatically from the packaged `STDIO~` folder.
 
 ### Examples
 
@@ -67,8 +66,8 @@ uv run unity-code-mcp-stdio
 # Run from any directory using --directory
 uv run --directory "C:/path/to/STDIO~" unity-code-mcp-stdio
 
-# With retry configuration
-uv run --directory "C:/path/to/STDIO~" unity-code-mcp-stdio --retry-time 3 --retry-count 10
+# Allow slower Unity operations before the bridge times out a stalled request
+uv run --directory "C:/path/to/STDIO~" unity-code-mcp-stdio --request-timeout 240
 ```
 
 ## MCP Configuration
@@ -89,31 +88,77 @@ uv run --directory "C:/path/to/STDIO~" unity-code-mcp-stdio --retry-time 3 --ret
 }
 ```
 
-> **Note:** Replace `C:/Users/YOUR_USERNAME/path/to/...` with the actual path to your Unity project's STDIO folder. The port is read automatically from `UnityCodeMcpServerSettings.asset` inside the Unity project.
+> **Note:** Replace `C:/Users/YOUR_USERNAME/path/to/...` with the actual path to your Unity project's STDIO folder.
 
 ## Architecture
 
-```
-┌─────────────────┐      TCP       ┌─────────────────┐     STDIO      ┌─────────────────┐
-│                 │                │                 │                │                 │
-│  Unity Editor   │ ◄────────────► │  STDIO Bridge   │ ◄────────────► │  MCP Client     │
-│                 │                │                 │                │                 │
-└─────────────────┘                └─────────────────┘                └─────────────────┘
+```mermaid
+graph LR
+    A["MCP Client<br/>AI Agent"] -->|STDIO| B["STDIO Bridge<br/>Python script"]
+    B <-->|request/response files| C["Unity Code MCP Server<br/>Unity Editor"]
+
+    style A fill:#e1f5ff
+    style B fill:#fff3e0
+    style C fill:#f3e5f5
 ```
 
 ### Communication Flow
 
+```mermaid
+sequenceDiagram
+    participant Client as MCP Client
+    participant Bridge as STDIO Bridge
+    participant Unity as Unity Editor
+
+    Client->>Bridge: JSON-RPC request (stdin)
+    activate Bridge
+    Bridge->>Unity: Write request file
+    deactivate Bridge
+    activate Unity
+    Note over Unity: Process request<br/>Delete request file
+    Unity->>Bridge: Write response file
+    deactivate Unity
+    activate Bridge
+    Bridge->>Client: JSON-RPC response (stdout)
+    deactivate Bridge
+```
+
+**Request/Response Handling:**
+
 1. **MCP Client → Bridge (STDIO):** MCP Client sends JSON-RPC 2.0 messages via stdin
-2. **Bridge → Unity (TCP):** Bridge forwards messages to Unity Tcp Server
-3. **Unity → Bridge (TCP):** Unity Tcp Server responds back to Bridge
-4. **Bridge → MCP Client (STDIO):** Bridge writes response to stdout
+2. **Bridge → Unity (files):** Bridge writes a request file to `.unityCodeMcpServer/messages`
+3. **Unity → Bridge (files):** Unity claims the request by reading and deleting the request file, then writes a matching response file
+4. **Bridge → MCP Client (STDIO):** Bridge writes the response to stdout
+
+The bridge only waits for the matching response file. If Unity does not produce it before the timeout expires, the bridge returns an actionable error and removes the pending request file if it is still present.
+
+## Logging
+
+The bridge writes diagnostics to `src/unity_code_mcp_stdio/unity-code-mcp-stdio.log` next to the Python entrypoint. Logging stays file-only so stdout remains clean for JSON-RPC traffic.
+
+Each request records enough context to trace failures across the transport boundary:
+
+- A bridge-local trace id for every forwarded Unity request
+- The JSON-RPC request id and method
+- Tool name, URI, and argument key summary when present
+- File request creation, response wait, response handling, shutdown, and closed-stream events
+- Request duration, response summary, and error type/message on failure
+- Timeout details when a request stalls or fails
+- The last stdin line preview or last stdout message preview when framing breaks
+
+Log retention uses size-based rotation:
+
+- Active log file: `unity-code-mcp-stdio.log`
+- Maximum size per file: 5 MB
+- Retained rotated files: 3 backups
+- Maximum on-disk footprint: about 20 MB including the active file
 
 ## Development
 
 ### Running Tests
 
 ```bash
-cd /path/to/STDIO
+cd /path/to/STDIO~
 
 uv run --extra dev pytest tests/
 ```
@@ -155,7 +200,7 @@ Postman supports MCP (Model Context Protocol) natively, including STDIO transpor
 3. **Configure the STDIO command:**
 
    ```
-   uv run --directory "C:/Users/YOUR_USERNAME/path/to/Assets/Plugins/UnityCodeMcpServer/Editor/STDIO" unity-code-mcp-stdio
+  uv run --directory "C:/Users/YOUR_USERNAME/path/to/Assets/Plugins/UnityCodeMcpServer/Editor/STDIO~" unity-code-mcp-stdio
    ```
 
    > **Tip:** You can also paste JSON configuration directly:
