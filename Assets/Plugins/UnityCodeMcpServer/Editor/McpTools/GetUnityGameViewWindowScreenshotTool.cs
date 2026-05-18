@@ -59,11 +59,6 @@ public class GetUnityGameViewWindowScreenshotTool : IToolAsync
 
     public async UniTask<ToolsCallResult> ExecuteAsync(JsonElement arguments)
     {
-        if (EditorApplication.isPlaying && Time.timeScale == 0)
-        {
-            return ToolsCallResult.ErrorResult("Cannot capture Game View screenshot while timeScale is 0 in Play Mode. Try again once the game is running.");
-        }
-
         if (!TryParseMaxHeight(arguments, out int maxHeight, out string parseError))
         {
             return ToolsCallResult.ErrorResult(parseError);
@@ -164,7 +159,7 @@ public class GetUnityGameViewWindowScreenshotTool : IToolAsync
                 }
             }
             UnityCodeMcpServerLogger.Debug($"[GetUnityGameViewWindowScreenshotTool] [{Time.frameCount}]: awaiting screenshot file: {path}");
-            await UniTask.Delay(pollInterval);
+            await UniTask.Delay(pollInterval, DelayType.Realtime, PlayerLoopTiming.Update);
         }
 
         return null;
@@ -194,6 +189,17 @@ public class GetUnityGameViewWindowScreenshotTool : IToolAsync
     {
         maxHeight = 640;
         errorMessage = null;
+
+        if (arguments.ValueKind == JsonValueKind.Undefined || arguments.ValueKind == JsonValueKind.Null)
+        {
+            return true;
+        }
+
+        if (arguments.ValueKind != JsonValueKind.Object)
+        {
+            errorMessage = "Arguments must be a JSON object.";
+            return false;
+        }
 
         if (!arguments.TryGetProperty("max_height", out JsonElement element))
         {
