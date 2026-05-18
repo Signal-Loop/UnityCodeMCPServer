@@ -11,6 +11,7 @@ namespace UnityCodeMcpServer.Tests.EditMode
     {
         private string _test_log_path;
         private bool _original_log_to_file;
+        private UnityCodeMcpServerLogger.LogLevel _original_min_log_level;
 
         [SetUp]
         public void Setup()
@@ -20,9 +21,11 @@ namespace UnityCodeMcpServer.Tests.EditMode
             // Store original LogToFile setting
             UnityCodeMcpServerSettings settings = UnityCodeMcpServerSettings.Instance;
             _original_log_to_file = settings.LogToFile;
+            _original_min_log_level = settings.MinLogLevel;
 
-            // Enable logging to file for tests
+            // Enable file logging and the full severity range these tests assert.
             settings.LogToFile = true;
+            settings.MinLogLevel = UnityCodeMcpServerLogger.LogLevel.Debug;
             UnityEditor.EditorUtility.SetDirty(settings);
             UnityEditor.AssetDatabase.SaveAssets();
 
@@ -39,6 +42,7 @@ namespace UnityCodeMcpServer.Tests.EditMode
             // Restore original LogToFile setting
             UnityCodeMcpServerSettings settings = UnityCodeMcpServerSettings.Instance;
             settings.LogToFile = _original_log_to_file;
+            settings.MinLogLevel = _original_min_log_level;
             UnityEditor.EditorUtility.SetDirty(settings);
             UnityEditor.AssetDatabase.SaveAssets();
         }
