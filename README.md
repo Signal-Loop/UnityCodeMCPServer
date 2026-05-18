@@ -9,8 +9,10 @@
 Unity Code MCP Server gives AI agents direct access to the Unity Editor through C# execution inside the Editor process. Agents can inspect projects, modify scenes and assets, run tests, and drive Play Mode workflows without custom glue code.
 
 ![Play Pong game example](images/PongVideoShort.gif)
+Example agent workflow: Play Pong game in a loop, using `enter_play_mode`, `play_unity_game`, `read_unity_console_logs`, and `execute_csharp_script_in_unity_editor` to adaptively sense the scene, make decisions, and act.
 
 ![diagram](images/UnityCodeMCP.png)
+Architecture diagram: The Unity Code MCP Server package runs inside the Unity Editor and communicates with an external MCP client (like an LLM agent) through a file-backed STDIO bridge.
 
 ## Real workflow example
 
