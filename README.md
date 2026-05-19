@@ -1,18 +1,16 @@
 # Unity Code MCP Server
 
-## TL;DR
+### Search the live Unity project
+Inspect active scenes, components, assets, console output, settings, Play Mode state, and runtime values from an MCP client.
+### Execute directly inside the Editor
+Create and modify GameObjects, prefabs, ScriptableObjects, import settings, and other Unity assets by executing C# in the Editor.
+### Verify with runtime feedback
+Run Edit Mode and Play Mode tests, enter Play Mode, simulate player input, capture screenshots, read Unity console logs, and inspect live game state after actions.
+<br/>
 
-- Connect your MCP client to Unity through the bundled `unity-code-mcp-stdio` bridge.
-- Let agents execute C# inside the Unity Editor, read logs, run tests, enter Play Mode, simulate input, and capture Game View screenshots.
-- Unity Code MCP Server is designed specifically for long-running agent harness.
+*Example agent workflow: Play Pong in a closed loop by using `enter_play_mode`, `execute_csharp_script_in_unity_editor`, `play_unity_game`, and `read_unity_console_logs` to search runtime state, execute input actions, verify the result, and adapt the next move.*
+![Play Pong game example](images/PongVideoShort.gif)<br/>
 
-Unity Code MCP Server gives AI agents direct access to the Unity Editor through C# execution inside the Editor process. Agents can inspect projects, modify scenes and assets, run tests, and drive Play Mode workflows without custom glue code.
-
-![Play Pong game example](images/PongVideoShort.gif)
-Example agent workflow: Play Pong game in a loop, using `enter_play_mode`, `play_unity_game`, `read_unity_console_logs`, and `execute_csharp_script_in_unity_editor` to adaptively sense the scene, make decisions, and act.
-
-![diagram](images/UnityCodeMCP.png)
-Architecture diagram: The Unity Code MCP Server package runs inside the Unity Editor and communicates with an external MCP client (like an LLM agent) through a file-backed STDIO bridge.
 
 ## Real workflow example
 
@@ -20,7 +18,7 @@ See [the full cities workflow example and transcript](Assets/Plugins/UnityCodeMc
 
 ## Table of contents
 
-- [Features](#features)
+- [Tools](#tools)
 - [Security considerations](#security-considerations)
 - [Architecture](#architecture)
 - [Quick start](#quick-start)
@@ -33,13 +31,8 @@ See [the full cities workflow example and transcript](Assets/Plugins/UnityCodeMc
 - [Known Issues](#known-issues)
 - [License](#license)
 
-## Features
 
-- **Maximum Project Visibility:** Inspect the active scene, components, and project assets from an MCP client.
-- **Autonomous Scene & Asset Authoring:** Create and modify GameObjects, prefabs, ScriptableObjects, and other Unity assets by executing C# in the Editor.
-- **Intelligent Play-Testing & QA:** Run Edit Mode and Play Mode tests, enter Play Mode, simulate input, capture screenshots, and read Unity console logs.
-
-### Tools
+## Tools
 
 #### execute_csharp_script_in_unity_editor
 
@@ -85,6 +78,9 @@ Recommendations:
 You are responsible for securing your environment and for any changes or data loss caused by executed scripts.
 
 ## Architecture
+
+![diagram](images/UnityCodeMCP.png)<br/>
+*Architecture diagram: The Unity Code MCP Server package runs inside the Unity Editor and communicates with an external MCP client (like an LLM agent) through a file-backed STDIO bridge.*
 
 ### STDIO Transport
 
