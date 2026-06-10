@@ -79,6 +79,7 @@ crashlytics-build.properties
 *.pyc
 .vscode/
 .github/
+.codex/
 Dev/Python/.python-version
 UnityCodeMcpServerLog.log
 .mcp.json
