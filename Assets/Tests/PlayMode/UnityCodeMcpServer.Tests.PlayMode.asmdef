@@ -5,7 +5,6 @@
         "UnityEngine.TestRunner",
         "UnityEditor.TestRunner",
         "UnityCodeMcpServer",
-        "UniTask",
         "Unity.InputSystem"
     ],
     "includePlatforms": [],

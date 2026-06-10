@@ -1,7 +1,8 @@
 ﻿using System;
 using System.IO;
 using System.Threading;
-using Cysharp.Threading.Tasks;
+using System.Threading.Tasks;
+using UnityCodeMcpServer.AsyncAwait;
 using UnityCodeMcpServer.Handlers;
 using UnityCodeMcpServer.Helpers;
 using UnityCodeMcpServer.Registry;
@@ -100,7 +101,7 @@ namespace UnityCodeMcpServer.FileServer
                 _watcher = CreateWatcher(messagesDirectory);
                 _watcher.EnableRaisingEvents = true;
 
-                ProcessAvailableRequestsAsync(_requestStore, _messageHandler, _serverCts.Token).Forget();
+                ProcessAvailableRequestsAsync(_requestStore, _messageHandler, _serverCts.Token).Forget("file-server-process");
                 UnityCodeMcpServerLogger.Info($"[UnityCodeMcpFileServer] Server started directory={messagesDirectory} reason={reason}");
             }
             catch (Exception ex)
@@ -118,7 +119,7 @@ namespace UnityCodeMcpServer.FileServer
             }
 
             UnityCodeMcpServerLogger.Debug($"[UnityCodeMcpFileServer] File watcher signaled change={args.ChangeType} path={args.FullPath}");
-            ProcessAvailableRequestsAsync(_requestStore, _messageHandler, _serverCts?.Token ?? CancellationToken.None).Forget();
+            ProcessAvailableRequestsAsync(_requestStore, _messageHandler, _serverCts?.Token ?? CancellationToken.None).Forget("file-server-process");
         }
 
         private static void OnRequestFileRenamed(object sender, RenamedEventArgs args)
@@ -129,7 +130,7 @@ namespace UnityCodeMcpServer.FileServer
             }
 
             UnityCodeMcpServerLogger.Debug($"[UnityCodeMcpFileServer] File watcher signaled rename old={args.OldFullPath} new={args.FullPath}");
-            ProcessAvailableRequestsAsync(_requestStore, _messageHandler, _serverCts?.Token ?? CancellationToken.None).Forget();
+            ProcessAvailableRequestsAsync(_requestStore, _messageHandler, _serverCts?.Token ?? CancellationToken.None).Forget("file-server-process");
         }
 
         private static bool IsRequestFile(string path)
@@ -140,7 +141,7 @@ namespace UnityCodeMcpServer.FileServer
                 && fileName.EndsWith(".json", StringComparison.OrdinalIgnoreCase);
         }
 
-        private static async UniTaskVoid ProcessAvailableRequestsAsync(
+        private static async Task ProcessAvailableRequestsAsync(
             FileServerRequestStore requestStore,
             McpMessageHandler messageHandler,
             CancellationToken ct)
@@ -182,7 +183,7 @@ namespace UnityCodeMcpServer.FileServer
                 if (!ct.IsCancellationRequested && requestStore.TryGetNextPendingRequest(out _))
                 {
                     UnityCodeMcpServerLogger.Debug("[UnityCodeMcpFileServer] Pending requests remain after processing loop, scheduling another pass");
-                    ProcessAvailableRequestsAsync(requestStore, messageHandler, ct).Forget();
+                    ProcessAvailableRequestsAsync(requestStore, messageHandler, ct).Forget("file-server-process");
                 }
             }
         }
@@ -209,7 +210,7 @@ namespace UnityCodeMcpServer.FileServer
             return messagesDirectory;
         }
 
-        private static async UniTask<bool> ProcessNextRequestAsync(
+        private static async Task<bool> ProcessNextRequestAsync(
             FileServerRequestStore requestStore,
             McpMessageHandler messageHandler,
             CancellationToken ct)
@@ -237,19 +238,19 @@ namespace UnityCodeMcpServer.FileServer
             return true;
         }
 
-        private static async UniTask<string> ReadRequestAsync(
+        private static async Task<string> ReadRequestAsync(
             string requestPath,
             CancellationToken ct)
         {
             return await File.ReadAllTextAsync(requestPath, ct);
         }
 
-        private static async UniTask<string> ProcessRequestJsonAsync(
+        private static async Task<string> ProcessRequestJsonAsync(
             McpMessageHandler messageHandler,
             string requestJson,
             CancellationToken ct)
         {
-            await UniTask.SwitchToMainThread(ct);
+            await UnityMainThread.SwitchAsync(ct);
             return await messageHandler.ProcessMessageAsync(requestJson);
         }
 
@@ -264,7 +265,7 @@ namespace UnityCodeMcpServer.FileServer
             UnityCodeMcpServerLogger.Debug($"[UnityCodeMcpFileServer] Deleted request file request={requestPath}");
         }
 
-        private static async UniTask WriteAllTextAtomicallyAsync(
+        private static async Task WriteAllTextAtomicallyAsync(
             string path,
             string content,
             string requestPath,

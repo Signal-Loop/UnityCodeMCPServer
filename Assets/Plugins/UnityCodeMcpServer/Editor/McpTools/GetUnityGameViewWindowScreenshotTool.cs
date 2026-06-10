@@ -2,7 +2,8 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Text.Json;
-using Cysharp.Threading.Tasks;
+using System.Threading.Tasks;
+using UnityCodeMcpServer.AsyncAwait;
 using UnityCodeMcpServer.Helpers;
 using UnityCodeMcpServer.Interfaces;
 using UnityCodeMcpServer.Protocol;
@@ -57,7 +58,7 @@ public class GetUnityGameViewWindowScreenshotTool : IToolAsync
         }
         ");
 
-    public async UniTask<ToolsCallResult> ExecuteAsync(JsonElement arguments)
+    public async Task<ToolsCallResult> ExecuteAsync(JsonElement arguments)
     {
         if (!TryParseMaxHeight(arguments, out int maxHeight, out string parseError))
         {
@@ -88,7 +89,7 @@ public class GetUnityGameViewWindowScreenshotTool : IToolAsync
         return ToolsCallResult.ImageResult(scaledResult.Base64Data, mimeType);
     }
 
-    private async UniTask<CaptureResult> CaptureGameViewScreenshotAsync()
+    private async Task<CaptureResult> CaptureGameViewScreenshotAsync()
     {
         string tempPath = null;
         try
@@ -132,7 +133,7 @@ public class GetUnityGameViewWindowScreenshotTool : IToolAsync
         UnityCodeMcpServerLogger.Debug($"[GetUnityGameViewWindowScreenshotTool] [{Time.frameCount}]: Requested screenshot capture to path: {path}");
     }
 
-    private static async UniTask<byte[]> ReadFileWhenReadyAsync(string path, TimeSpan timeout, TimeSpan pollInterval)
+    private static async Task<byte[]> ReadFileWhenReadyAsync(string path, TimeSpan timeout, TimeSpan pollInterval)
     {
         if (string.IsNullOrWhiteSpace(path))
         {
@@ -159,7 +160,7 @@ public class GetUnityGameViewWindowScreenshotTool : IToolAsync
                 }
             }
             UnityCodeMcpServerLogger.Debug($"[GetUnityGameViewWindowScreenshotTool] [{Time.frameCount}]: awaiting screenshot file: {path}");
-            await UniTask.Delay(pollInterval, DelayType.Realtime, PlayerLoopTiming.Update);
+            await UnityEditorAsync.DelayRealtimeAsync(pollInterval);
         }
 
         return null;

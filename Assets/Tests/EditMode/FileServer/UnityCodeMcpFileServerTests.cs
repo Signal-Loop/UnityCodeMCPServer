@@ -4,7 +4,7 @@ using System.Linq;
 using System.Reflection;
 using System.Text.Json;
 using System.Threading;
-using Cysharp.Threading.Tasks;
+using System.Threading.Tasks;
 using NUnit.Framework;
 using UnityCodeMcpServer.FileServer;
 using UnityCodeMcpServer.Handlers;
@@ -91,7 +91,7 @@ namespace UnityCodeMcpServer.Tests.EditMode
 
             Assert.That(method, Is.Not.Null);
 
-            UniTask<bool> task = (UniTask<bool>)method.Invoke(
+            Task<bool> task = (Task<bool>)method.Invoke(
                 null,
                 new object[] { store, handler, CancellationToken.None });
             bool processed = await task;
@@ -122,7 +122,7 @@ namespace UnityCodeMcpServer.Tests.EditMode
 
             Assert.That(method, Is.Not.Null);
 
-            UniTask<string> task = (UniTask<string>)method.Invoke(
+            Task<string> task = (Task<string>)method.Invoke(
                 null,
                 new object[] { requestPath, CancellationToken.None });
             string requestJson = await task;
@@ -144,7 +144,7 @@ namespace UnityCodeMcpServer.Tests.EditMode
 
             Assert.That(method, Is.Not.Null);
 
-            UniTask task = (UniTask)method.Invoke(
+            Task task = (Task)method.Invoke(
                 null,
                 new object[] { responsePath, "{\"jsonrpc\":\"2.0\"}", null, CancellationToken.None });
             await task;
@@ -170,7 +170,7 @@ namespace UnityCodeMcpServer.Tests.EditMode
             using CancellationTokenSource cts = new();
             cts.Cancel();
 
-            UniTask task = (UniTask)method.Invoke(
+            Task task = (Task)method.Invoke(
                 null,
                 new object[] { responsePath, "{\"jsonrpc\":\"2.0\"}", null, cts.Token });
 
@@ -195,7 +195,7 @@ namespace UnityCodeMcpServer.Tests.EditMode
 
             Assert.That(method, Is.Not.Null);
 
-            UniTask task = (UniTask)method.Invoke(
+            Task task = (Task)method.Invoke(
                 null,
                 new object[] { responsePath, "{\"jsonrpc\":\"2.0\"}", requestPath, CancellationToken.None });
 
@@ -229,7 +229,7 @@ namespace UnityCodeMcpServer.Tests.EditMode
 
             Assert.That(method, Is.Not.Null);
 
-            UniTask task = (UniTask)method.Invoke(
+            Task task = (Task)method.Invoke(
                 null,
                 new object[] { responsePath, "{\"jsonrpc\":\"2.0\"}", requestPath, CancellationToken.None });
             await task;
@@ -256,9 +256,9 @@ namespace UnityCodeMcpServer.Tests.EditMode
 
             Assert.That(method, Is.Not.Null);
 
-            string responseJson = await UniTask.RunOnThreadPool(async () =>
+            string responseJson = await Task.Run(async () =>
             {
-                UniTask<string> task = (UniTask<string>)method.Invoke(
+                Task<string> task = (Task<string>)method.Invoke(
                     null,
                     new object[] { handler, JsonHelper.Serialize(request), CancellationToken.None });
                 return await task;

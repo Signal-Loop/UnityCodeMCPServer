@@ -1,7 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Text.Json;
-using Cysharp.Threading.Tasks;
+using System.Threading.Tasks;
+using UnityCodeMcpServer.AsyncAwait;
 using UnityCodeMcpServer.Handlers;
 using UnityCodeMcpServer.Helpers;
 using UnityCodeMcpServer.Interfaces;
@@ -56,7 +57,7 @@ SIDE EFFECTS: Alters Time.timeScale, overrides active Input System states, and c
         }
         ");
 
-    public async UniTask<ToolsCallResult> ExecuteAsync(JsonElement arguments)
+    public async Task<ToolsCallResult> ExecuteAsync(JsonElement arguments)
     {
         if (!TryParseArguments(arguments, out PlayOptions options, out string errorMessage))
         {
@@ -143,7 +144,7 @@ SIDE EFFECTS: Alters Time.timeScale, overrides active Input System states, and c
 
                 if (held_actions.Count == 0)
                 {
-                    await UniTask.Delay(options.DurationMs, DelayType.Realtime, PlayerLoopTiming.Update);
+                    await UnityEditorAsync.DelayRealtimeAsync(options.DurationMs);
                 }
                 else
                 {
@@ -151,7 +152,7 @@ SIDE EFFECTS: Alters Time.timeScale, overrides active Input System states, and c
                     while (Time.realtimeSinceStartup < end_time)
                     {
                         TriggerHeldInputs(held_actions);
-                        await UniTask.Yield(PlayerLoopTiming.Update);
+                        await UnityEditorAsync.YieldAsync();
                     }
                 }
             }
@@ -224,7 +225,7 @@ SIDE EFFECTS: Alters Time.timeScale, overrides active Input System states, and c
 
             else
             {
-                UniTask.DelayFrame(1).ContinueWith(() => TriggerAction(action, 0.0f)).Forget();
+                ReleasePressedActionNextFrameAsync(action).Forget("play-unity-game-release-press");
             }
         }
     }
@@ -334,6 +335,13 @@ SIDE EFFECTS: Alters Time.timeScale, overrides active Input System states, and c
 
         _active_keys_by_keyboard.Clear();
     }
+
+    private async Task ReleasePressedActionNextFrameAsync(InputAction action)
+    {
+        await UnityEditorAsync.DelayFramesAsync(1);
+        TriggerAction(action, 0.0f);
+    }
+
     public static bool TryParseArguments(JsonElement arguments, out PlayOptions options, out string errorMessage)
     {
         options = default;

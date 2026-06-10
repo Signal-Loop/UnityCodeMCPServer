@@ -2,7 +2,8 @@
 using System.Collections.Generic;
 using System.Reflection;
 using System.Text.Json;
-using Cysharp.Threading.Tasks;
+using System.Threading.Tasks;
+using UnityCodeMcpServer.AsyncAwait;
 using UnityCodeMcpServer.Helpers;
 using UnityCodeMcpServer.Interfaces;
 using UnityCodeMcpServer.Protocol;
@@ -175,9 +176,13 @@ namespace UnityCodeMcpServer.Registry
         /// <summary>
         /// Execute a tool by name
         /// </summary>
-        public async UniTask<ToolsCallResult> ExecuteToolAsync(string name, JsonElement arguments)
+        public async Task<ToolsCallResult> ExecuteToolAsync(string name, JsonElement arguments)
         {
+            return await UnityMainThread.RunAsync(() => ExecuteToolOnMainThreadAsync(name, arguments));
+        }
 
+        private async Task<ToolsCallResult> ExecuteToolOnMainThreadAsync(string name, JsonElement arguments)
+        {
             bool applicationRunInBackground = Application.runInBackground;
 
             if (_syncTools.TryGetValue(name, out ITool syncTool))

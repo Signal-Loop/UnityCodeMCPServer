@@ -3,7 +3,6 @@
     "rootNamespace": "UnityCodeMcpServer.Tests.EditMode",
     "references": [
         "UnityCodeMcpServer",
-        "UniTask",
         "UnityEngine.TestRunner",
         "UnityEditor.TestRunner"
     ],

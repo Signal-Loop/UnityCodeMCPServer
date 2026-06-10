@@ -2,7 +2,7 @@
 using System.Linq;
 using System.Reflection;
 using System.Text.Json;
-using Cysharp.Threading.Tasks;
+using System.Threading.Tasks;
 using NUnit.Framework;
 using UnityCodeMcpServer.McpTools;
 using UnityCodeMcpServer.Protocol;
@@ -38,7 +38,7 @@ namespace UnityCodeMcpServer.Tests.EditMode
             string scriptJson = JsonSerializer.Serialize(new { script = "return typeof(UnityEngine.GameObject).Assembly.GetName().Name;" });
             JsonElement args = JsonDocument.Parse(scriptJson).RootElement;
 
-            UniTask<ToolsCallResult> task = tool.ExecuteAsync(args);
+            Task<ToolsCallResult> task = tool.ExecuteAsync(args);
             task.GetAwaiter().GetResult();
             ToolsCallResult result = task.GetAwaiter().GetResult();
 
@@ -74,7 +74,7 @@ namespace UnityCodeMcpServer.Tests.EditMode
                     string scriptJson = JsonSerializer.Serialize(new { script = "return \"Assembly loaded successfully\";" });
                     JsonElement args = JsonDocument.Parse(scriptJson).RootElement;
 
-                    UniTask<ToolsCallResult> task = tool.ExecuteAsync(args);
+                    Task<ToolsCallResult> task = tool.ExecuteAsync(args);
                     task.GetAwaiter().GetResult();
                     ToolsCallResult result = task.GetAwaiter().GetResult();
 

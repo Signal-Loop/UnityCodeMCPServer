@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
-using Cysharp.Threading.Tasks;
+using System.Threading.Tasks;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Scripting;
 using Microsoft.CodeAnalysis.Scripting;
@@ -39,7 +39,7 @@ namespace UnityCodeMcpServer.Services
         /// </summary>
         /// <param name="script">The C# script code to execute</param>
         /// <returns>Execution result containing status, output, and errors</returns>
-        public async UniTask<ExecutionResult> ExecuteScriptAsync(string script)
+        public async Task<ExecutionResult> ExecuteScriptAsync(string script)
         {
             if (string.IsNullOrWhiteSpace(script))
             {

@@ -2,8 +2,8 @@
 using System.Reflection;
 using System.Text.Json;
 using System.Text.RegularExpressions;
-using Cysharp.Threading.Tasks;
 using NUnit.Framework;
+using UnityCodeMcpServer.AsyncAwait;
 using UnityCodeMcpServer.McpTools;
 using UnityCodeMcpServer.Protocol;
 using UnityCodeMcpServer.Registry;
@@ -69,7 +69,7 @@ namespace UnityCodeMcpServer.Tests.EditMode
         }
 
         [UnityTest]
-        public IEnumerator ExecuteAsync_ReturnsSuccess_ForSimpleScript() => UniTask.ToCoroutine(async () =>
+        public IEnumerator ExecuteAsync_ReturnsSuccess_ForSimpleScript() => TaskCoroutine.ToCoroutine(async () =>
         {
             ExecuteCSharpScriptInUnityEditor tool = new();
             JsonElement args = JsonHelper.ParseElement(@"{""script"": ""return 2 + 3;""}");
@@ -84,7 +84,7 @@ namespace UnityCodeMcpServer.Tests.EditMode
         });
 
         [UnityTest]
-        public IEnumerator ExecuteAsync_MarksSceneDirty_AfterSuccessfulExecution() => UniTask.ToCoroutine(async () =>
+        public IEnumerator ExecuteAsync_MarksSceneDirty_AfterSuccessfulExecution() => TaskCoroutine.ToCoroutine(async () =>
         {
             Scene scene = UnityEditor.SceneManagement.EditorSceneManager.NewScene(
                 UnityEditor.SceneManagement.NewSceneSetup.EmptyScene,
@@ -149,7 +149,7 @@ namespace UnityCodeMcpServer.Tests.EditMode
         }
 
         [UnityTest]
-        public IEnumerator ExecuteAsync_ReturnsError_ForCompilationIssue() => UniTask.ToCoroutine(async () =>
+        public IEnumerator ExecuteAsync_ReturnsError_ForCompilationIssue() => TaskCoroutine.ToCoroutine(async () =>
         {
             ExecuteCSharpScriptInUnityEditor tool = new();
             JsonElement args = JsonHelper.ParseElement(@"{""script"": ""this is not valid csharp""}");
@@ -164,7 +164,7 @@ namespace UnityCodeMcpServer.Tests.EditMode
         });
 
         [UnityTest]
-        public IEnumerator ExecuteAsync_CapturesLogsAndErrors_FromScriptLogs() => UniTask.ToCoroutine(async () =>
+        public IEnumerator ExecuteAsync_CapturesLogsAndErrors_FromScriptLogs() => TaskCoroutine.ToCoroutine(async () =>
         {
             ExecuteCSharpScriptInUnityEditor tool = new();
             string script = "Debug.Log(\"debug log\"); Debug.LogWarning(\"warning log\"); Debug.LogError(\"error log\"); return 7;";
@@ -189,7 +189,7 @@ namespace UnityCodeMcpServer.Tests.EditMode
         });
 
         [UnityTest]
-        public IEnumerator ExecuteAsync_ReturnsError_ForRuntimeException() => UniTask.ToCoroutine(async () =>
+        public IEnumerator ExecuteAsync_ReturnsError_ForRuntimeException() => TaskCoroutine.ToCoroutine(async () =>
         {
             ExecuteCSharpScriptInUnityEditor tool = new();
             string script = "throw new System.InvalidOperationException(\"runtime boom\");";
@@ -210,7 +210,7 @@ namespace UnityCodeMcpServer.Tests.EditMode
         });
 
         [UnityTest]
-        public IEnumerator Registry_CanExecuteScriptExecutionTool() => UniTask.ToCoroutine(async () =>
+        public IEnumerator Registry_CanExecuteScriptExecutionTool() => TaskCoroutine.ToCoroutine(async () =>
         {
             McpRegistry registry = new();
             registry.DiscoverAndRegisterAll();

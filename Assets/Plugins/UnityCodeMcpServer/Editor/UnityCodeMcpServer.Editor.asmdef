@@ -2,7 +2,6 @@
     "name": "UnityCodeMcpServer",
     "rootNamespace": "",
     "references": [
-        "UniTask",
         "UnityEditor.TestRunner",
         "UnityEngine.TestRunner",
         "Unity.InputSystem"

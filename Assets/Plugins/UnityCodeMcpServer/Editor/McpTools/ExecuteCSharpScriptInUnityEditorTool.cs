@@ -1,6 +1,6 @@
 ﻿using System.Text;
 using System.Text.Json;
-using Cysharp.Threading.Tasks;
+using System.Threading.Tasks;
 using UnityCodeMcpServer.Helpers;
 using UnityCodeMcpServer.Interfaces;
 using UnityCodeMcpServer.Protocol;
@@ -81,7 +81,7 @@ Debug.Log($""Player position: {go.transform.position}"");
         }
         ");
 
-        public async UniTask<ToolsCallResult> ExecuteAsync(JsonElement arguments)
+        public async Task<ToolsCallResult> ExecuteAsync(JsonElement arguments)
         {
             string script = arguments.GetStringOrDefault("script", string.Empty)?.Trim();
             if (string.IsNullOrWhiteSpace(script))

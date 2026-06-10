@@ -1,5 +1,6 @@
 ﻿using System.Text.Json;
-using Cysharp.Threading.Tasks;
+using System.Threading.Tasks;
+using UnityCodeMcpServer.AsyncAwait;
 using UnityCodeMcpServer.Helpers;
 using UnityCodeMcpServer.Interfaces;
 using UnityCodeMcpServer.Protocol;
@@ -22,17 +23,18 @@ public class ExitPlayModeTool : IToolAsync
         }
         ");
 
-    public async UniTask<ToolsCallResult> ExecuteAsync(JsonElement arguments)
+    public async Task<ToolsCallResult> ExecuteAsync(JsonElement arguments)
     {
         if (!EditorApplication.isPlaying)
         {
-            return ToolsCallResult.ErrorResult("Unity is not in Play Mode.");
+            Time.timeScale = 1;
+            return ToolsCallResult.TextResult("Unity is already in Edit Mode.");
         }
 
         UnityCodeMcpServerLogger.Debug($"ExitPlayModeTool: triggering exit play mode.");
 
         EditorApplication.isPlaying = false;
-        await UniTask.Delay(1, DelayType.Realtime);
+        await UnityEditorAsync.DelayRealtimeAsync(1);
         Time.timeScale = 1;
 
         return ToolsCallResult.TextResult("Exit Play Mode transition initiated.");

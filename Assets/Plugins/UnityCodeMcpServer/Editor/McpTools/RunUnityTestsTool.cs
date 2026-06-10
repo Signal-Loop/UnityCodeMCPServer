@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Text.Json;
-using Cysharp.Threading.Tasks;
+using System.Threading.Tasks;
 using UnityCodeMcpServer.Helpers;
 using UnityCodeMcpServer.Interfaces;
 using UnityCodeMcpServer.Protocol;
@@ -55,7 +55,7 @@ Returns pass/fail status, total execution time, and detailed stack traces for an
         }
         ");
 
-        public async UniTask<ToolsCallResult> ExecuteAsync(JsonElement arguments)
+        public async Task<ToolsCallResult> ExecuteAsync(JsonElement arguments)
         {
             TestOptions options = ParseArguments(arguments);
 
@@ -121,7 +121,7 @@ Returns pass/fail status, total execution time, and detailed stack traces for an
             }
         }
 
-        private async UniTask<ITestResultAdaptor> RunModeAsync(TestRunnerApi api, TestMode mode, string[] testNames)
+        private async Task<ITestResultAdaptor> RunModeAsync(TestRunnerApi api, TestMode mode, string[] testNames)
         {
             TestCallbacks callbacks = new();
             api.RegisterCallbacks(callbacks);
@@ -312,9 +312,9 @@ Returns pass/fail status, total execution time, and detailed stack traces for an
 
         private class TestCallbacks : ICallbacks
         {
-            private readonly UniTaskCompletionSource<ITestResultAdaptor> _completionSource = new();
+            private readonly TaskCompletionSource<ITestResultAdaptor> _completionSource = new();
 
-            public UniTask<ITestResultAdaptor> ResultTask => _completionSource.Task;
+            public Task<ITestResultAdaptor> ResultTask => _completionSource.Task;
 
             public void RunStarted(ITestAdaptor testsToRun)
             {

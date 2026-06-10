@@ -1,8 +1,9 @@
 ﻿using System.Collections;
 using System.Collections.Generic;
 using System.Text.Json;
-using Cysharp.Threading.Tasks;
+using System.Threading.Tasks;
 using NUnit.Framework;
+using UnityCodeMcpServer.AsyncAwait;
 using UnityCodeMcpServer.Interfaces;
 using UnityCodeMcpServer.Protocol;
 using UnityCodeMcpServer.Registry;
@@ -92,7 +93,7 @@ namespace UnityCodeMcpServer.Tests.EditMode
         }
 
         [UnityTest]
-        public IEnumerator ExecuteToolAsync_AsyncTool_ExecutesSuccessfully() => UniTask.ToCoroutine(async () =>
+        public IEnumerator ExecuteToolAsync_AsyncTool_ExecutesSuccessfully() => TaskCoroutine.ToCoroutine(async () =>
         {
             McpRegistry registry = new();
             registry.DiscoverAndRegisterAll();
@@ -212,9 +213,9 @@ namespace UnityCodeMcpServer.Tests.EditMode
         public string Description => "A test asynchronous tool";
         public JsonElement InputSchema => JsonHelper.ParseElement(@"{""type"": ""object""}");
 
-        public UniTask<ToolsCallResult> ExecuteAsync(JsonElement arguments)
+        public Task<ToolsCallResult> ExecuteAsync(JsonElement arguments)
         {
-            return UniTask.FromResult(ToolsCallResult.TextResult("Test async result"));
+            return Task.FromResult(ToolsCallResult.TextResult("Test async result"));
         }
     }
 

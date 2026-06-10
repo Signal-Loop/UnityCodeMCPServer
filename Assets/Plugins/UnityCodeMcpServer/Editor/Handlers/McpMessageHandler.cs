@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Text.Json;
-using Cysharp.Threading.Tasks;
+using System.Threading.Tasks;
 using UnityCodeMcpServer.Helpers;
 using UnityCodeMcpServer.Protocol;
 using UnityCodeMcpServer.Registry;
@@ -14,12 +14,12 @@ namespace UnityCodeMcpServer.Handlers
     public class McpMessageHandler
     {
         private readonly McpRegistry _registry;
-        private readonly Dictionary<string, Func<JsonRpcRequest, UniTask<JsonRpcResponse>>> _handlers;
+        private readonly Dictionary<string, Func<JsonRpcRequest, Task<JsonRpcResponse>>> _handlers;
 
         public McpMessageHandler(McpRegistry registry)
         {
             _registry = registry;
-            _handlers = new Dictionary<string, Func<JsonRpcRequest, UniTask<JsonRpcResponse>>>
+            _handlers = new Dictionary<string, Func<JsonRpcRequest, Task<JsonRpcResponse>>>
             {
                 { McpMethods.Initialize, HandleInitialize },
                 { McpMethods.Ping, HandlePing },
@@ -36,7 +36,7 @@ namespace UnityCodeMcpServer.Handlers
         /// <summary>
         /// Process a raw JSON message and return the response
         /// </summary>
-        public async UniTask<string> ProcessMessageAsync(string json)
+        public async Task<string> ProcessMessageAsync(string json)
         {
             JsonRpcRequest request;
 
@@ -83,11 +83,11 @@ namespace UnityCodeMcpServer.Handlers
             }
         }
 
-        private async UniTask<JsonRpcResponse> HandleRequestAsync(JsonRpcRequest request)
+        private async Task<JsonRpcResponse> HandleRequestAsync(JsonRpcRequest request)
         {
             UnityCodeMcpServerLogger.Debug($"Handling request: {request.Method} (id: {request.Id})");
 
-            if (_handlers.TryGetValue(request.Method, out Func<JsonRpcRequest, UniTask<JsonRpcResponse>> handler))
+            if (_handlers.TryGetValue(request.Method, out Func<JsonRpcRequest, Task<JsonRpcResponse>> handler))
             {
                 try
                 {
@@ -106,7 +106,7 @@ namespace UnityCodeMcpServer.Handlers
 
         #region Handler Methods
 
-        private UniTask<JsonRpcResponse> HandleInitialize(JsonRpcRequest request)
+        private Task<JsonRpcResponse> HandleInitialize(JsonRpcRequest request)
         {
             InitializeParams initParams = null;
             if (request.Params.HasValue)
@@ -132,22 +132,22 @@ namespace UnityCodeMcpServer.Handlers
                 }
             };
 
-            return UniTask.FromResult(JsonRpcResponse.Success(request.Id, result));
+            return Task.FromResult(JsonRpcResponse.Success(request.Id, result));
         }
 
-        private UniTask<JsonRpcResponse> HandlePing(JsonRpcRequest request)
+        private Task<JsonRpcResponse> HandlePing(JsonRpcRequest request)
         {
-            return UniTask.FromResult(JsonRpcResponse.Success(request.Id, new { }));
+            return Task.FromResult(JsonRpcResponse.Success(request.Id, new { }));
         }
 
-        private UniTask<JsonRpcResponse> HandleToolsList(JsonRpcRequest request)
+        private Task<JsonRpcResponse> HandleToolsList(JsonRpcRequest request)
         {
             UnityCodeMcpServerLogger.Debug($"tools/list request (id: {request.Id})");
             ToolsListResult result = _registry.GetToolsList();
-            return UniTask.FromResult(JsonRpcResponse.Success(request.Id, result));
+            return Task.FromResult(JsonRpcResponse.Success(request.Id, result));
         }
 
-        private async UniTask<JsonRpcResponse> HandleToolsCall(JsonRpcRequest request)
+        private async Task<JsonRpcResponse> HandleToolsCall(JsonRpcRequest request)
         {
             ToolsCallParams callParams = null;
             if (request.Params.HasValue)
@@ -172,14 +172,14 @@ namespace UnityCodeMcpServer.Handlers
             return JsonRpcResponse.Success(request.Id, result);
         }
 
-        private UniTask<JsonRpcResponse> HandlePromptsList(JsonRpcRequest request)
+        private Task<JsonRpcResponse> HandlePromptsList(JsonRpcRequest request)
         {
             UnityCodeMcpServerLogger.Debug($"prompts/list request (id: {request.Id})");
             PromptsListResult result = _registry.GetPromptsList();
-            return UniTask.FromResult(JsonRpcResponse.Success(request.Id, result));
+            return Task.FromResult(JsonRpcResponse.Success(request.Id, result));
         }
 
-        private UniTask<JsonRpcResponse> HandlePromptsGet(JsonRpcRequest request)
+        private Task<JsonRpcResponse> HandlePromptsGet(JsonRpcRequest request)
         {
             PromptsGetParams getParams = null;
             if (request.Params.HasValue)
@@ -189,28 +189,28 @@ namespace UnityCodeMcpServer.Handlers
 
             if (getParams == null || string.IsNullOrEmpty(getParams.Name))
             {
-                return UniTask.FromResult(JsonRpcResponse.Failure(request.Id, JsonRpcErrorCodes.InvalidParams, "Missing prompt name"));
+                return Task.FromResult(JsonRpcResponse.Failure(request.Id, JsonRpcErrorCodes.InvalidParams, "Missing prompt name"));
             }
 
             LogRequestSummary("prompt", getParams.Name, request.Id);
 
             if (!_registry.HasPrompt(getParams.Name))
             {
-                return UniTask.FromResult(JsonRpcResponse.Failure(request.Id, JsonRpcErrorCodes.InvalidParams, $"Prompt not found: {getParams.Name}"));
+                return Task.FromResult(JsonRpcResponse.Failure(request.Id, JsonRpcErrorCodes.InvalidParams, $"Prompt not found: {getParams.Name}"));
             }
 
             PromptsGetResult result = _registry.GetPromptMessages(getParams.Name, getParams.Arguments ?? new Dictionary<string, string>());
-            return UniTask.FromResult(JsonRpcResponse.Success(request.Id, result));
+            return Task.FromResult(JsonRpcResponse.Success(request.Id, result));
         }
 
-        private UniTask<JsonRpcResponse> HandleResourcesList(JsonRpcRequest request)
+        private Task<JsonRpcResponse> HandleResourcesList(JsonRpcRequest request)
         {
             UnityCodeMcpServerLogger.Debug($"resources/list request (id: {request.Id})");
             ResourcesListResult result = _registry.GetResourcesList();
-            return UniTask.FromResult(JsonRpcResponse.Success(request.Id, result));
+            return Task.FromResult(JsonRpcResponse.Success(request.Id, result));
         }
 
-        private UniTask<JsonRpcResponse> HandleResourcesRead(JsonRpcRequest request)
+        private Task<JsonRpcResponse> HandleResourcesRead(JsonRpcRequest request)
         {
             ResourcesReadParams readParams = null;
             if (request.Params.HasValue)
@@ -220,25 +220,25 @@ namespace UnityCodeMcpServer.Handlers
 
             if (readParams == null || string.IsNullOrEmpty(readParams.Uri))
             {
-                return UniTask.FromResult(JsonRpcResponse.Failure(request.Id, JsonRpcErrorCodes.InvalidParams, "Missing resource URI"));
+                return Task.FromResult(JsonRpcResponse.Failure(request.Id, JsonRpcErrorCodes.InvalidParams, "Missing resource URI"));
             }
 
             LogRequestSummary("resource", readParams.Uri, request.Id);
 
             if (!_registry.HasResource(readParams.Uri))
             {
-                return UniTask.FromResult(JsonRpcResponse.Failure(request.Id, JsonRpcErrorCodes.ResourceNotFound, $"Resource not found: {readParams.Uri}"));
+                return Task.FromResult(JsonRpcResponse.Failure(request.Id, JsonRpcErrorCodes.ResourceNotFound, $"Resource not found: {readParams.Uri}"));
             }
 
             ResourcesReadResult result = _registry.ReadResource(readParams.Uri);
-            return UniTask.FromResult(JsonRpcResponse.Success(request.Id, result));
+            return Task.FromResult(JsonRpcResponse.Success(request.Id, result));
         }
 
-        private UniTask<JsonRpcResponse> HandleResourcesTemplatesList(JsonRpcRequest request)
+        private Task<JsonRpcResponse> HandleResourcesTemplatesList(JsonRpcRequest request)
         {
             // Currently no resource templates supported
             ResourcesTemplatesListResult result = new();
-            return UniTask.FromResult(JsonRpcResponse.Success(request.Id, result));
+            return Task.FromResult(JsonRpcResponse.Success(request.Id, result));
         }
 
         private void LogRequestSummary(string kind, string name, object id)
