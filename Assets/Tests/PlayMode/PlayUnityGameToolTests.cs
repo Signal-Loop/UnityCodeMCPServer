@@ -29,16 +29,6 @@ public class PlayUnityGameToolTests
     private static FieldInfo GetPrivateField(string name) =>
         typeof(PlayUnityGameTool).GetField(name, BindingFlags.Instance | BindingFlags.NonPublic);
 
-    private sealed class UpdateProbe : MonoBehaviour
-    {
-        public int LastUpdateFrame { get; private set; } = -1;
-
-        private void Update()
-        {
-            LastUpdateFrame = Time.frameCount;
-        }
-    }
-
     private static Keyboard EnsureKeyboardDevice(out bool createdKeyboard)
     {
         Keyboard keyboard = Keyboard.current;
@@ -433,25 +423,6 @@ public class PlayUnityGameToolTests
             {
                 InputSystem.RemoveDevice(keyboard);
             }
-        }
-    }
-
-    [Test]
-    public async Task UnityPlayerLoopAsync_Yield_ResumesBeforeMonoBehaviourUpdate()
-    {
-        GameObject probeObject = new("UnityPlayerLoopAsync_UpdateProbe");
-        UpdateProbe probe = probeObject.AddComponent<UpdateProbe>();
-
-        try
-        {
-            await UnityPlayerLoopAsync.YieldAsync();
-
-            Assert.AreNotEqual(Time.frameCount, probe.LastUpdateFrame,
-                "UnityPlayerLoopAsync should resume before ScriptRunBehaviourUpdate in the current frame.");
-        }
-        finally
-        {
-            UnityEngine.Object.Destroy(probeObject);
         }
     }
 

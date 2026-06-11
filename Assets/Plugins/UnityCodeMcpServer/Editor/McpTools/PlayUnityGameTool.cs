@@ -145,7 +145,7 @@ SIDE EFFECTS: Alters Time.timeScale, overrides active Input System states, and c
 
                 if (held_actions.Count == 0)
                 {
-                    await UnityPlayerLoopAsync.DelayRealtimeAsync(options.DurationMs);
+                    await UnityEditorAsync.DelayRealtimeAsync(options.DurationMs);
                 }
                 else
                 {
@@ -153,7 +153,7 @@ SIDE EFFECTS: Alters Time.timeScale, overrides active Input System states, and c
                     while (Time.realtimeSinceStartup < end_time)
                     {
                         TriggerHeldInputs(held_actions);
-                        await UnityPlayerLoopAsync.YieldAsync();
+                        await UnityEditorAsync.YieldAsync();
                     }
                 }
             }
@@ -408,7 +408,7 @@ SIDE EFFECTS: Alters Time.timeScale, overrides active Input System states, and c
 
     private async Task ReleasePressedActionNextFrameAsync(InputAction action)
     {
-        await UnityPlayerLoopAsync.DelayFramesAsync(1);
+        await UnityEditorAsync.DelayFramesAsync(1);
         TriggerAction(action, 0.0f);
     }
 
