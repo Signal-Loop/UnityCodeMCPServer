@@ -79,12 +79,14 @@ SIDE EFFECTS: Alters Time.timeScale, overrides active Input System states, and c
 
         InputSettings.BackgroundBehavior previousBackgroundBehavior = InputSystem.settings.backgroundBehavior;
         InputSettings.EditorInputBehaviorInPlayMode previousEditorInputBehavior = InputSystem.settings.editorInputBehaviorInPlayMode;
+        bool previousEditorPaused = EditorApplication.isPaused;
 
         try
         {
             logCapture.Start();
 
             _active_keys_by_keyboard.Clear();
+            EditorApplication.isPaused = false;
             Time.timeScale = 1f;
 
             // Bypass Input System focus gating so input works without window focus.
@@ -114,7 +116,6 @@ SIDE EFFECTS: Alters Time.timeScale, overrides active Input System states, and c
             // gating dropping release events) can keep gameplay input non-zero even when
             // no input is specified for the current run.
             ResetAllInputDevices();
-            FlushQueuedInputEvents("initial device reset");
 
             InputActionAsset input_asset = InputActionAssetResolver.LoadInputActionAsset(out string warningMessage);
             if (!string.IsNullOrEmpty(warningMessage))
@@ -131,9 +132,8 @@ SIDE EFFECTS: Alters Time.timeScale, overrides active Input System states, and c
                 $"App.isFocused={Application.isFocused}, devices={InputSystem.devices.Count}");
 
             TriggerInputs(input_asset, options.Inputs, held_actions, actions_to_release);
-            FlushQueuedInputEvents("initial input trigger");
 
-            // Log post-trigger action states after the simulated event batch has been processed.
+            // Log post-trigger action states (events are processed by the player loop).
             foreach (InputAction heldAction in held_actions)
             {
                 UnityCodeMcpServerLogger.Debug($"#PlayUnityGameTool: post-trigger action '{heldAction.name}' phase={heldAction.phase}, " +
@@ -146,7 +146,7 @@ SIDE EFFECTS: Alters Time.timeScale, overrides active Input System states, and c
 
                 if (held_actions.Count == 0)
                 {
-                    await UnityEditorAsync.DelayRealtimeAsync(options.DurationMs);
+                    await UnityPlayerLoopAsync.DelayRealtimeAsync(options.DurationMs);
                 }
                 else
                 {
@@ -154,8 +154,7 @@ SIDE EFFECTS: Alters Time.timeScale, overrides active Input System states, and c
                     while (Time.realtimeSinceStartup < end_time)
                     {
                         TriggerHeldInputs(held_actions);
-                        FlushQueuedInputEvents("held input refresh");
-                        await UnityEditorAsync.YieldAsync();
+                        await UnityPlayerLoopAsync.YieldAsync();
                     }
                 }
             }
@@ -171,20 +170,20 @@ SIDE EFFECTS: Alters Time.timeScale, overrides active Input System states, and c
         }
         finally
         {
-            InputSystem.settings.backgroundBehavior = previousBackgroundBehavior;
-            UnityCodeMcpServerLogger.Info($"#PlayUnityGameTool: Restored InputSystem.settings.backgroundBehavior to {previousBackgroundBehavior}.");
-            InputSystem.settings.editorInputBehaviorInPlayMode = previousEditorInputBehavior;
-            UnityCodeMcpServerLogger.Info($"#PlayUnityGameTool: Restored InputSystem.settings.editorInputBehaviorInPlayMode to {previousEditorInputBehavior}.");
-            logCapture.Stop();
-            logCapture.Dispose();
-            Time.timeScale = 0f;
             // Release actions and reset devices BEFORE restoring InputSettings.
             // Restoring settings first re-enables focus gating, which may silently
             // drop the queued release/reset events, leaving keys stuck pressed.
             ReleaseActions(actions_to_release);
             ReleaseActions(held_actions);
             ResetAllInputDevices();
-            FlushQueuedInputEvents("final release/reset");
+            Time.timeScale = 0f;
+            EditorApplication.isPaused = previousEditorPaused;
+            InputSystem.settings.backgroundBehavior = previousBackgroundBehavior;
+            UnityCodeMcpServerLogger.Info($"#PlayUnityGameTool: Restored InputSystem.settings.backgroundBehavior to {previousBackgroundBehavior}.");
+            InputSystem.settings.editorInputBehaviorInPlayMode = previousEditorInputBehavior;
+            UnityCodeMcpServerLogger.Info($"#PlayUnityGameTool: Restored InputSystem.settings.editorInputBehaviorInPlayMode to {previousEditorInputBehavior}.");
+            logCapture.Stop();
+            logCapture.Dispose();
         }
     }
 
@@ -342,22 +341,8 @@ SIDE EFFECTS: Alters Time.timeScale, overrides active Input System states, and c
 
     private async Task ReleasePressedActionNextFrameAsync(InputAction action)
     {
-        await UnityEditorAsync.DelayFramesAsync(1);
+        await UnityPlayerLoopAsync.DelayFramesAsync(1);
         TriggerAction(action, 0.0f);
-        FlushQueuedInputEvents("press release");
-    }
-
-    private void FlushQueuedInputEvents(string reason)
-    {
-        try
-        {
-            InputSystem.Update();
-            UnityCodeMcpServerLogger.Trace($"#PlayUnityGameTool: Flushed queued input events after {reason}.");
-        }
-        catch (InvalidOperationException ex)
-        {
-            UnityCodeMcpServerLogger.Warn($"#PlayUnityGameTool: Could not flush queued input events after {reason}: {ex.Message}");
-        }
     }
 
     public static bool TryParseArguments(JsonElement arguments, out PlayOptions options, out string errorMessage)
