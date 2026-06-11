@@ -99,26 +99,20 @@ graph LR
 ### Requirements
 
 - Unity 2022.3 LTS or higher (tested on 2022.3.62f3 and 6000.2.7f2)
-- UniTask (async/await integration): https://github.com/Cysharp/UniTask
 - `uv` (Python package manager) for the bundled STDIO bridge: https://docs.astral.sh/uv/.
 
 ### Installation
 
 1. Install `uv`:
    - Follow instructions at https://docs.astral.sh/uv/getting-started/installation
-2. Install UniTask in your Unity project. Open **Window > Package Manager**, click the **+** button, select **Add package from git URL...**, and enter:
 
-```
-https://github.com/Cysharp/UniTask.git?path=src/UniTask/Assets/Plugins/UniTask
-```
-
-3. Install Unity Code MCP Server from Unity Package Manager. Open **Window > Package Manager**, click the **+** button, select **Add package from git URL...**, and enter:
+2. Install Unity Code MCP Server from Unity Package Manager. Open **Window > Package Manager**, click the **+** button, select **Add package from git URL...**, and enter:
 
 ```
 https://github.com/Signal-Loop/UnityCodeMCPServer.git?path=Assets/Plugins/UnityCodeMcpServer
 ```
 
-4. Configure the skill install location. Open **Tools/UnityCodeMcpServer/Show or Create Settings**, scroll to the **Skills** section, and confirm or change the install directory. By default, first-time installs target `.agents/skills/`. Skills are installed and updated automatically when the package is installed or updated.
+3. Configure the skill install location. Open **Tools/UnityCodeMcpServer/Show or Create Settings**, scroll to the **Skills** section, and confirm or change the install directory. By default, first-time installs target `.agents/skills/`. Skills are installed and updated automatically when the package is installed or updated.
 
 ### First Run
 
@@ -235,7 +229,7 @@ using System.Collections.Generic;
 using System.Text.Json;
 using UnityCodeMcpServer.Interfaces;
 using UnityCodeMcpServer.Protocol;
-using Cysharp.Threading.Tasks;
+using System.Threading.Tasks;
 
 public class DelayedEchoTool : IToolAsync
 {
@@ -259,12 +253,12 @@ public class DelayedEchoTool : IToolAsync
             ""required"": [""text""]
         }");
 
-    public async UniTask<ToolsCallResult> ExecuteAsync(JsonElement arguments)
+    public async Task<ToolsCallResult> ExecuteAsync(JsonElement arguments)
     {
         var text = arguments.GetStringOrDefault("text", "");
         var delayMs = arguments.GetIntOrDefault("delayMs", 1000);
 
-        await UniTask.Delay(delayMs);
+        await Task.Delay(delayMs);
 
         return ToolsCallResult.TextResult($"Delayed Echo (after {delayMs}ms): {text}");
     }

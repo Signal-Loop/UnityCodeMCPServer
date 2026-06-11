@@ -8,3 +8,17 @@ Keep it Simple, Use Kiss, Yagni and responsibility separation. Do not leak imple
 Unitask source: C:\Users\tbory\source\Workspaces\UniTask
 
 Verify the changes with unity tests and E2E checks using 'execute_csharp_scripts...' tool.
+ openclaw config set channels.telegram.allowFrom '[8561337291]'
+ openclaw config set channels.telegram.dmPolicy "allowlist"
+
+ @Northegar
+Id: 8561337291
+First: Tomek
+Lang: en
+Registered: Check Date
+
+🧠 Explanations and answers
+Free AI → DeepSeek & ChatGPT
+
+🖼 Visualize your ideas
+Make Image → NanoBanana
