@@ -1,7 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Reflection;
+using System.Threading.Tasks;
 using NUnit.Framework;
+using UnityCodeMcpServer.AsyncAwait;
 using UnityEngine;
 using UnityEngine.InputSystem;
 
@@ -22,6 +24,16 @@ public class PlayUnityGameToolTests
 
     private static FieldInfo GetPrivateField(string name) =>
         typeof(PlayUnityGameTool).GetField(name, BindingFlags.Instance | BindingFlags.NonPublic);
+
+    private sealed class UpdateProbe : MonoBehaviour
+    {
+        public int LastUpdateFrame { get; private set; } = -1;
+
+        private void Update()
+        {
+            LastUpdateFrame = Time.frameCount;
+        }
+    }
 
     private static Keyboard EnsureKeyboardDevice(out bool createdKeyboard)
     {
@@ -303,6 +315,68 @@ public class PlayUnityGameToolTests
             action.Disable();
             action.Dispose();
             InputSystem.RemoveDevice(gamepad);
+        }
+    }
+
+    [Test]
+    public void FlushQueuedInputEvents_ProcessesQueuedKeyboardStateImmediately()
+    {
+        Keyboard keyboard = EnsureKeyboardDevice(out bool createdKeyboard);
+        Assert.IsNotNull(keyboard, "Expected a keyboard device for keyboard action tests.");
+
+        InputActionAsset asset = CreateKeyboardTestAsset();
+        InputAction player1Up = asset.FindAction("Player1Up", true);
+        player1Up.Enable();
+
+        MethodInfo triggerAction = GetPrivateMethod("TriggerAction");
+        MethodInfo flushQueuedInputEvents = GetPrivateMethod("FlushQueuedInputEvents");
+        Assert.IsNotNull(triggerAction, "Could not find TriggerAction method.");
+        Assert.IsNotNull(flushQueuedInputEvents, "Could not find FlushQueuedInputEvents method.");
+
+        PlayUnityGameTool tool = new();
+
+        try
+        {
+            triggerAction.Invoke(tool, new object[] { player1Up, 1f });
+            Assert.IsFalse(player1Up.IsPressed(), "Queued input should not be visible before InputSystem.Update.");
+
+            flushQueuedInputEvents.Invoke(tool, new object[] { "test press" });
+            Assert.IsTrue(player1Up.IsPressed(), "Expected flush to process the queued press immediately.");
+
+            triggerAction.Invoke(tool, new object[] { player1Up, 0f });
+            flushQueuedInputEvents.Invoke(tool, new object[] { "test release" });
+            Assert.IsFalse(player1Up.IsPressed(), "Expected flush to process the queued release immediately.");
+        }
+        finally
+        {
+            triggerAction.Invoke(tool, new object[] { player1Up, 0f });
+            InputSystem.Update();
+            player1Up.Disable();
+            UnityEngine.Object.DestroyImmediate(asset);
+
+            if (createdKeyboard)
+            {
+                InputSystem.RemoveDevice(keyboard);
+            }
+        }
+    }
+
+    [Test]
+    public async Task UnityPlayerLoopAsync_Yield_ResumesBeforeMonoBehaviourUpdate()
+    {
+        GameObject probeObject = new("UnityPlayerLoopAsync_UpdateProbe");
+        UpdateProbe probe = probeObject.AddComponent<UpdateProbe>();
+
+        try
+        {
+            await UnityPlayerLoopAsync.YieldAsync();
+
+            Assert.AreNotEqual(Time.frameCount, probe.LastUpdateFrame,
+                "UnityPlayerLoopAsync should resume before ScriptRunBehaviourUpdate in the current frame.");
+        }
+        finally
+        {
+            UnityEngine.Object.Destroy(probeObject);
         }
     }
 }

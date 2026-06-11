@@ -116,6 +116,7 @@ SIDE EFFECTS: Alters Time.timeScale, overrides active Input System states, and c
             // gating dropping release events) can keep gameplay input non-zero even when
             // no input is specified for the current run.
             ResetAllInputDevices();
+            FlushQueuedInputEvents("initial device reset");
 
             InputActionAsset input_asset = InputActionAssetResolver.LoadInputActionAsset(out string warningMessage);
             if (!string.IsNullOrEmpty(warningMessage))
@@ -132,8 +133,9 @@ SIDE EFFECTS: Alters Time.timeScale, overrides active Input System states, and c
                 $"App.isFocused={Application.isFocused}, devices={InputSystem.devices.Count}");
 
             TriggerInputs(input_asset, options.Inputs, held_actions, actions_to_release);
+            FlushQueuedInputEvents("initial input trigger");
 
-            // Log post-trigger action states (events are processed by the player loop).
+            // Log post-trigger action states after the simulated event batch has been processed.
             foreach (InputAction heldAction in held_actions)
             {
                 UnityCodeMcpServerLogger.Debug($"#PlayUnityGameTool: post-trigger action '{heldAction.name}' phase={heldAction.phase}, " +
@@ -154,6 +156,7 @@ SIDE EFFECTS: Alters Time.timeScale, overrides active Input System states, and c
                     while (Time.realtimeSinceStartup < end_time)
                     {
                         TriggerHeldInputs(held_actions);
+                        FlushQueuedInputEvents("held input refresh");
                         await UnityPlayerLoopAsync.YieldAsync();
                     }
                 }
@@ -176,6 +179,7 @@ SIDE EFFECTS: Alters Time.timeScale, overrides active Input System states, and c
             ReleaseActions(actions_to_release);
             ReleaseActions(held_actions);
             ResetAllInputDevices();
+            FlushQueuedInputEvents("final release/reset");
             Time.timeScale = 0f;
             EditorApplication.isPaused = previousEditorPaused;
             InputSystem.settings.backgroundBehavior = previousBackgroundBehavior;
@@ -343,6 +347,20 @@ SIDE EFFECTS: Alters Time.timeScale, overrides active Input System states, and c
     {
         await UnityPlayerLoopAsync.DelayFramesAsync(1);
         TriggerAction(action, 0.0f);
+        FlushQueuedInputEvents("press release");
+    }
+
+    private void FlushQueuedInputEvents(string reason)
+    {
+        try
+        {
+            InputSystem.Update();
+            UnityCodeMcpServerLogger.Trace($"#PlayUnityGameTool: Flushed queued input events after {reason}.");
+        }
+        catch (InvalidOperationException ex)
+        {
+            UnityCodeMcpServerLogger.Warn($"#PlayUnityGameTool: Could not flush queued input events after {reason}: {ex.Message}");
+        }
     }
 
     public static bool TryParseArguments(JsonElement arguments, out PlayOptions options, out string errorMessage)
