@@ -190,7 +190,7 @@ namespace UnityCodeMcpServer.Registry
                 try
                 {
                     Application.runInBackground = true;
-                    UnityCodeMcpServerLogger.Debug($"#PlayUnityGameTool: Set Application.runInBackground=true to allow input without focus. Previous value was {applicationRunInBackground}.");
+                    UnityCodeMcpServerLogger.Debug($"#[McpRegistry]: Set Application.runInBackground=true to allow input without focus. Previous value was {applicationRunInBackground}.");
 
                     return syncTool.Execute(arguments);
                 }
@@ -201,7 +201,7 @@ namespace UnityCodeMcpServer.Registry
                 finally
                 {
                     Application.runInBackground = applicationRunInBackground;
-                    UnityCodeMcpServerLogger.Debug($"#PlayUnityGameTool: Restored Application.runInBackground to {applicationRunInBackground} after tool execution.");
+                    UnityCodeMcpServerLogger.Debug($"#[McpRegistry]: Restored Application.runInBackground to {applicationRunInBackground} after tool execution.");
                 }
             }
 
@@ -210,7 +210,7 @@ namespace UnityCodeMcpServer.Registry
                 try
                 {
                     Application.runInBackground = true;
-                    UnityCodeMcpServerLogger.Debug($"#PlayUnityGameTool: Set Application.runInBackground=true to allow input without focus. Previous value was {applicationRunInBackground}.");
+                    UnityCodeMcpServerLogger.Debug($"#[McpRegistry]: Set Application.runInBackground=true to allow input without focus. Previous value was {applicationRunInBackground}.");
 
                     return await asyncTool.ExecuteAsync(arguments);
                 }
@@ -221,7 +221,7 @@ namespace UnityCodeMcpServer.Registry
                 finally
                 {
                     Application.runInBackground = applicationRunInBackground;
-                    UnityCodeMcpServerLogger.Debug($"#PlayUnityGameTool: Restored Application.runInBackground to {applicationRunInBackground} after tool execution.");
+                    UnityCodeMcpServerLogger.Debug($"#[McpRegistry]: Restored Application.runInBackground to {applicationRunInBackground} after tool execution.");
                 }
             }
 

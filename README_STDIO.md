@@ -70,6 +70,18 @@ uv run --directory "C:/path/to/STDIO~" unity-code-mcp-stdio
 uv run --directory "C:/path/to/STDIO~" unity-code-mcp-stdio --request-timeout 240
 ```
 
+### MCPorter CLI Examples
+
+MCPorter can call the configured STDIO bridge server directly:
+
+```powershell
+mcporter call unity-code-mcp-stdio.enter_play_mode
+
+mcporter call unity-code-mcp-stdio.play_unity_game --args '{"duration":200,"input":[{"action":"Player1Up","type":"hold"}]}'
+
+mcporter call unity-code-mcp-stdio.exit_play_mode
+```
+
 ## MCP Configuration
 
 ```json

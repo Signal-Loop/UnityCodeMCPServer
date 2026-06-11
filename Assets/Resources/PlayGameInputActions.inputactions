@@ -1,0 +1,55 @@
+{
+    "version": 1,
+    "name": "PlayGameInputActions",
+    "maps": [
+        {
+            "name": "Default",
+            "id": "f6e2da0f-4d6b-4841-8277-401d6857c1b2",
+            "actions": [
+                {
+                    "name": "Player1Up",
+                    "type": "Button",
+                    "id": "021b2f51-c979-45c3-8eb5-3c28307949b3",
+                    "expectedControlType": "",
+                    "processors": "",
+                    "interactions": "",
+                    "initialStateCheck": false
+                },
+                {
+                    "name": "Player1Down",
+                    "type": "Button",
+                    "id": "cc85db27-b78f-40eb-865f-a6030ce6c96b",
+                    "expectedControlType": "",
+                    "processors": "",
+                    "interactions": "",
+                    "initialStateCheck": false
+                }
+            ],
+            "bindings": [
+                {
+                    "name": "",
+                    "id": "06c426d8-fc98-4e3a-aaad-d383a2e9757f",
+                    "path": "<Keyboard>/upArrow",
+                    "interactions": "",
+                    "processors": "",
+                    "groups": "",
+                    "action": "Player1Up",
+                    "isComposite": false,
+                    "isPartOfComposite": false
+                },
+                {
+                    "name": "",
+                    "id": "e0d2c1b7-edca-44d9-a561-f99df10116e9",
+                    "path": "<Keyboard>/downArrow",
+                    "interactions": "",
+                    "processors": "",
+                    "groups": "",
+                    "action": "Player1Down",
+                    "isComposite": false,
+                    "isPartOfComposite": false
+                }
+            ]
+        }
+    ],
+    "controlSchemes": []
+}
