@@ -236,6 +236,52 @@ public class PlayUnityGameToolTests
     }
 
     [Test]
+    public void FlushQueuedInputEvents_ProcessesQueuedKeyboardStateImmediately()
+    {
+        Keyboard keyboard = EnsureKeyboardDevice(out bool createdKeyboard);
+        Assert.IsNotNull(keyboard, "Expected a keyboard device for keyboard action tests.");
+
+        InputActionAsset asset = CreateKeyboardTestAsset();
+
+        InputAction player1Up = asset.FindAction("Player1Up", true);
+        player1Up.Enable();
+
+        MethodInfo triggerAction = GetPrivateMethod("TriggerAction");
+        MethodInfo flushQueuedInputEvents = GetPrivateMethod("FlushQueuedInputEvents");
+        Assert.IsNotNull(triggerAction, "Could not find TriggerAction method.");
+        Assert.IsNotNull(flushQueuedInputEvents, "Could not find FlushQueuedInputEvents method.");
+
+        PlayUnityGameTool tool = new();
+
+        try
+        {
+            triggerAction.Invoke(tool, new object[] { player1Up, 1f });
+            flushQueuedInputEvents.Invoke(tool, new object[] { "test press" });
+
+            Assert.IsTrue(player1Up.IsPressed(),
+                "Expected FlushQueuedInputEvents to process queued simulated input immediately.");
+
+            triggerAction.Invoke(tool, new object[] { player1Up, 0f });
+            flushQueuedInputEvents.Invoke(tool, new object[] { "test release" });
+
+            Assert.IsFalse(player1Up.IsPressed(),
+                "Expected FlushQueuedInputEvents to process queued simulated input release immediately.");
+        }
+        finally
+        {
+            triggerAction.Invoke(tool, new object[] { player1Up, 0f });
+            InputSystem.Update();
+            player1Up.Disable();
+            UnityEngine.Object.DestroyImmediate(asset);
+
+            if (createdKeyboard)
+            {
+                InputSystem.RemoveDevice(keyboard);
+            }
+        }
+    }
+
+    [Test]
     public void ResetAllInputDevices_ResetsResidualGamepadButtonState()
     {
         MethodInfo triggerAction = GetPrivateMethod("TriggerAction");
