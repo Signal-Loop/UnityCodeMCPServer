@@ -117,7 +117,7 @@ namespace UnityCodeMcpServer.Tests.EditMode
 
         // ── Helper: build a standard source layout ────────────────────────────
 
-        private const string SourceRoot = "pkg/Editor/Skills";
+        private const string SourceRoot = "pkg/Editor/Skills~";
         private const string TargetRoot = "/home/user/.copilot/skills";
 
         /// <summary>

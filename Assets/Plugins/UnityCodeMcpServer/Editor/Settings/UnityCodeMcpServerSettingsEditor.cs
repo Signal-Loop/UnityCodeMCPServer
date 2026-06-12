@@ -267,7 +267,7 @@ namespace UnityCodeMcpServer.Settings.Editor
         /// </summary>
         public static string ResolveSkillsSourcePath()
         {
-            const string relativePath = "Editor/Skills";
+            const string relativePath = "Editor/Skills~";
 
             UnityEditor.PackageManager.PackageInfo packageInfo = UnityEditor.PackageManager.PackageInfo
                 .FindForAssembly(typeof(UnityCodeMcpServerSettingsEditor).Assembly);

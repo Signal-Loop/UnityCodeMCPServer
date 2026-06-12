@@ -70,7 +70,7 @@ namespace UnityCodeMcpServer.Settings
         [HideInInspector]
         public SkillInstallTarget SkillsInstallTarget = SkillInstallTarget.Agents;
 
-        [Tooltip("Target directory for skill file installation (persists across sessions)")]
+        [Tooltip("Target directory for skill file installation")]
         public string SkillsTargetPath = ".agents/skills/";
 
         [SerializeField, HideInInspector]
