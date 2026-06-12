@@ -1,6 +1,6 @@
 {
   "name": "com.signal-loop.unitycodemcpserver",
-  "version": "0.5.7",
+  "version": "0.5.8",
   "displayName": "Unity Code MCP Server",
   "description": "A powerful MCP server for the Unity Editor that gives AI Agents ability to perform any action using Unity Editor API. This includes scripts, scenes, prefabs and assets manipulation, configuration changes, and more.",
   "unity": "2022.3",
@@ -14,5 +14,7 @@
   ],
   "license": "MIT",
   "documentationUrl": "https://github.com/Signal-Loop/UnityCodeMCPServer",
-  "dependencies": {}
+  "dependencies": {
+    "com.unity.nuget.newtonsoft-json": "3.2.2"
+  }
 }
