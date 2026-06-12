@@ -1,7 +1,7 @@
-﻿using System.Collections;
+using System.Collections;
 using System.Collections.Generic;
-using System.Text.Json;
 using System.Threading.Tasks;
+using Newtonsoft.Json.Linq;
 using NUnit.Framework;
 using UnityCodeMcpServer.AsyncAwait;
 using UnityCodeMcpServer.Interfaces;
@@ -20,7 +20,6 @@ namespace UnityCodeMcpServer.Tests.EditMode
             McpRegistry registry = new();
             registry.DiscoverAndRegisterAll();
 
-            // Should find the sample tools we created
             Assert.That(registry.HasTool("test_sync_tool"), Is.True);
             Assert.That(registry.HasTool("test_async_tool"), Is.True);
         }
@@ -36,6 +35,7 @@ namespace UnityCodeMcpServer.Tests.EditMode
             Assert.That(registry.HasPrompt("test_prompt"), Is.True);
             Assert.That(registry.HasResource("test://resource"), Is.True);
         }
+
         [Test]
         public void DiscoverAndRegisterAll_FindsAsyncTestTool()
         {
@@ -51,7 +51,6 @@ namespace UnityCodeMcpServer.Tests.EditMode
             McpRegistry registry = new();
             registry.DiscoverAndRegisterAll();
 
-            // Should find the sample prompt we created
             Assert.That(registry.HasPrompt("test_prompt"), Is.True);
         }
 
@@ -61,7 +60,6 @@ namespace UnityCodeMcpServer.Tests.EditMode
             McpRegistry registry = new();
             registry.DiscoverAndRegisterAll();
 
-            // Should find the sample resources we created
             Assert.That(registry.HasResource("test://resource"), Is.True);
         }
 
@@ -84,7 +82,7 @@ namespace UnityCodeMcpServer.Tests.EditMode
             McpRegistry registry = new();
             registry.DiscoverAndRegisterAll();
 
-            JsonElement arguments = JsonHelper.ParseElement("{}");
+            JToken arguments = JsonHelper.ParseElement("{}");
             ToolsCallResult result = registry.ExecuteToolAsync("test_sync_tool", arguments).GetAwaiter().GetResult();
 
             Assert.That(result.IsError, Is.False);
@@ -98,7 +96,7 @@ namespace UnityCodeMcpServer.Tests.EditMode
             McpRegistry registry = new();
             registry.DiscoverAndRegisterAll();
 
-            JsonElement arguments = JsonHelper.ParseElement("{}");
+            JToken arguments = JsonHelper.ParseElement("{}");
             ToolsCallResult result = await registry.ExecuteToolAsync("test_async_tool", arguments);
 
             Assert.That(result.IsError, Is.False);
@@ -112,7 +110,7 @@ namespace UnityCodeMcpServer.Tests.EditMode
             McpRegistry registry = new();
             registry.DiscoverAndRegisterAll();
 
-            JsonElement arguments = JsonHelper.ParseElement("{}");
+            JToken arguments = JsonHelper.ParseElement("{}");
             ToolsCallResult result = registry.ExecuteToolAsync("nonexistent", arguments).GetAwaiter().GetResult();
 
             Assert.That(result.IsError, Is.True);
@@ -193,15 +191,13 @@ namespace UnityCodeMcpServer.Tests.EditMode
         }
     }
 
-    #region Test Implementations for Manual Registration Testing
-
     public class TestSyncTool : ITool
     {
         public string Name => "test_sync_tool";
         public string Description => "A test synchronous tool";
-        public JsonElement InputSchema => JsonHelper.ParseElement(@"{""type"": ""object""}");
+        public JToken InputSchema => JsonHelper.ParseElement(@"{""type"": ""object""}");
 
-        public ToolsCallResult Execute(JsonElement arguments)
+        public ToolsCallResult Execute(JToken arguments)
         {
             return ToolsCallResult.TextResult("Test sync result");
         }
@@ -211,9 +207,9 @@ namespace UnityCodeMcpServer.Tests.EditMode
     {
         public string Name => "test_async_tool";
         public string Description => "A test asynchronous tool";
-        public JsonElement InputSchema => JsonHelper.ParseElement(@"{""type"": ""object""}");
+        public JToken InputSchema => JsonHelper.ParseElement(@"{""type"": ""object""}");
 
-        public Task<ToolsCallResult> ExecuteAsync(JsonElement arguments)
+        public Task<ToolsCallResult> ExecuteAsync(JToken arguments)
         {
             return Task.FromResult(ToolsCallResult.TextResult("Test async result"));
         }
@@ -232,7 +228,8 @@ namespace UnityCodeMcpServer.Tests.EditMode
                 Description = "Test prompt result",
                 Messages = new List<PromptMessage>
                 {
-                    new() {
+                    new()
+                    {
                         Role = McpRoles.User,
                         Content = ContentItem.TextContent("Test message")
                     }
@@ -254,7 +251,8 @@ namespace UnityCodeMcpServer.Tests.EditMode
             {
                 Contents = new List<ResourceContent>
                 {
-                    new() {
+                    new()
+                    {
                         Uri = Uri,
                         MimeType = MimeType,
                         Text = "Test resource content"
@@ -263,6 +261,4 @@ namespace UnityCodeMcpServer.Tests.EditMode
             };
         }
     }
-
-    #endregion
 }

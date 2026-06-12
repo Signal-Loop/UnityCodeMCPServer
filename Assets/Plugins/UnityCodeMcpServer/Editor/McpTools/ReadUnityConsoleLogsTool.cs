@@ -1,7 +1,7 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Text;
-using System.Text.Json;
+using Newtonsoft.Json.Linq;
 using UnityCodeMcpServer.Helpers;
 using UnityCodeMcpServer.Interfaces;
 using UnityCodeMcpServer.Protocol;
@@ -43,7 +43,7 @@ namespace UnityCodeMcpServer.McpTools
 - `max_entries` (Optional): Limits the number of returned logs. You MUST use this to protect your context window from token bloat. Recommend setting this to 20-50 entries for standard debugging.
 - Output includes the log type (Message, Warning, Error, Exception), the log message, and stack traces for error entries only.";
 
-        public JsonElement InputSchema => JsonHelper.ParseElement(@"
+        public JToken InputSchema => JsonHelper.ParseElement(@"
         {
             ""type"": ""object"",
             ""properties"": {
@@ -57,7 +57,7 @@ namespace UnityCodeMcpServer.McpTools
         }
         ");
 
-        public ToolsCallResult Execute(JsonElement arguments)
+        public ToolsCallResult Execute(JToken arguments)
         {
             int requested = arguments.GetIntOrDefault("max_entries", DefaultMaxEntries);
             int maxEntries = NormalizeMaxEntries(requested);

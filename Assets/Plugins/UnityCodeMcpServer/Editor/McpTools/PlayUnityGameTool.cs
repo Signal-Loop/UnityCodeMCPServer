@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Text.Json;
 using System.Threading.Tasks;
+using Newtonsoft.Json.Linq;
 using UnityCodeMcpServer.AsyncAwait;
 using UnityCodeMcpServer.Handlers;
 using UnityCodeMcpServer.Helpers;
@@ -48,7 +48,7 @@ WHEN NOT TO USE: Do NOT use to edit scripts, modify scene architecture, or inspe
 PREREQUISITES: Unity MUST already be in Play Mode (use the 'enter_play_mode' tool first).
 SIDE EFFECTS: Alters Time.timeScale, overrides active Input System states, and consumes in-game time.";
 
-    public JsonElement InputSchema => JsonHelper.ParseElement(@"
+    public JToken InputSchema => JsonHelper.ParseElement(@"
         {
             ""type"": ""object"",
             ""properties"": {
@@ -74,7 +74,7 @@ SIDE EFFECTS: Alters Time.timeScale, overrides active Input System states, and c
         }
         ");
 
-    public async Task<ToolsCallResult> ExecuteAsync(JsonElement arguments)
+    public async Task<ToolsCallResult> ExecuteAsync(JToken arguments)
     {
         if (!TryParseArguments(arguments, out PlayOptions options, out string errorMessage))
         {
@@ -412,7 +412,7 @@ SIDE EFFECTS: Alters Time.timeScale, overrides active Input System states, and c
         TriggerAction(action, 0.0f);
     }
 
-    public static bool TryParseArguments(JsonElement arguments, out PlayOptions options, out string errorMessage)
+    public static bool TryParseArguments(JToken arguments, out PlayOptions options, out string errorMessage)
     {
         options = default;
         errorMessage = null;
@@ -437,64 +437,65 @@ SIDE EFFECTS: Alters Time.timeScale, overrides active Input System states, and c
         return true;
     }
 
-    private static bool TryGetRequiredInt(JsonElement arguments, string propertyName, out int value, out string errorMessage)
+    private static bool TryGetRequiredInt(JToken arguments, string propertyName, out int value, out string errorMessage)
     {
         value = default;
         errorMessage = null;
 
-        if (!arguments.TryGetProperty(propertyName, out JsonElement element))
+        if (!arguments.TryGetProperty(propertyName, out JToken element))
         {
             errorMessage = $"Missing required parameter: '{propertyName}'.";
             return false;
         }
 
-        if (element.ValueKind != JsonValueKind.Number || !element.TryGetInt32(out value))
+        if (element.Type != JTokenType.Integer)
         {
             errorMessage = $"Parameter '{propertyName}' must be an integer.";
             return false;
         }
 
+        value = element.Value<int>();
         return true;
     }
 
-    private static bool TryParseInputs(JsonElement arguments, out List<InputRequest> inputs, out string errorMessage)
+    private static bool TryParseInputs(JToken arguments, out List<InputRequest> inputs, out string errorMessage)
     {
         inputs = new List<InputRequest>();
         errorMessage = null;
 
-        if (!arguments.TryGetProperty("input", out JsonElement inputElement))
+        if (!arguments.TryGetProperty("input", out JToken inputElement))
         {
             return true;
         }
 
-        if (inputElement.ValueKind != JsonValueKind.Array)
+        if (inputElement.Type != JTokenType.Array)
         {
             errorMessage = "Parameter 'input' must be an array.";
             return false;
         }
 
-        foreach (JsonElement item in inputElement.EnumerateArray())
+        foreach (JToken item in inputElement)
         {
-            if (item.ValueKind != JsonValueKind.Object)
+            if (item.Type != JTokenType.Object)
             {
                 errorMessage = "Each input entry must be an object with 'action' and 'type'.";
                 return false;
             }
 
-            if (!item.TryGetProperty("action", out JsonElement actionElement) || actionElement.ValueKind != JsonValueKind.String)
+            if (!item.TryGetProperty("action", out JToken actionElement) || actionElement.Type != JTokenType.String)
             {
                 errorMessage = "Each input entry must contain string property 'action'.";
                 return false;
             }
 
-            if (!item.TryGetProperty("type", out JsonElement typeElement) || typeElement.ValueKind != JsonValueKind.String)
+            if (!item.TryGetProperty("type", out JToken typeElement) || typeElement.Type != JTokenType.String)
             {
                 errorMessage = "Each input entry must contain string property 'type'.";
                 return false;
             }
 
-            string actionName = (actionElement.GetString() ?? string.Empty).Trim();
-            string typeRaw = (typeElement.GetString() ?? string.Empty).Trim();
+            string actionName = (actionElement.Value<string>() ?? string.Empty).Trim();
+            string typeRaw = (typeElement.Value<string>() ?? string.Empty).Trim();
 
             if (string.IsNullOrWhiteSpace(actionName))
             {

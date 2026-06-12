@@ -1,10 +1,10 @@
-﻿using System;
+using System;
 using System.IO;
 using System.Linq;
 using System.Reflection;
-using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
+using Newtonsoft.Json.Linq;
 using NUnit.Framework;
 using UnityCodeMcpServer.FileServer;
 using UnityCodeMcpServer.Handlers;
@@ -67,7 +67,7 @@ namespace UnityCodeMcpServer.Tests.EditMode
         }
 
         [Test]
-        public async System.Threading.Tasks.Task ProcessNextRequestAsync_WritesJsonRpcResponseFile()
+        public async Task ProcessNextRequestAsync_WritesJsonRpcResponseFile()
         {
             string messagesDirectory = Path.Combine(_projectRoot, ".unityCodeMcpServer", "messages");
             Directory.CreateDirectory(messagesDirectory);
@@ -102,13 +102,14 @@ namespace UnityCodeMcpServer.Tests.EditMode
             Assert.That(File.Exists(responsePath), Is.True);
             Assert.That(File.Exists(requestPath), Is.False);
 
-            using JsonDocument document = JsonDocument.Parse(File.ReadAllText(responsePath));
-            Assert.That(document.RootElement.TryGetProperty("result", out JsonElement result), Is.True);
-            Assert.That(result.TryGetProperty("tools", out _), Is.True);
+            JObject document = JObject.Parse(File.ReadAllText(responsePath));
+            JToken result = document["result"];
+            Assert.That(result, Is.Not.Null);
+            Assert.That(result["tools"], Is.Not.Null);
         }
 
         [Test]
-        public async System.Threading.Tasks.Task ReadRequestAsync_ReturnsJsonWithoutDeletingRequestFile()
+        public async Task ReadRequestAsync_ReturnsJsonWithoutDeletingRequestFile()
         {
             string messagesDirectory = Path.Combine(_projectRoot, ".unityCodeMcpServer", "messages");
             Directory.CreateDirectory(messagesDirectory);
@@ -117,7 +118,7 @@ namespace UnityCodeMcpServer.Tests.EditMode
             File.WriteAllText(requestPath, "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/list\",\"params\":{}}");
 
             MethodInfo method = typeof(UnityCodeMcpFileServer).GetMethod(
-            "ReadRequestAsync",
+                "ReadRequestAsync",
                 BindingFlags.NonPublic | BindingFlags.Static);
 
             Assert.That(method, Is.Not.Null);
@@ -132,7 +133,7 @@ namespace UnityCodeMcpServer.Tests.EditMode
         }
 
         [Test]
-        public async System.Threading.Tasks.Task WriteAllTextAtomicallyAsync_WritesFinalFileWithoutLeavingTempFiles()
+        public async Task WriteAllTextAtomicallyAsync_WritesFinalFileWithoutLeavingTempFiles()
         {
             string messagesDirectory = Path.Combine(_projectRoot, ".unityCodeMcpServer", "messages");
             Directory.CreateDirectory(messagesDirectory);
@@ -174,13 +175,13 @@ namespace UnityCodeMcpServer.Tests.EditMode
                 null,
                 new object[] { responsePath, "{\"jsonrpc\":\"2.0\"}", null, cts.Token });
 
-            Assert.ThrowsAsync<System.Threading.Tasks.TaskCanceledException>(async () => await task);
+            Assert.ThrowsAsync<TaskCanceledException>(async () => await task);
             Assert.That(File.Exists(responsePath), Is.False);
             Assert.That(Directory.GetFiles(messagesDirectory, "*.tmp"), Is.Empty);
         }
 
         [Test]
-        public async System.Threading.Tasks.Task WriteAllTextAtomicallyAsync_WhenMoveFails_LeavesRequestFileInPlace()
+        public async Task WriteAllTextAtomicallyAsync_WhenMoveFails_LeavesRequestFileInPlace()
         {
             string messagesDirectory = Path.Combine(_projectRoot, ".unityCodeMcpServer", "messages");
             Directory.CreateDirectory(messagesDirectory);
@@ -215,7 +216,7 @@ namespace UnityCodeMcpServer.Tests.EditMode
         }
 
         [Test]
-        public async System.Threading.Tasks.Task WriteAllTextAtomicallyAsync_DeletesRequestFileAfterResponseIsMoved()
+        public async Task WriteAllTextAtomicallyAsync_DeletesRequestFileAfterResponseIsMoved()
         {
             string messagesDirectory = Path.Combine(_projectRoot, ".unityCodeMcpServer", "messages");
             Directory.CreateDirectory(messagesDirectory);
@@ -239,7 +240,7 @@ namespace UnityCodeMcpServer.Tests.EditMode
         }
 
         [Test]
-        public async System.Threading.Tasks.Task ProcessRequestJsonAsync_WhenInvokedOffMainThread_StillReturnsJsonRpcResponse()
+        public async Task ProcessRequestJsonAsync_WhenInvokedOffMainThread_StillReturnsJsonRpcResponse()
         {
             JsonRpcRequest request = new()
             {
@@ -264,11 +265,12 @@ namespace UnityCodeMcpServer.Tests.EditMode
                 return await task;
             });
 
-            using JsonDocument document = JsonDocument.Parse(responseJson);
-            Assert.That(document.RootElement.TryGetProperty("result", out JsonElement result), Is.True);
-            Assert.That(result.TryGetProperty("tools", out JsonElement tools), Is.True);
-            Assert.That(tools.ValueKind, Is.EqualTo(JsonValueKind.Array));
+            JObject document = JObject.Parse(responseJson);
+            JToken result = document["result"];
+            JToken tools = result?["tools"];
+            Assert.That(result, Is.Not.Null);
+            Assert.That(tools, Is.Not.Null);
+            Assert.That(tools.Type, Is.EqualTo(JTokenType.Array));
         }
-
     }
 }

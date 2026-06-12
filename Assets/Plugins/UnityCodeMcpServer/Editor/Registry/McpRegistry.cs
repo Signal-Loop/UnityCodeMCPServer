@@ -1,8 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Reflection;
-using System.Text.Json;
 using System.Threading.Tasks;
+using Newtonsoft.Json.Linq;
 using UnityCodeMcpServer.AsyncAwait;
 using UnityCodeMcpServer.Helpers;
 using UnityCodeMcpServer.Interfaces;
@@ -176,12 +176,12 @@ namespace UnityCodeMcpServer.Registry
         /// <summary>
         /// Execute a tool by name
         /// </summary>
-        public async Task<ToolsCallResult> ExecuteToolAsync(string name, JsonElement arguments)
+        public async Task<ToolsCallResult> ExecuteToolAsync(string name, JToken arguments)
         {
             return await UnityMainThread.RunAsync(() => ExecuteToolOnMainThreadAsync(name, arguments));
         }
 
-        private async Task<ToolsCallResult> ExecuteToolOnMainThreadAsync(string name, JsonElement arguments)
+        private async Task<ToolsCallResult> ExecuteToolOnMainThreadAsync(string name, JToken arguments)
         {
             bool applicationRunInBackground = Application.runInBackground;
 

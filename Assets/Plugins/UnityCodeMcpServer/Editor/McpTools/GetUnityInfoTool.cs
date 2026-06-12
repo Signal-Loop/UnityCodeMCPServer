@@ -1,6 +1,6 @@
-﻿using System.IO;
+using System.IO;
 using System.Text;
-using System.Text.Json;
+using Newtonsoft.Json.Linq;
 using UnityCodeMcpServer.Interfaces;
 using UnityCodeMcpServer.Protocol;
 using UnityCodeMcpServer.Settings;
@@ -22,18 +22,17 @@ namespace UnityCodeMcpServer.McpTools
 - `project_path`: The absolute path to the Unity project root directory.
 - `settings`: The current UnityCodeMcpServerSettings values (HTTP server settings, logging, assemblies, etc.).";
 
-        public JsonElement InputSchema => JsonHelper.ParseElement(@"
+        public JToken InputSchema => JsonHelper.ParseElement(@"
         {
             ""type"": ""object"",
             ""properties"": {}
         }
         ");
 
-        public ToolsCallResult Execute(JsonElement arguments)
+        public ToolsCallResult Execute(JToken arguments)
         {
             UnityCodeMcpServerSettings settings = UnityCodeMcpServerSettings.Instance;
-            string projectPath = System.IO.Path.GetFullPath(
-                System.IO.Path.Combine(Application.dataPath, ".."));
+            string projectPath = Path.GetFullPath(Path.Combine(Application.dataPath, ".."));
 
             StringBuilder sb = new();
             string messageDirectory = Path.Combine(projectPath, ".unityCodeMcpServer", "messages");

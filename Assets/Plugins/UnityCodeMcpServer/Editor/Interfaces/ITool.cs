@@ -1,4 +1,4 @@
-using System.Text.Json;
+using Newtonsoft.Json.Linq;
 using UnityCodeMcpServer.Protocol;
 
 namespace UnityCodeMcpServer.Interfaces
@@ -23,13 +23,13 @@ namespace UnityCodeMcpServer.Interfaces
         /// <summary>
         /// JSON Schema defining the input parameters for this tool
         /// </summary>
-        JsonElement InputSchema { get; }
+        JToken InputSchema { get; }
 
         /// <summary>
         /// Execute the tool with the provided arguments
         /// </summary>
         /// <param name="arguments">Input arguments matching the InputSchema</param>
         /// <returns>Result containing content items and error status</returns>
-        ToolsCallResult Execute(JsonElement arguments);
+        ToolsCallResult Execute(JToken arguments);
     }
 }

@@ -1,7 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Text.Json;
 using System.Threading.Tasks;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 using UnityCodeMcpServer.Helpers;
 using UnityCodeMcpServer.Protocol;
 using UnityCodeMcpServer.Registry;
@@ -109,9 +110,9 @@ namespace UnityCodeMcpServer.Handlers
         private Task<JsonRpcResponse> HandleInitialize(JsonRpcRequest request)
         {
             InitializeParams initParams = null;
-            if (request.Params.HasValue)
+            if (request.Params != null)
             {
-                initParams = request.Params.Value.Deserialize<InitializeParams>();
+                initParams = request.Params.Deserialize<InitializeParams>();
             }
 
             UnityCodeMcpServerLogger.Info($"Initialize from {initParams?.ClientInfo?.Name ?? "unknown"} (protocol: {initParams?.ProtocolVersion ?? "unknown"})");
@@ -150,9 +151,9 @@ namespace UnityCodeMcpServer.Handlers
         private async Task<JsonRpcResponse> HandleToolsCall(JsonRpcRequest request)
         {
             ToolsCallParams callParams = null;
-            if (request.Params.HasValue)
+            if (request.Params != null)
             {
-                callParams = request.Params.Value.Deserialize<ToolsCallParams>();
+                callParams = request.Params.Deserialize<ToolsCallParams>();
             }
 
             if (callParams == null || string.IsNullOrEmpty(callParams.Name))
@@ -167,7 +168,7 @@ namespace UnityCodeMcpServer.Handlers
                 return JsonRpcResponse.Failure(request.Id, JsonRpcErrorCodes.InvalidParams, $"Tool not found: {callParams.Name}");
             }
 
-            JsonElement arguments = callParams.Arguments ?? JsonHelper.ParseElement("{}");
+            JToken arguments = callParams.Arguments ?? JsonHelper.ParseElement("{}");
             ToolsCallResult result = await _registry.ExecuteToolAsync(callParams.Name, arguments);
             return JsonRpcResponse.Success(request.Id, result);
         }
@@ -182,9 +183,9 @@ namespace UnityCodeMcpServer.Handlers
         private Task<JsonRpcResponse> HandlePromptsGet(JsonRpcRequest request)
         {
             PromptsGetParams getParams = null;
-            if (request.Params.HasValue)
+            if (request.Params != null)
             {
-                getParams = request.Params.Value.Deserialize<PromptsGetParams>();
+                getParams = request.Params.Deserialize<PromptsGetParams>();
             }
 
             if (getParams == null || string.IsNullOrEmpty(getParams.Name))
@@ -213,9 +214,9 @@ namespace UnityCodeMcpServer.Handlers
         private Task<JsonRpcResponse> HandleResourcesRead(JsonRpcRequest request)
         {
             ResourcesReadParams readParams = null;
-            if (request.Params.HasValue)
+            if (request.Params != null)
             {
-                readParams = request.Params.Value.Deserialize<ResourcesReadParams>();
+                readParams = request.Params.Deserialize<ResourcesReadParams>();
             }
 
             if (readParams == null || string.IsNullOrEmpty(readParams.Uri))

@@ -19,7 +19,7 @@ public class GetUnityGameViewWindowScreenshotToolPlayModeTests
         ParameterInfo[] parameters = executeMethod.GetParameters();
         Assert.AreEqual(1, parameters.Length, "ExecuteAsync signature changed unexpectedly.");
 
-        object emptyArguments = Activator.CreateInstance(parameters[0].ParameterType);
+        object emptyArguments = JsonHelper.ParseElement("{}");
         object invocationResult = executeMethod.Invoke(tool, new[] { emptyArguments });
         Assert.IsNotNull(invocationResult, "ExecuteAsync returned null.");
 

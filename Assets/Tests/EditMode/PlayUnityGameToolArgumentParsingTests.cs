@@ -1,17 +1,17 @@
-﻿using System.Collections.Generic;
-using System.Text.Json;
+using System.Collections.Generic;
+using Newtonsoft.Json.Linq;
 using NUnit.Framework;
 
 namespace UnityCodeMcpServer.Tests.EditMode
 {
     public class PlayUnityGameToolArgumentParsingTests
     {
-        private static JsonElement ParseArguments(string json) => JsonSerializer.Deserialize<JsonElement>(json);
+        private static JToken ParseArguments(string json) => JToken.Parse(json);
 
         [Test]
         public void TryParseArguments_WithValidDuration_ReturnsTrue()
         {
-            JsonElement arguments = ParseArguments(@"{""duration"": 1000}");
+            JToken arguments = ParseArguments(@"{""duration"": 1000}");
 
             bool result = PlayUnityGameTool.TryParseArguments(arguments, out PlayUnityGameTool.PlayOptions options, out string errorMessage);
 
@@ -21,12 +21,10 @@ namespace UnityCodeMcpServer.Tests.EditMode
             Assert.AreEqual(0, options.Inputs.Count);
         }
 
-
-
         [Test]
         public void TryParseArguments_WithMissingDuration_ReturnsFalse()
         {
-            JsonElement arguments = ParseArguments(@"{}");
+            JToken arguments = ParseArguments(@"{}");
 
             bool result = PlayUnityGameTool.TryParseArguments(arguments, out _, out string errorMessage);
 
@@ -38,7 +36,7 @@ namespace UnityCodeMcpServer.Tests.EditMode
         [Test]
         public void TryParseArguments_WithValidInputs_ParsesCorrectly()
         {
-            JsonElement arguments = ParseArguments(@"{
+            JToken arguments = ParseArguments(@"{
                 ""duration"": 500,
                 ""input"": [
                     {""action"": ""Player1Up"", ""type"": ""hold""},
@@ -61,7 +59,7 @@ namespace UnityCodeMcpServer.Tests.EditMode
         [Test]
         public void TryParseArguments_WithInvalidInputType_ReturnsFalse()
         {
-            JsonElement arguments = ParseArguments(@"{
+            JToken arguments = ParseArguments(@"{
                 ""duration"": 500,
                 ""input"": [
                     {""action"": ""Player1Up"", ""type"": ""invalid""}
@@ -78,7 +76,7 @@ namespace UnityCodeMcpServer.Tests.EditMode
         [Test]
         public void TryParseArguments_WithEmptyActionName_ReturnsFalse()
         {
-            JsonElement arguments = ParseArguments(@"{
+            JToken arguments = ParseArguments(@"{
                 ""duration"": 500,
                 ""input"": [
                     {""action"": """", ""type"": ""press""}
@@ -95,7 +93,7 @@ namespace UnityCodeMcpServer.Tests.EditMode
         [Test]
         public void TryParseArguments_WithBothDurationAndDurationMs_PrefersDuration()
         {
-            JsonElement arguments = ParseArguments(@"{""duration"": 1000, ""duration_ms"": 2000}");
+            JToken arguments = ParseArguments(@"{""duration"": 1000, ""duration_ms"": 2000}");
 
             bool result = PlayUnityGameTool.TryParseArguments(arguments, out PlayUnityGameTool.PlayOptions options, out string errorMessage);
 
@@ -107,7 +105,7 @@ namespace UnityCodeMcpServer.Tests.EditMode
         [Test]
         public void TryParseArguments_WithInvalidInputArray_ReturnsFalse()
         {
-            JsonElement arguments = ParseArguments(@"{
+            JToken arguments = ParseArguments(@"{
                 ""duration"": 500,
                 ""input"": [
                     ""not an object""
@@ -146,8 +144,6 @@ namespace UnityCodeMcpServer.Tests.EditMode
             Assert.AreEqual(0, options.Inputs.Count);
         }
 
-
-
         [Test]
         public void InputRequest_Constructor_InitializesCorrectly()
         {
@@ -157,12 +153,10 @@ namespace UnityCodeMcpServer.Tests.EditMode
             Assert.AreEqual(PlayUnityGameTool.InputType.Hold, request.Type);
         }
 
-
-
         [Test]
         public void TryParseArguments_WithInputNotArray_ReturnsFalse()
         {
-            JsonElement arguments = ParseArguments(@"{""duration"": 500, ""input"": {}}");
+            JToken arguments = ParseArguments(@"{""duration"": 500, ""input"": {}}");
 
             bool result = PlayUnityGameTool.TryParseArguments(arguments, out _, out string errorMessage);
 
@@ -174,7 +168,7 @@ namespace UnityCodeMcpServer.Tests.EditMode
         [Test]
         public void TryParseArguments_WithDurationNotInteger_ReturnsFalse()
         {
-            JsonElement arguments = ParseArguments(@"{""duration"": ""500""}");
+            JToken arguments = ParseArguments(@"{""duration"": ""500""}");
 
             bool result = PlayUnityGameTool.TryParseArguments(arguments, out _, out string errorMessage);
 
@@ -187,7 +181,7 @@ namespace UnityCodeMcpServer.Tests.EditMode
         [Test]
         public void TryParseArguments_WithInputMissingType_ReturnsFalse()
         {
-            JsonElement arguments = ParseArguments(@"{""duration"": 500, ""input"": [{""action"": ""Player1Up""}]}");
+            JToken arguments = ParseArguments(@"{""duration"": 500, ""input"": [{""action"": ""Player1Up""}]}");
 
             bool result = PlayUnityGameTool.TryParseArguments(arguments, out _, out string errorMessage);
 

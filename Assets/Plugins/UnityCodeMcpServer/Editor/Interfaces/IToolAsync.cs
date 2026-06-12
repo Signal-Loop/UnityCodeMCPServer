@@ -1,5 +1,5 @@
-using System.Text.Json;
 using System.Threading.Tasks;
+using Newtonsoft.Json.Linq;
 using UnityCodeMcpServer.Protocol;
 
 namespace UnityCodeMcpServer.Interfaces
@@ -24,13 +24,13 @@ namespace UnityCodeMcpServer.Interfaces
         /// <summary>
         /// JSON Schema defining the input parameters for this tool
         /// </summary>
-        JsonElement InputSchema { get; }
+        JToken InputSchema { get; }
 
         /// <summary>
         /// Execute the tool asynchronously with the provided arguments
         /// </summary>
         /// <param name="arguments">Input arguments matching the InputSchema</param>
         /// <returns>Async result containing content items and error status</returns>
-        Task<ToolsCallResult> ExecuteAsync(JsonElement arguments);
+        Task<ToolsCallResult> ExecuteAsync(JToken arguments);
     }
 }

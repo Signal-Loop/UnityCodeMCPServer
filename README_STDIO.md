@@ -79,6 +79,8 @@ mcporter call unity-code-mcp-stdio.enter_play_mode
 
 mcporter call unity-code-mcp-stdio.play_unity_game --args '{"duration":200,"input":[{"action":"Player1Up","type":"hold"}]}'
 
+mcporter call unity-code-mcp-stdio.execute_csharp_script_in_unity_editor --args '{"script":"Debug.Log(\"Test\");"}'
+
 mcporter call unity-code-mcp-stdio.exit_play_mode
 ```
 

@@ -1,6 +1,6 @@
-﻿using System.Text;
-using System.Text.Json;
+using System.Text;
 using System.Threading.Tasks;
+using Newtonsoft.Json.Linq;
 using UnityCodeMcpServer.Helpers;
 using UnityCodeMcpServer.Interfaces;
 using UnityCodeMcpServer.Protocol;
@@ -17,8 +17,6 @@ namespace UnityCodeMcpServer.McpTools
     {
         public string Name => "execute_csharp_script_in_unity_editor";
 
-        // Engineered Prompt: Uses XML structure for progressive disclosure, explicitly lists
-        // pre-imported namespaces, and enforces strict behavioral rules for the LLM.
         public string Description =>
     @"<tool_description>
 Executes a C# script in the Unity Editor context using Roslyn scripting. Use this tool to interact with, query, or modify the Unity Editor and its loaded project.
@@ -67,8 +65,7 @@ Debug.Log($""Player position: {go.transform.position}"");
 </example>
 </examples>";
 
-        // Explicit JSON schema instruction to prevent markdown wrapping
-        public JsonElement InputSchema => JsonHelper.ParseElement(@"
+        public JToken InputSchema => JsonHelper.ParseElement(@"
         {
             ""type"": ""object"",
             ""properties"": {
@@ -81,7 +78,7 @@ Debug.Log($""Player position: {go.transform.position}"");
         }
         ");
 
-        public async Task<ToolsCallResult> ExecuteAsync(JsonElement arguments)
+        public async Task<ToolsCallResult> ExecuteAsync(JToken arguments)
         {
             string script = arguments.GetStringOrDefault("script", string.Empty)?.Trim();
             if (string.IsNullOrWhiteSpace(script))
@@ -125,7 +122,6 @@ Debug.Log($""Player position: {go.transform.position}"");
 
             return CreateToolCallResult(isError: true, status: "error", resultText: null, logs: null, errors: message);
         }
-
 
         private static ToolsCallResult CreateToolCallResult(bool isError, string status, string resultText, string logs, string errors, string[] assemblies = null)
         {

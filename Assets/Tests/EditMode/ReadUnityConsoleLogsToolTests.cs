@@ -1,6 +1,6 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
-using System.Text.Json;
+using Newtonsoft.Json.Linq;
 using NUnit.Framework;
 using UnityCodeMcpServer.Helpers;
 using UnityCodeMcpServer.McpTools;
@@ -23,12 +23,12 @@ namespace UnityCodeMcpServer.Tests.EditMode
         [Test]
         public void InputSchema_DefinesMaxEntries()
         {
-            JsonElement schema = new ReadUnityConsoleLogsTool().InputSchema;
+            JToken schema = new ReadUnityConsoleLogsTool().InputSchema;
 
-            Assert.AreEqual(JsonValueKind.Object, schema.ValueKind);
-            Assert.IsTrue(schema.TryGetProperty("properties", out JsonElement properties));
-            Assert.IsTrue(properties.TryGetProperty("max_entries", out JsonElement maxEntries));
-            Assert.AreEqual(JsonValueKind.Object, maxEntries.ValueKind);
+            Assert.AreEqual(JTokenType.Object, schema.Type);
+            Assert.IsTrue(schema.TryGetProperty("properties", out JToken properties));
+            Assert.IsTrue(properties.TryGetProperty("max_entries", out JToken maxEntries));
+            Assert.AreEqual(JTokenType.Object, maxEntries.Type);
         }
 
         [Test]
@@ -58,7 +58,7 @@ namespace UnityCodeMcpServer.Tests.EditMode
                 return CreateReaderResult(new UnityConsoleLogEntry("ok", null, UnityConsoleLogSeverity.Info));
             });
 
-            JsonElement args = JsonHelper.ParseElement("{\"max_entries\": 5000}");
+            JToken args = JsonHelper.ParseElement("{\"max_entries\": 5000}");
             tool.Execute(args);
 
             Assert.AreEqual(1000, capturedLimit);
@@ -74,7 +74,7 @@ namespace UnityCodeMcpServer.Tests.EditMode
                 return CreateReaderResult(new UnityConsoleLogEntry("ok", null, UnityConsoleLogSeverity.Info));
             });
 
-            JsonElement args = JsonHelper.ParseElement("{\"max_entries\": -5}");
+            JToken args = JsonHelper.ParseElement("{\"max_entries\": -5}");
             tool.Execute(args);
 
             Assert.AreEqual(200, capturedLimit);

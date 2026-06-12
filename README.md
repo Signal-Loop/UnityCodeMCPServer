@@ -192,7 +192,7 @@ Add Tools, Prompts, Resources, or Async Tools by implementing the relevant inter
 
 ```csharp
 using System.Collections.Generic;
-using System.Text.Json;
+using Newtonsoft.Json.Linq;
 using UnityCodeMcpServer.Interfaces;
 using UnityCodeMcpServer.Protocol;
 
@@ -202,7 +202,7 @@ public class EchoTool : ITool
 
     public string Description => "Echoes the input text back to the caller";
 
-    public JsonElement InputSchema => JsonHelper.ParseElement(@"{
+    public JToken InputSchema => JsonHelper.ParseElement(@"{
             ""type"": ""object"",
             ""properties"": {
                 ""text"": {
@@ -213,7 +213,7 @@ public class EchoTool : ITool
             ""required"": [""text""]
         }");
 
-    public ToolsCallResult Execute(JsonElement arguments)
+    public ToolsCallResult Execute(JToken arguments)
     {
         var text = arguments.GetStringOrDefault("text", "");
 
@@ -226,7 +226,7 @@ public class EchoTool : ITool
 
 ```csharp
 using System.Collections.Generic;
-using System.Text.Json;
+using Newtonsoft.Json.Linq;
 using UnityCodeMcpServer.Interfaces;
 using UnityCodeMcpServer.Protocol;
 using System.Threading.Tasks;
@@ -237,7 +237,7 @@ public class DelayedEchoTool : IToolAsync
 
     public string Description => "Echoes the input text after a specified delay (demonstrates async tool)";
 
-    public JsonElement InputSchema => JsonHelper.ParseElement(@"{
+    public JToken InputSchema => JsonHelper.ParseElement(@"{
             ""type"": ""object"",
             ""properties"": {
                 ""text"": {
@@ -253,7 +253,7 @@ public class DelayedEchoTool : IToolAsync
             ""required"": [""text""]
         }");
 
-    public async Task<ToolsCallResult> ExecuteAsync(JsonElement arguments)
+    public async Task<ToolsCallResult> ExecuteAsync(JToken arguments)
     {
         var text = arguments.GetStringOrDefault("text", "");
         var delayMs = arguments.GetIntOrDefault("delayMs", 1000);

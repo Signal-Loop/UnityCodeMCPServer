@@ -1,54 +1,57 @@
-﻿using System.Text.Json;
-using System.Text.Json.Serialization;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
+using Newtonsoft.Json.Serialization;
 
 namespace UnityCodeMcpServer.Protocol
 {
     /// <summary>
-    /// JSON serialization utilities using System.Text.Json
+    /// JSON serialization utilities using Newtonsoft.Json
     /// </summary>
     public static class JsonHelper
     {
-        private static readonly JsonSerializerOptions _options = new()
+        private static readonly JsonSerializerSettings _settings = new()
         {
-            PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-            DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
-            WriteIndented = false
+            ContractResolver = new DefaultContractResolver
+            {
+                NamingStrategy = new CamelCaseNamingStrategy()
+            },
+            NullValueHandling = NullValueHandling.Ignore,
+            Formatting = Formatting.None
         };
 
-        private static readonly JsonSerializerOptions _indentedOptions = new()
+        private static readonly JsonSerializerSettings _indentedSettings = new()
         {
-            PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-            DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
-            WriteIndented = true
+            ContractResolver = new DefaultContractResolver
+            {
+                NamingStrategy = new CamelCaseNamingStrategy()
+            },
+            NullValueHandling = NullValueHandling.Ignore,
+            Formatting = Formatting.Indented
         };
 
-        public static JsonSerializerOptions Options => _options;
-        public static JsonSerializerOptions IndentedOptions => _indentedOptions;
+        private static readonly JsonSerializer _serializer = JsonSerializer.Create(_settings);
+        private static readonly JsonSerializer _indentedSerializer = JsonSerializer.Create(_indentedSettings);
 
-        /// <summary>
-        /// Serialize an object to JSON string
-        /// </summary>
+        public static JsonSerializerSettings Settings => _settings;
+        public static JsonSerializerSettings IndentedSettings => _indentedSettings;
+        public static JsonSerializer Serializer => _serializer;
+        public static JsonSerializer IndentedSerializer => _indentedSerializer;
+
         public static string Serialize<T>(T obj, bool indented = false)
         {
-            return JsonSerializer.Serialize(obj, indented ? _indentedOptions : _options);
+            return JsonConvert.SerializeObject(obj, indented ? _indentedSettings : _settings);
         }
 
-        /// <summary>
-        /// Deserialize a JSON string to an object
-        /// </summary>
         public static T Deserialize<T>(string json)
         {
-            return JsonSerializer.Deserialize<T>(json, _options);
+            return JsonConvert.DeserializeObject<T>(json, _settings);
         }
 
-        /// <summary>
-        /// Try to deserialize a JSON string to an object
-        /// </summary>
         public static bool TryDeserialize<T>(string json, out T result)
         {
             try
             {
-                result = JsonSerializer.Deserialize<T>(json, _options);
+                result = JsonConvert.DeserializeObject<T>(json, _settings);
                 return true;
             }
             catch (JsonException)
@@ -58,67 +61,47 @@ namespace UnityCodeMcpServer.Protocol
             }
         }
 
-        /// <summary>
-        /// Parse a JSON string to a JsonElement
-        /// </summary>
-        public static JsonElement ParseElement(string json)
+        public static JToken ParseElement(string json)
         {
-            using JsonDocument doc = JsonDocument.Parse(json);
-            return doc.RootElement.Clone();
+            return JToken.Parse(json);
         }
 
-        /// <summary>
-        /// Try to get a property value from a JsonElement
-        /// </summary>
-        public static bool TryGetProperty(this JsonElement element, string propertyName, out JsonElement value)
+        public static bool TryGetProperty(this JToken element, string propertyName, out JToken value)
         {
-            if (element.ValueKind == JsonValueKind.Object)
+            if (element is JObject jsonObject)
             {
-                return element.TryGetProperty(propertyName, out value);
+                return jsonObject.TryGetValue(propertyName, out value);
             }
+
             value = default;
             return false;
         }
 
-        /// <summary>
-        /// Get a string value from a JsonElement, or default if not found
-        /// </summary>
-        public static string GetStringOrDefault(this JsonElement element, string propertyName, string defaultValue = null)
+        public static string GetStringOrDefault(this JToken element, string propertyName, string defaultValue = null)
         {
-            if (element.ValueKind == JsonValueKind.Object &&
-                element.TryGetProperty(propertyName, out JsonElement prop) &&
-                prop.ValueKind == JsonValueKind.String)
+            if (element.TryGetProperty(propertyName, out JToken prop) && prop.Type == JTokenType.String)
             {
-                return prop.GetString();
+                return prop.Value<string>();
             }
+
             return defaultValue;
         }
 
-        /// <summary>
-        /// Get an int value from a JsonElement, or default if not found
-        /// </summary>
-        public static int GetIntOrDefault(this JsonElement element, string propertyName, int defaultValue = 0)
+        public static int GetIntOrDefault(this JToken element, string propertyName, int defaultValue = 0)
         {
-            if (element.ValueKind == JsonValueKind.Object &&
-                element.TryGetProperty(propertyName, out JsonElement prop) &&
-                prop.ValueKind == JsonValueKind.Number)
+            if (element.TryGetProperty(propertyName, out JToken prop) && prop.Type == JTokenType.Integer)
             {
-                return prop.GetInt32();
+                return prop.Value<int>();
             }
+
             return defaultValue;
         }
 
-        /// <summary>
-        /// Deserialize a JsonElement to a typed object
-        /// </summary>
-        public static T Deserialize<T>(this JsonElement element)
+        public static T Deserialize<T>(this JToken element)
         {
-            return JsonSerializer.Deserialize<T>(element.GetRawText(), _options);
+            return element == null ? default : element.ToObject<T>(_serializer);
         }
 
-        /// <summary>
-        /// Deserialize an object (typically JsonElement from deserialized JSON) to a typed object
-        /// </summary>
         public static T Deserialize<T>(object obj)
         {
             if (obj == null)
@@ -126,9 +109,9 @@ namespace UnityCodeMcpServer.Protocol
                 return default;
             }
 
-            if (obj is JsonElement element)
+            if (obj is JToken token)
             {
-                return element.Deserialize<T>();
+                return token.Deserialize<T>();
             }
 
             if (obj is string json)
@@ -136,21 +119,12 @@ namespace UnityCodeMcpServer.Protocol
                 return Deserialize<T>(json);
             }
 
-            // Fallback: serialize then deserialize
-            string serialized = JsonSerializer.Serialize(obj, _options);
-            return JsonSerializer.Deserialize<T>(serialized, _options);
+            return JToken.FromObject(obj, _serializer).ToObject<T>(_serializer);
         }
 
-        /// <summary>
-        /// Convert a nullable JsonElement to a non-nullable one, or return a default empty object
-        /// </summary>
-        public static JsonElement ToElement(this JsonElement? nullableElement)
+        public static JToken ToElement(this JToken nullableElement)
         {
-            if (nullableElement.HasValue)
-            {
-                return nullableElement.Value;
-            }
-            return ParseElement("{}");
+            return nullableElement ?? ParseElement("{}");
         }
     }
 }
