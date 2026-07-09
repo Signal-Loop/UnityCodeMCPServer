@@ -48,7 +48,8 @@ namespace UnityCodeMcpServer.Settings
             "UnityEngine.CoreModule",
             "UnityEditor.CoreModule",
             "Assembly-CSharp",
-            "Assembly-CSharp-Editor"
+            "Assembly-CSharp-Editor",
+            "UnityCodeMcpServer"
         };
 
         [Header("Logging")]
@@ -358,7 +359,7 @@ namespace UnityCodeMcpServer.Settings
             string pathToStdio = Path.GetFullPath("Assets/Plugins/UnityCodeMcpServer/Editor/STDIO~").Replace("\\", "/");
 
             return $@"{{
-    ""servers"": {{
+    ""mcpServers"": {{
         ""unity-code-mcp-stdio"": {{
             ""command"": ""uv"",
             ""args"": [

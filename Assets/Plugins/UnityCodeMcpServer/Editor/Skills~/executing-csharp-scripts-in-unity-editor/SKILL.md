@@ -30,6 +30,26 @@ This skill coordinates three tools within one workflow. Use the tool that matche
 
 ---
 
+## Execute C# Script Tool Contract
+
+Use `execute_csharp_script_in_unity_editor` for live Unity Editor work:
+
+- Modify scene objects, GameObjects, Components, Transforms, UI elements, Prefabs, ScriptableObjects, or other assets through Unity APIs.
+- Query current Editor, scene, prefab, or asset state, such as listing objects or reading component values.
+- Batch-process or automate Editor tasks.
+- Compute values with Unity math and physics APIs such as `Mathf`, `Vector3`, `Quaternion`, and `Physics` when the result depends on Unity behavior.
+
+Do not use `execute_csharp_script_in_unity_editor` for these tasks:
+
+- Editing C# source files. Use file editing tools.
+- Reading or writing plain text, JSON, YAML, or other project files. Use file tools.
+- Installing packages or changing ProjectSettings. Use dedicated project tooling or a narrower explicit workflow.
+- Running Unity tests. Use `run_unity_tests`.
+
+The tool runs raw C# top-level statements in the Unity Editor with Roslyn. It executes synchronously on the main thread, has access to the loaded Unity/project assemblies, captures `Debug.Log()`, `Debug.LogError()`, and the final evaluated expression, and marks the active scene dirty after successful execution in edit mode.
+
+---
+
 ## Core Principles
 
 - **Top-Level Statements Only:** Write flat code. Do **not** wrap code in a class, method, or `[MenuItem]`. Provide only the sequence of statements and any required `using` directives.
@@ -161,21 +181,17 @@ Only loaded assemblies are available.
 - UnityEngine.CoreModule,
 - Assembly-CSharp,
 - Assembly-CSharp-Editor
+- UnityCodeMcpServer
 
 #### Loading Additional Assemblies:
 
-Additional assemblies are defined in `AdditionalAssemblyNames` list in `Assets/Plugins/UnityCodeMcpServer/Editor/UnityCodeMcpServerSettings.asset`. Add any assembly name there (e.g., "MyCustomAssembly") and it will be loaded and available in the script context.
+Additional assemblies are defined in `AdditionalAssemblyNames` list in `Assets/Plugins/UnityCodeAgent/Editor/UnityCodeAgentSettings.asset`. Add any assembly name there (e.g., "MyCustomAssembly") and it will be loaded and available in the script context.
+When encountering errors about missing types or namespaces, like `error CS0234: The type or namespace name 'UI' does not exist in the namespace 'UnityEngine' (are you missing an assembly reference?)`:
 
-#### Forcing Settings Reload After File Edit:
-
-After editing `UnityCodeMcpServerSettings.asset` directly via file tools, the new assemblies are **not** available until Unity reprocesses the asset. After the file edit, execute this script to force a reload before using the new assemblies:
-
+1. Identify the required assembly and namespace for the API you are trying to use.
+2. Use the following code to add an assembly to the settings:
 ```csharp
-var settings = AssetDatabase.LoadAssetAtPath<ScriptableObject>("Assets/Plugins/UnityCodeMcpServer/Editor/UnityCodeMcpServerSettings.asset");
-EditorUtility.SetDirty(settings);
-AssetDatabase.SaveAssets();
-AssetDatabase.ImportAsset("Assets/Plugins/UnityCodeMcpServer/Editor/UnityCodeMcpServerSettings.asset", ImportAssetOptions.ForceUpdate);
-Debug.Log("Settings reloaded — new assemblies now available");
+UnityCodeMcpServer.Settings.UnityCodeMcpServerSettings.Instance.AddAssembly("UnityEngine.Physics2DModule");
 ```
 
 ### Key API Reference

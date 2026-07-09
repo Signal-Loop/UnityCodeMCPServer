@@ -57,6 +57,16 @@ The `executing-csharp-scripts-in-unity-editor` skill is essential to properly ex
 | `exit_play_mode`                        | Leave Play Mode. Call only when done.                                                                               |
 | `get_unity_info`                        | Query Unity version, project path, scene list.                                                                      |
 
+### play_unity_game Tool Contract
+
+Use `play_unity_game` only after `enter_play_mode` has put Unity in Play Mode. The tool temporarily unpauses the game by setting `Time.timeScale = 1`, applies requested Unity Input System actions, records logs emitted during play, then pauses the game again with `Time.timeScale = 0`.
+
+Use it to test gameplay mechanics over elapsed time, simulate character movement, trigger UI interactions, idle while observing runtime state, or execute the ACT phase of the game-playing loop.
+
+Do not use `play_unity_game` to edit scripts, modify scene architecture, inspect static scene data, or replace SENSE+COMPUTE. Use file tools for source edits and `execute_csharp_script_in_unity_editor` for scene/runtime inspection.
+
+Account for side effects: the tool consumes in-game time, overrides runtime Input System focus/background behavior during the call, resets input device state, releases simulated actions, and restores the prior pause state when complete.
+
 ---
 
 ## 3. Core Loop Overview

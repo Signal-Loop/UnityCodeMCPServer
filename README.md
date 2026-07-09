@@ -69,12 +69,6 @@ Returns information about the current Unity Editor project and the UnityCodeMcpS
 ## Security considerations
 
 This package executes LLM-generated C# code (including reflection code) with the same privileges as the Unity Editor process.
-
-Recommendations:
-
-- Review scripts before executing them.
-- Use a separate Unity project and/or run Unity in an isolated environment (VM/container).
-
 You are responsible for securing your environment and for any changes or data loss caused by executed scripts.
 
 ## Architecture
@@ -129,7 +123,7 @@ The `unity-code-mcp-stdio` bridge forwards STDIO traffic to Unity through `.unit
 
 ```json
 {
-  "servers": {
+  "mcpServers": {
     "unity-code-mcp-stdio": {
       "command": "uv",
       "args": [

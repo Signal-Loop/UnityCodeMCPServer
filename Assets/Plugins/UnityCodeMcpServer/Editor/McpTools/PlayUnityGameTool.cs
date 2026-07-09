@@ -41,12 +41,7 @@ public class PlayUnityGameTool : IToolAsync
     public string Name => "play_unity_game";
 
     public string Description =>
-        @"Advances the Unity game state and simulates player input for a specified duration.
-WHAT IT DOES: Temporarily unpauses the game (timeScale=1), triggers specified Input System actions (press/hold), records console logs, and safely pauses the game (timeScale=0) upon completion.
-WHEN TO USE: Use to test gameplay mechanics over time and simulate character movement or UI interactions.
-WHEN NOT TO USE: Do NOT use to edit scripts, modify scene architecture, or inspect static scene data.
-PREREQUISITES: Unity MUST already be in Play Mode (use the 'enter_play_mode' tool first).
-SIDE EFFECTS: Alters Time.timeScale, overrides active Input System states, and consumes in-game time.";
+        @"Runs a Unity game that is already in Play Mode for a specified duration, optionally simulating Input System actions and returning logs captured during play. Use this to test gameplay over time, simulate movement or UI input, and observe runtime behavior.";
 
     public JToken InputSchema => JsonHelper.ParseElement(@"
         {
