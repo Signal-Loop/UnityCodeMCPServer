@@ -1,0 +1,4 @@
+interface:
+  display_name: "Create GitHub Releases"
+  short_description: "Draft release notes and publish reliable releases"
+  default_prompt: "Use $creating-github-releases to draft user-focused release notes and publish a verified GitHub release."
