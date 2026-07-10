@@ -1,8 +1,9 @@
-﻿using System;
+using System;
 using System.Linq;
 using System.Reflection;
-using System.Text.Json;
-using Cysharp.Threading.Tasks;
+using System.Threading.Tasks;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 using NUnit.Framework;
 using UnityCodeMcpServer.McpTools;
 using UnityCodeMcpServer.Protocol;
@@ -35,10 +36,10 @@ namespace UnityCodeMcpServer.Tests.EditMode
         public void ExecuteCSharpScriptInUnityEditor_UsesDefaultAssemblies()
         {
             ExecuteCSharpScriptInUnityEditor tool = new();
-            string scriptJson = JsonSerializer.Serialize(new { script = "return typeof(UnityEngine.GameObject).Assembly.GetName().Name;" });
-            JsonElement args = JsonDocument.Parse(scriptJson).RootElement;
+            string scriptJson = JsonConvert.SerializeObject(new { script = "return typeof(UnityEngine.GameObject).Assembly.GetName().Name;" });
+            JToken args = JToken.Parse(scriptJson);
 
-            UniTask<ToolsCallResult> task = tool.ExecuteAsync(args);
+            Task<ToolsCallResult> task = tool.ExecuteAsync(args);
             task.GetAwaiter().GetResult();
             ToolsCallResult result = task.GetAwaiter().GetResult();
 
@@ -52,7 +53,6 @@ namespace UnityCodeMcpServer.Tests.EditMode
         [Test]
         public void ExecuteCSharpScriptInUnityEditor_UsesAdditionalAssemblies()
         {
-            // Add an additional assembly to settings
             UnityCodeMcpServerSettings settings = UnityCodeMcpServerSettings.Instance;
             Assembly[] loadedAssemblies = AppDomain.CurrentDomain.GetAssemblies();
             string additionalAssembly = loadedAssemblies
@@ -71,10 +71,10 @@ namespace UnityCodeMcpServer.Tests.EditMode
                     Assert.That(allAssemblies, Contains.Item(additionalAssembly));
 
                     ExecuteCSharpScriptInUnityEditor tool = new();
-                    string scriptJson = JsonSerializer.Serialize(new { script = "return \"Assembly loaded successfully\";" });
-                    JsonElement args = JsonDocument.Parse(scriptJson).RootElement;
+                    string scriptJson = JsonConvert.SerializeObject(new { script = "return \"Assembly loaded successfully\";" });
+                    JToken args = JToken.Parse(scriptJson);
 
-                    UniTask<ToolsCallResult> task = tool.ExecuteAsync(args);
+                    Task<ToolsCallResult> task = tool.ExecuteAsync(args);
                     task.GetAwaiter().GetResult();
                     ToolsCallResult result = task.GetAwaiter().GetResult();
 
@@ -118,8 +118,7 @@ namespace UnityCodeMcpServer.Tests.EditMode
             Assembly[] loadedAssemblies = AppDomain.CurrentDomain.GetAssemblies();
             string[] loadedNames = loadedAssemblies.Select(a => a.GetName().Name).ToArray();
 
-            // Check that core assemblies that should always be loaded are present
-            string[] coreAssemblies = new[]
+            string[] coreAssemblies =
             {
                 "UnityEngine.CoreModule",
                 "UnityEditor.CoreModule",
@@ -132,11 +131,9 @@ namespace UnityCodeMcpServer.Tests.EditMode
                     $"Core assembly '{assemblyName}' should be loaded in the current AppDomain");
             }
 
-            // Count how many default assemblies are currently loaded
             int loadedDefaultCount = UnityCodeMcpServerSettings.DefaultAssemblyNames
                 .Count(name => loadedNames.Contains(name));
 
-            // At least half of the default assemblies should be loaded during tests
             Assert.That(loadedDefaultCount, Is.GreaterThan(UnityCodeMcpServerSettings.DefaultAssemblyNames.Length / 2),
                 "At least half of the default assemblies should be loaded during tests");
         }

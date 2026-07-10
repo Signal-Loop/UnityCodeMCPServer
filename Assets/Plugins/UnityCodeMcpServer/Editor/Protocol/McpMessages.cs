@@ -1,75 +1,74 @@
 using System;
 using System.Collections.Generic;
-using System.Text.Json;
-using System.Text.Json.Serialization;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 
 namespace UnityCodeMcpServer.Protocol
 {
-    /// <summary>
-    /// JSON-RPC 2.0 Request object
-    /// </summary>
     [Serializable]
     public class JsonRpcRequest
     {
-        [JsonPropertyName("jsonrpc")]
+        [JsonProperty("jsonrpc")]
         public string JsonRpc { get; set; } = McpProtocol.JsonRpcVersion;
 
-        [JsonPropertyName("id")]
+        [JsonProperty("id")]
         public object Id { get; set; }
 
-        [JsonPropertyName("method")]
+        [JsonProperty("method")]
         public string Method { get; set; }
 
-        [JsonPropertyName("params")]
-        public JsonElement? Params { get; set; }
+        [JsonProperty("params")]
+        public JToken Params { get; set; }
 
         [JsonIgnore]
         public bool IsNotification => Id == null;
     }
 
-    /// <summary>
-    /// JSON-RPC 2.0 Response object
-    /// </summary>
     [Serializable]
     public class JsonRpcResponse
     {
-        [JsonPropertyName("jsonrpc")]
+        [JsonProperty("jsonrpc")]
         public string JsonRpc { get; set; } = McpProtocol.JsonRpcVersion;
 
-        [JsonPropertyName("id")]
+        [JsonProperty("id")]
         public object Id { get; set; }
 
-        [JsonPropertyName("result")]
-        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonProperty("result", NullValueHandling = NullValueHandling.Ignore)]
         public object Result { get; set; }
 
-        [JsonPropertyName("error")]
-        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonProperty("error", NullValueHandling = NullValueHandling.Ignore)]
         public JsonRpcError Error { get; set; }
 
         public static JsonRpcResponse Success(object id, object result) =>
             new()
-            { Id = id, Result = result };
+            {
+                Id = id,
+                Result = result
+            };
 
         public static JsonRpcResponse Failure(object id, int code, string message, object data = null) =>
             new()
-            { Id = id, Error = new JsonRpcError { Code = code, Message = message, Data = data } };
+            {
+                Id = id,
+                Error = new JsonRpcError
+                {
+                    Code = code,
+                    Message = message,
+                    Data = data
+                }
+            };
     }
 
-    /// <summary>
-    /// JSON-RPC 2.0 Error object
-    /// </summary>
     [Serializable]
     public class JsonRpcError
     {
-        [JsonPropertyName("code")]
+        [JsonProperty("code")]
         public int Code { get; set; }
 
-        [JsonPropertyName("message")]
+        [JsonProperty("message")]
         public string Message { get; set; }
 
-        [JsonPropertyName("data")]
-        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonProperty("data", NullValueHandling = NullValueHandling.Ignore)]
         public object Data { get; set; }
     }
 
@@ -78,98 +77,93 @@ namespace UnityCodeMcpServer.Protocol
     [Serializable]
     public class InitializeParams
     {
-        [JsonPropertyName("protocolVersion")]
+        [JsonProperty("protocolVersion")]
         public string ProtocolVersion { get; set; }
 
-        [JsonPropertyName("capabilities")]
+        [JsonProperty("capabilities")]
         public ClientCapabilities Capabilities { get; set; }
 
-        [JsonPropertyName("clientInfo")]
+        [JsonProperty("clientInfo")]
         public ClientInfo ClientInfo { get; set; }
     }
 
     [Serializable]
     public class ClientCapabilities
     {
-        [JsonPropertyName("roots")]
-        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonProperty("roots", NullValueHandling = NullValueHandling.Ignore)]
         public RootsCapability Roots { get; set; }
 
-        [JsonPropertyName("sampling")]
-        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonProperty("sampling", NullValueHandling = NullValueHandling.Ignore)]
         public object Sampling { get; set; }
     }
 
     [Serializable]
     public class RootsCapability
     {
-        [JsonPropertyName("listChanged")]
+        [JsonProperty("listChanged")]
         public bool ListChanged { get; set; }
     }
 
     [Serializable]
     public class ClientInfo
     {
-        [JsonPropertyName("name")]
+        [JsonProperty("name")]
         public string Name { get; set; }
 
-        [JsonPropertyName("version")]
+        [JsonProperty("version")]
         public string Version { get; set; }
     }
 
     [Serializable]
     public class InitializeResult
     {
-        [JsonPropertyName("protocolVersion")]
+        [JsonProperty("protocolVersion")]
         public string ProtocolVersion { get; set; } = McpProtocol.Version;
 
-        [JsonPropertyName("capabilities")]
-        public ServerCapabilities Capabilities { get; set; } = new ServerCapabilities();
+        [JsonProperty("capabilities")]
+        public ServerCapabilities Capabilities { get; set; } = new();
 
-        [JsonPropertyName("serverInfo")]
-        public ServerInfo ServerInfo { get; set; } = new ServerInfo();
+        [JsonProperty("serverInfo")]
+        public ServerInfo ServerInfo { get; set; } = new();
     }
 
     [Serializable]
     public class ServerCapabilities
     {
-        [JsonPropertyName("prompts")]
-        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonProperty("prompts", NullValueHandling = NullValueHandling.Ignore)]
         public CapabilityWithListChanged Prompts { get; set; }
 
-        [JsonPropertyName("resources")]
-        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonProperty("resources", NullValueHandling = NullValueHandling.Ignore)]
         public ResourcesCapability Resources { get; set; }
 
-        [JsonPropertyName("tools")]
-        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonProperty("tools", NullValueHandling = NullValueHandling.Ignore)]
         public CapabilityWithListChanged Tools { get; set; }
     }
 
     [Serializable]
     public class CapabilityWithListChanged
     {
-        [JsonPropertyName("listChanged")]
+        [JsonProperty("listChanged")]
         public bool ListChanged { get; set; }
     }
 
     [Serializable]
     public class ResourcesCapability
     {
-        [JsonPropertyName("subscribe")]
+        [JsonProperty("subscribe")]
         public bool Subscribe { get; set; }
 
-        [JsonPropertyName("listChanged")]
+        [JsonProperty("listChanged")]
         public bool ListChanged { get; set; }
     }
 
     [Serializable]
     public class ServerInfo
     {
-        [JsonPropertyName("name")]
+        [JsonProperty("name")]
         public string Name { get; set; } = "UnityCodeMcpServer";
 
-        [JsonPropertyName("version")]
+        [JsonProperty("version")]
         public string Version { get; set; } = "1.0.0";
     }
 
@@ -180,88 +174,98 @@ namespace UnityCodeMcpServer.Protocol
     [Serializable]
     public class ToolDefinition
     {
-        [JsonPropertyName("name")]
+        [JsonProperty("name")]
         public string Name { get; set; }
 
-        [JsonPropertyName("description")]
+        [JsonProperty("description")]
         public string Description { get; set; }
 
-        [JsonPropertyName("inputSchema")]
-        public JsonElement InputSchema { get; set; }
+        [JsonProperty("inputSchema")]
+        public JToken InputSchema { get; set; }
     }
 
     [Serializable]
     public class ToolsListResult
     {
-        [JsonPropertyName("tools")]
-        public List<ToolDefinition> Tools { get; set; } = new List<ToolDefinition>();
+        [JsonProperty("tools")]
+        public List<ToolDefinition> Tools { get; set; } = new();
     }
 
     [Serializable]
     public class ToolsCallParams
     {
-        [JsonPropertyName("name")]
+        [JsonProperty("name")]
         public string Name { get; set; }
 
-        [JsonPropertyName("arguments")]
-        public JsonElement? Arguments { get; set; }
+        [JsonProperty("arguments")]
+        public JToken Arguments { get; set; }
     }
 
     [Serializable]
     public class ToolsCallResult
     {
-        [JsonPropertyName("content")]
-        public List<ContentItem> Content { get; set; } = new List<ContentItem>();
+        [JsonProperty("content")]
+        public List<ContentItem> Content { get; set; } = new();
 
-        [JsonPropertyName("isError")]
+        [JsonProperty("isError")]
         public bool IsError { get; set; }
 
         public static ToolsCallResult TextResult(string text, bool isError = false) =>
             new()
-            { Content = new List<ContentItem> { ContentItem.TextContent(text) }, IsError = isError };
+            {
+                Content = new List<ContentItem> { ContentItem.TextContent(text) },
+                IsError = isError
+            };
 
         public static ToolsCallResult ImageResult(string base64Data, string mimeType) =>
             new()
-            { Content = new List<ContentItem> { ContentItem.ImageContent(base64Data, mimeType) } };
+            {
+                Content = new List<ContentItem> { ContentItem.ImageContent(base64Data, mimeType) }
+            };
 
         public static ToolsCallResult ErrorResult(string errorMessage) =>
             new()
-            { Content = new List<ContentItem> { ContentItem.TextContent(errorMessage) }, IsError = true };
+            {
+                Content = new List<ContentItem> { ContentItem.TextContent(errorMessage) },
+                IsError = true
+            };
     }
 
     [Serializable]
     public class ContentItem
     {
-        [JsonPropertyName("type")]
+        [JsonProperty("type")]
         public string Type { get; set; }
 
-        [JsonPropertyName("text")]
-        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonProperty("text", NullValueHandling = NullValueHandling.Ignore)]
         public string Text { get; set; }
 
-        [JsonPropertyName("data")]
-        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonProperty("data", NullValueHandling = NullValueHandling.Ignore)]
         public string Data { get; set; }
 
-        [JsonPropertyName("mimeType")]
-        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonProperty("mimeType", NullValueHandling = NullValueHandling.Ignore)]
         public string MimeType { get; set; }
 
-        [JsonPropertyName("resource")]
-        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonProperty("resource", NullValueHandling = NullValueHandling.Ignore)]
         public ResourceContent Resource { get; set; }
 
         public static ContentItem TextContent(string text) =>
-            new()
-            { Type = McpContentTypes.Text, Text = text };
+            new() { Type = McpContentTypes.Text, Text = text };
 
         public static ContentItem ImageContent(string base64Data, string mimeType) =>
-            new()
-            { Type = McpContentTypes.Image, Data = base64Data, MimeType = mimeType };
+            new() { Type = McpContentTypes.Image, Data = base64Data, MimeType = mimeType };
 
         public static ContentItem ResourceTextContent(string uri, string mimeType, string text) =>
             new()
-            { Type = McpContentTypes.Resource, Resource = new ResourceContent { Uri = uri, MimeType = mimeType, Text = text } };
+            {
+                Type = McpContentTypes.Resource,
+                Resource = new ResourceContent
+                {
+                    Uri = uri,
+                    MimeType = mimeType,
+                    Text = text
+                }
+            };
     }
 
     #endregion
@@ -271,63 +275,63 @@ namespace UnityCodeMcpServer.Protocol
     [Serializable]
     public class PromptDefinition
     {
-        [JsonPropertyName("name")]
+        [JsonProperty("name")]
         public string Name { get; set; }
 
-        [JsonPropertyName("description")]
+        [JsonProperty("description")]
         public string Description { get; set; }
 
-        [JsonPropertyName("arguments")]
+        [JsonProperty("arguments")]
         public List<PromptArgument> Arguments { get; set; }
     }
 
     [Serializable]
     public class PromptArgument
     {
-        [JsonPropertyName("name")]
+        [JsonProperty("name")]
         public string Name { get; set; }
 
-        [JsonPropertyName("description")]
+        [JsonProperty("description")]
         public string Description { get; set; }
 
-        [JsonPropertyName("required")]
+        [JsonProperty("required")]
         public bool Required { get; set; }
     }
 
     [Serializable]
     public class PromptsListResult
     {
-        [JsonPropertyName("prompts")]
-        public List<PromptDefinition> Prompts { get; set; } = new List<PromptDefinition>();
+        [JsonProperty("prompts")]
+        public List<PromptDefinition> Prompts { get; set; } = new();
     }
 
     [Serializable]
     public class PromptsGetParams
     {
-        [JsonPropertyName("name")]
+        [JsonProperty("name")]
         public string Name { get; set; }
 
-        [JsonPropertyName("arguments")]
+        [JsonProperty("arguments")]
         public Dictionary<string, string> Arguments { get; set; }
     }
 
     [Serializable]
     public class PromptsGetResult
     {
-        [JsonPropertyName("description")]
+        [JsonProperty("description")]
         public string Description { get; set; }
 
-        [JsonPropertyName("messages")]
-        public List<PromptMessage> Messages { get; set; } = new List<PromptMessage>();
+        [JsonProperty("messages")]
+        public List<PromptMessage> Messages { get; set; } = new();
     }
 
     [Serializable]
     public class PromptMessage
     {
-        [JsonPropertyName("role")]
+        [JsonProperty("role")]
         public string Role { get; set; }
 
-        [JsonPropertyName("content")]
+        [JsonProperty("content")]
         public ContentItem Content { get; set; }
     }
 
@@ -338,77 +342,74 @@ namespace UnityCodeMcpServer.Protocol
     [Serializable]
     public class ResourceDefinition
     {
-        [JsonPropertyName("uri")]
+        [JsonProperty("uri")]
         public string Uri { get; set; }
 
-        [JsonPropertyName("name")]
+        [JsonProperty("name")]
         public string Name { get; set; }
 
-        [JsonPropertyName("description")]
+        [JsonProperty("description")]
         public string Description { get; set; }
 
-        [JsonPropertyName("mimeType")]
+        [JsonProperty("mimeType")]
         public string MimeType { get; set; }
     }
 
     [Serializable]
     public class ResourcesListResult
     {
-        [JsonPropertyName("resources")]
-        public List<ResourceDefinition> Resources { get; set; } = new List<ResourceDefinition>();
+        [JsonProperty("resources")]
+        public List<ResourceDefinition> Resources { get; set; } = new();
     }
 
     [Serializable]
     public class ResourcesReadParams
     {
-        [JsonPropertyName("uri")]
+        [JsonProperty("uri")]
         public string Uri { get; set; }
     }
 
     [Serializable]
     public class ResourcesReadResult
     {
-        [JsonPropertyName("contents")]
-        public List<ResourceContent> Contents { get; set; } = new List<ResourceContent>();
+        [JsonProperty("contents")]
+        public List<ResourceContent> Contents { get; set; } = new();
     }
 
     [Serializable]
     public class ResourceContent
     {
-        [JsonPropertyName("uri")]
+        [JsonProperty("uri")]
         public string Uri { get; set; }
 
-        [JsonPropertyName("mimeType")]
+        [JsonProperty("mimeType")]
         public string MimeType { get; set; }
 
-        [JsonPropertyName("text")]
-        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        [JsonProperty("text", NullValueHandling = NullValueHandling.Ignore)]
         public string Text { get; set; }
-
-
     }
 
     [Serializable]
     public class ResourceTemplate
     {
-        [JsonPropertyName("uriTemplate")]
+        [JsonProperty("uriTemplate")]
         public string UriTemplate { get; set; }
 
-        [JsonPropertyName("name")]
+        [JsonProperty("name")]
         public string Name { get; set; }
 
-        [JsonPropertyName("description")]
+        [JsonProperty("description")]
         public string Description { get; set; }
 
-        [JsonPropertyName("mimeType")]
+        [JsonProperty("mimeType")]
         public string MimeType { get; set; }
     }
 
     [Serializable]
     public class ResourcesTemplatesListResult
     {
-        [JsonPropertyName("resourceTemplates")]
-        public List<ResourceTemplate> ResourceTemplates { get; set; } = new List<ResourceTemplate>();
+        [JsonProperty("resourceTemplates")]
+        public List<ResourceTemplate> ResourceTemplates { get; set; } = new();
     }
 
     #endregion

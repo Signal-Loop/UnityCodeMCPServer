@@ -40,6 +40,10 @@ TOOL_EXECUTE_CSHARP = "execute_csharp_script_in_unity_editor"
 TOOL_ENTER_PLAY_MODE = "enter_play_mode"
 TOOL_PLAY_UNITY_GAME = "play_unity_game"
 TOOL_EXIT_PLAY_MODE = "exit_play_mode"
+PLAY_UNITY_GAME_PLAYER1_UP_ARGUMENTS = {
+    "duration": 200,
+    "input": [{"action": "Player1Up", "type": "hold"}],
+}
 AVAILABLE_OPERATIONS = (
     TOOL_READ_UNITY_CONSOLE_LOGS,
     TOOL_GET_UNITY_INFO,
@@ -390,7 +394,7 @@ async def execute_operation(
         responses: list[dict[str, Any]] = []
         for tool_name, arguments in (
             (TOOL_ENTER_PLAY_MODE, None),
-            (TOOL_PLAY_UNITY_GAME, {"duration": 200}),
+            (TOOL_PLAY_UNITY_GAME, PLAY_UNITY_GAME_PLAYER1_UP_ARGUMENTS),
             (TOOL_EXIT_PLAY_MODE, None),
         ):
             success, result = await call_tool_and_log(
@@ -545,7 +549,13 @@ class ScriptSelfTests(unittest.TestCase):
             session.calls,
             [
                 ("enter_play_mode", None),
-                ("play_unity_game", {"duration": 200}),
+                (
+                    "play_unity_game",
+                    {
+                        "duration": 200,
+                        "input": [{"action": "Player1Up", "type": "hold"}],
+                    },
+                ),
                 ("exit_play_mode", None),
             ],
         )

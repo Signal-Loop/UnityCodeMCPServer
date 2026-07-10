@@ -1,8 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Text.Json;
-using Cysharp.Threading.Tasks;
+using System.Threading.Tasks;
+using Newtonsoft.Json.Linq;
+using UnityCodeMcpServer.AsyncAwait;
 using UnityCodeMcpServer.Helpers;
 using UnityCodeMcpServer.Interfaces;
 using UnityCodeMcpServer.Protocol;
@@ -43,7 +44,7 @@ public class GetUnityGameViewWindowScreenshotTool : IToolAsync
     public string Description =>
         "Returns a screenshot of the Unity Game View window. Supports optional scaling to fit within a maximum height while preserving aspect ratio.";
 
-    public JsonElement InputSchema => JsonHelper.ParseElement(@"
+    public JToken InputSchema => JsonHelper.ParseElement(@"
         {
             ""type"": ""object"",
             ""properties"": {
@@ -57,7 +58,7 @@ public class GetUnityGameViewWindowScreenshotTool : IToolAsync
         }
         ");
 
-    public async UniTask<ToolsCallResult> ExecuteAsync(JsonElement arguments)
+    public async Task<ToolsCallResult> ExecuteAsync(JToken arguments)
     {
         if (!TryParseMaxHeight(arguments, out int maxHeight, out string parseError))
         {
@@ -88,7 +89,7 @@ public class GetUnityGameViewWindowScreenshotTool : IToolAsync
         return ToolsCallResult.ImageResult(scaledResult.Base64Data, mimeType);
     }
 
-    private async UniTask<CaptureResult> CaptureGameViewScreenshotAsync()
+    private async Task<CaptureResult> CaptureGameViewScreenshotAsync()
     {
         string tempPath = null;
         try
@@ -132,7 +133,7 @@ public class GetUnityGameViewWindowScreenshotTool : IToolAsync
         UnityCodeMcpServerLogger.Debug($"[GetUnityGameViewWindowScreenshotTool] [{Time.frameCount}]: Requested screenshot capture to path: {path}");
     }
 
-    private static async UniTask<byte[]> ReadFileWhenReadyAsync(string path, TimeSpan timeout, TimeSpan pollInterval)
+    private static async Task<byte[]> ReadFileWhenReadyAsync(string path, TimeSpan timeout, TimeSpan pollInterval)
     {
         if (string.IsNullOrWhiteSpace(path))
         {
@@ -159,7 +160,7 @@ public class GetUnityGameViewWindowScreenshotTool : IToolAsync
                 }
             }
             UnityCodeMcpServerLogger.Debug($"[GetUnityGameViewWindowScreenshotTool] [{Time.frameCount}]: awaiting screenshot file: {path}");
-            await UniTask.Delay(pollInterval, DelayType.Realtime, PlayerLoopTiming.Update);
+            await UnityEditorAsync.DelayRealtimeAsync(pollInterval);
         }
 
         return null;
@@ -185,32 +186,34 @@ public class GetUnityGameViewWindowScreenshotTool : IToolAsync
         }
     }
 
-    public static bool TryParseMaxHeight(JsonElement arguments, out int maxHeight, out string errorMessage)
+    public static bool TryParseMaxHeight(JToken arguments, out int maxHeight, out string errorMessage)
     {
         maxHeight = 640;
         errorMessage = null;
 
-        if (arguments.ValueKind == JsonValueKind.Undefined || arguments.ValueKind == JsonValueKind.Null)
+        if (arguments == null || arguments.Type == JTokenType.Null || arguments.Type == JTokenType.Undefined)
         {
             return true;
         }
 
-        if (arguments.ValueKind != JsonValueKind.Object)
+        if (arguments.Type != JTokenType.Object)
         {
             errorMessage = "Arguments must be a JSON object.";
             return false;
         }
 
-        if (!arguments.TryGetProperty("max_height", out JsonElement element))
+        if (!arguments.TryGetProperty("max_height", out JToken element))
         {
             return true;
         }
 
-        if (element.ValueKind != JsonValueKind.Number || !element.TryGetInt32(out maxHeight))
+        if (element.Type != JTokenType.Integer)
         {
             errorMessage = "Parameter 'max_height' must be an integer.";
             return false;
         }
+
+        maxHeight = element.Value<int>();
 
         if (maxHeight <= 0)
         {

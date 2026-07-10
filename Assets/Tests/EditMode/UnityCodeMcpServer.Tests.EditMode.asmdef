@@ -3,7 +3,6 @@
     "rootNamespace": "UnityCodeMcpServer.Tests.EditMode",
     "references": [
         "UnityCodeMcpServer",
-        "UniTask",
         "UnityEngine.TestRunner",
         "UnityEditor.TestRunner"
     ],
@@ -15,7 +14,7 @@
     "overrideReferences": true,
     "precompiledReferences": [
         "nunit.framework.dll",
-        "System.Text.Json.dll"
+        "Newtonsoft.Json.dll"
     ],
     "autoReferenced": false,
     "defineConstraints": [

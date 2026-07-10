@@ -31,7 +31,21 @@ Enters Unity Play Mode and pauses the game (`Time.timeScale = 0`).
 
 ## 2. play_unity_game
 
-The primary gameplay tool. Unpauses for a specified duration, simulates inputs, captures console logs, then re-pauses.
+The primary gameplay tool. Temporarily unpauses a game already in Play Mode for a specified duration, optionally simulates Input System actions, captures console logs, then pauses again.
+
+### When to use
+
+- Test gameplay mechanics over elapsed time.
+- Simulate character movement or UI interactions.
+- Idle for a measured duration while observing runtime logs.
+- Execute the ACT phase after a fresh SENSE+COMPUTE step.
+
+### When not to use
+
+- Do not edit scripts or project files.
+- Do not modify scene architecture.
+- Do not inspect static scene data; use `execute_csharp_script_in_unity_editor`.
+- Do not use before entering Play Mode.
 
 ### Parameters
 
@@ -49,22 +63,33 @@ The primary gameplay tool. Unpauses for a specified duration, simulates inputs, 
 
 ### Behavior
 
-1. Focuses Unity Editor window and Game View.
-2. Sets `Time.timeScale = 1`.
-3. Loads the project's `InputActionAsset` from Resources.
-4. For each input:
+1. Verifies Unity is already in Play Mode.
+2. Temporarily clears the Editor pause flag and sets `Time.timeScale = 1`.
+3. Temporarily configures Input System background/focus behavior so simulated input reaches the game without Game View focus.
+4. Re-enables devices disabled by focus loss and resets all input devices to clear stale state.
+5. Resolves the project's `InputActionAsset`.
+6. For each input:
    - Finds the `InputAction` by name.
    - Enables it if disabled.
    - `hold`: Triggers every frame for the full duration.
    - `press`: Triggers once, releases after 1 frame.
-5. Waits for `duration` ms (realtime).
-6. Captures console logs generated during play.
-7. Sets `Time.timeScale = 0`.
-8. Releases all inputs and resets keyboard state.
+7. Waits for `duration` ms (realtime).
+8. Captures console logs generated during play.
+9. Releases simulated actions and resets all input devices.
+10. Sets `Time.timeScale = 0`.
+11. Restores the prior Editor pause state and Input System runtime settings.
 
 ### Returns
 
 Console logs captured during the play duration.
+
+### Side effects
+
+- Consumes in-game time for the requested duration.
+- Alters `Time.timeScale` during the call.
+- Temporarily overrides `Application.runInBackground` and Input System focus/background behavior.
+- Resets input device state before and after execution.
+- Releases simulated actions before returning.
 
 ### Supported control types
 

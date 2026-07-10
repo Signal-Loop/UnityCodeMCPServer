@@ -1,16 +1,16 @@
-﻿using System.Text.Json;
+using Newtonsoft.Json.Linq;
 using NUnit.Framework;
 
 namespace UnityCodeMcpServer.Tests.EditMode
 {
     public class GetUnityGameViewWindowScreenshotToolTests
     {
-        private static JsonElement ParseArguments(string json) => JsonSerializer.Deserialize<JsonElement>(json);
+        private static JToken ParseArguments(string json) => JToken.Parse(json);
 
         [Test]
         public void TryParseMaxHeight_WithoutMaxHeight_ReturnsDefaultValue()
         {
-            JsonElement arguments = ParseArguments(@"{}");
+            JToken arguments = ParseArguments(@"{}");
 
             bool result = GetUnityGameViewWindowScreenshotTool.TryParseMaxHeight(arguments, out int maxHeight, out string errorMessage);
 
@@ -22,7 +22,7 @@ namespace UnityCodeMcpServer.Tests.EditMode
         [Test]
         public void TryParseMaxHeight_WithValidMaxHeight_ParsesCorrectly()
         {
-            JsonElement arguments = ParseArguments(@"{""max_height"": 321}");
+            JToken arguments = ParseArguments(@"{""max_height"": 321}");
 
             bool result = GetUnityGameViewWindowScreenshotTool.TryParseMaxHeight(arguments, out int maxHeight, out string errorMessage);
 
@@ -34,7 +34,7 @@ namespace UnityCodeMcpServer.Tests.EditMode
         [Test]
         public void TryParseMaxHeight_WithInvalidMaxHeight_ReturnsFalse()
         {
-            JsonElement arguments = ParseArguments(@"{""max_height"": 0}");
+            JToken arguments = ParseArguments(@"{""max_height"": 0}");
 
             bool result = GetUnityGameViewWindowScreenshotTool.TryParseMaxHeight(arguments, out _, out string errorMessage);
 
@@ -46,7 +46,7 @@ namespace UnityCodeMcpServer.Tests.EditMode
         [Test]
         public void TryParseMaxHeight_WithNegativeMaxHeight_ReturnsFalse()
         {
-            JsonElement arguments = ParseArguments(@"{""max_height"": -100}");
+            JToken arguments = ParseArguments(@"{""max_height"": -100}");
 
             bool result = GetUnityGameViewWindowScreenshotTool.TryParseMaxHeight(arguments, out _, out string errorMessage);
 
@@ -58,7 +58,7 @@ namespace UnityCodeMcpServer.Tests.EditMode
         [Test]
         public void TryParseMaxHeight_WithNonIntegerValue_ReturnsFalse()
         {
-            JsonElement arguments = ParseArguments(@"{""max_height"": ""not a number""}");
+            JToken arguments = ParseArguments(@"{""max_height"": ""not a number""}");
 
             bool result = GetUnityGameViewWindowScreenshotTool.TryParseMaxHeight(arguments, out _, out string errorMessage);
 
@@ -128,14 +128,11 @@ namespace UnityCodeMcpServer.Tests.EditMode
         [Test]
         public void GetScaledDimensionsToMaxHeight_MaintainsAspectRatio()
         {
-            // 16:9 aspect ratio at 1920x1080
             GetUnityGameViewWindowScreenshotTool.GetScaledDimensionsToMaxHeight(1920, 1080, 540, out int resultWidth, out int resultHeight);
 
-            // Expected: 960x540 (maintains 16:9 ratio)
             Assert.AreEqual(960, resultWidth);
             Assert.AreEqual(540, resultHeight);
 
-            // Verify aspect ratio is maintained
             double originalRatio = 1920.0 / 1080.0;
             double scaledRatio = resultWidth / (double)resultHeight;
             Assert.That(scaledRatio, Is.EqualTo(originalRatio).Within(0.01));

@@ -1,7 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Text.Json;
-using Cysharp.Threading.Tasks;
+using System.Threading.Tasks;
+using Newtonsoft.Json.Linq;
+using UnityCodeMcpServer.AsyncAwait;
 using UnityCodeMcpServer.Handlers;
 using UnityCodeMcpServer.Helpers;
 using UnityCodeMcpServer.Interfaces;
@@ -20,17 +21,29 @@ public class PlayUnityGameTool : IToolAsync
 {
     private readonly Dictionary<Keyboard, HashSet<Key>> _active_keys_by_keyboard = new();
 
+    private readonly struct RuntimeInputSettingsSnapshot
+    {
+        public bool ApplicationRunInBackground { get; }
+        public InputSettings.BackgroundBehavior BackgroundBehavior { get; }
+        public InputSettings.EditorInputBehaviorInPlayMode EditorInputBehavior { get; }
+
+        public RuntimeInputSettingsSnapshot(
+            bool applicationRunInBackground,
+            InputSettings.BackgroundBehavior backgroundBehavior,
+            InputSettings.EditorInputBehaviorInPlayMode editorInputBehavior)
+        {
+            ApplicationRunInBackground = applicationRunInBackground;
+            BackgroundBehavior = backgroundBehavior;
+            EditorInputBehavior = editorInputBehavior;
+        }
+    }
+
     public string Name => "play_unity_game";
 
     public string Description =>
-        @"Advances the Unity game state and simulates player input for a specified duration.
-WHAT IT DOES: Temporarily unpauses the game (timeScale=1), triggers specified Input System actions (press/hold), records console logs, and safely pauses the game (timeScale=0) upon completion.
-WHEN TO USE: Use to test gameplay mechanics over time and simulate character movement or UI interactions.
-WHEN NOT TO USE: Do NOT use to edit scripts, modify scene architecture, or inspect static scene data.
-PREREQUISITES: Unity MUST already be in Play Mode (use the 'enter_play_mode' tool first).
-SIDE EFFECTS: Alters Time.timeScale, overrides active Input System states, and consumes in-game time.";
+        @"Runs a Unity game that is already in Play Mode for a specified duration, optionally simulating Input System actions and returning logs captured during play. Use this to test gameplay over time, simulate movement or UI input, and observe runtime behavior.";
 
-    public JsonElement InputSchema => JsonHelper.ParseElement(@"
+    public JToken InputSchema => JsonHelper.ParseElement(@"
         {
             ""type"": ""object"",
             ""properties"": {
@@ -56,7 +69,7 @@ SIDE EFFECTS: Alters Time.timeScale, overrides active Input System states, and c
         }
         ");
 
-    public async UniTask<ToolsCallResult> ExecuteAsync(JsonElement arguments)
+    public async Task<ToolsCallResult> ExecuteAsync(JToken arguments)
     {
         if (!TryParseArguments(arguments, out PlayOptions options, out string errorMessage))
         {
@@ -76,37 +89,21 @@ SIDE EFFECTS: Alters Time.timeScale, overrides active Input System states, and c
 
         LogCapture logCapture = new();
 
-        InputSettings.BackgroundBehavior previousBackgroundBehavior = InputSystem.settings.backgroundBehavior;
-        InputSettings.EditorInputBehaviorInPlayMode previousEditorInputBehavior = InputSystem.settings.editorInputBehaviorInPlayMode;
+        RuntimeInputSettingsSnapshot runtime_input_settings_snapshot = CaptureRuntimeInputSettings();
+        bool previousEditorPaused = EditorApplication.isPaused;
 
         try
         {
             logCapture.Start();
 
             _active_keys_by_keyboard.Clear();
+            EditorApplication.isPaused = false;
             Time.timeScale = 1f;
 
             // Bypass Input System focus gating so input works without window focus.
-            InputSystem.settings.backgroundBehavior = InputSettings.BackgroundBehavior.IgnoreFocus;
-            UnityCodeMcpServerLogger.Info($"#PlayUnityGameTool: Set InputSystem.settings.backgroundBehavior=IgnoreFocus to bypass focus gating. Previous value was {previousBackgroundBehavior}.");
-            InputSystem.settings.editorInputBehaviorInPlayMode = InputSettings.EditorInputBehaviorInPlayMode.AllDeviceInputAlwaysGoesToGameView;
-            UnityCodeMcpServerLogger.Info($"#PlayUnityGameTool: Set InputSystem.settings.editorInputBehaviorInPlayMode=AllDeviceInputAlwaysGoesToGameView to ensure input is sent to game view. Previous value was {previousEditorInputBehavior}.");
+            ApplyRuntimeInputOverrides(runtime_input_settings_snapshot);
 
-            // Re-enable devices that were disabled when Unity lost focus.
-            // OnFocusChanged(false) disables devices with DisabledWhileInBackground flag
-            // BEFORE our IgnoreFocus setting takes effect, so we must re-enable them.
-            int reenabledCount = 0;
-            foreach (InputDevice device in InputSystem.devices)
-            {
-                if (!device.enabled)
-                {
-                    UnityCodeMcpServerLogger.Debug($"#PlayUnityGameTool: re-enabling disabled device: {device.name} (id={device.deviceId})");
-                    InputSystem.EnableDevice(device);
-                    reenabledCount++;
-                }
-            }
-            if (reenabledCount > 0)
-                UnityCodeMcpServerLogger.Debug($"#PlayUnityGameTool: re-enabled {reenabledCount} device(s).");
+            ReenableDevicesDisabledByFocusLoss();
 
             // Reset all input devices to clear residual state from previous invocations.
             // Without this, a key, button, or stick value left active (e.g., due to focus
@@ -130,7 +127,7 @@ SIDE EFFECTS: Alters Time.timeScale, overrides active Input System states, and c
 
             TriggerInputs(input_asset, options.Inputs, held_actions, actions_to_release);
 
-            // Log post-trigger action states (events processed on next frame).
+            // Log post-trigger action states. Queued input is processed by the normal player-loop input update.
             foreach (InputAction heldAction in held_actions)
             {
                 UnityCodeMcpServerLogger.Debug($"#PlayUnityGameTool: post-trigger action '{heldAction.name}' phase={heldAction.phase}, " +
@@ -143,7 +140,7 @@ SIDE EFFECTS: Alters Time.timeScale, overrides active Input System states, and c
 
                 if (held_actions.Count == 0)
                 {
-                    await UniTask.Delay(options.DurationMs, DelayType.Realtime, PlayerLoopTiming.Update);
+                    await UnityEditorAsync.DelayRealtimeAsync(options.DurationMs);
                 }
                 else
                 {
@@ -151,7 +148,7 @@ SIDE EFFECTS: Alters Time.timeScale, overrides active Input System states, and c
                     while (Time.realtimeSinceStartup < end_time)
                     {
                         TriggerHeldInputs(held_actions);
-                        await UniTask.Yield(PlayerLoopTiming.Update);
+                        await UnityEditorAsync.YieldAsync();
                     }
                 }
             }
@@ -167,19 +164,88 @@ SIDE EFFECTS: Alters Time.timeScale, overrides active Input System states, and c
         }
         finally
         {
-            InputSystem.settings.backgroundBehavior = previousBackgroundBehavior;
-            UnityCodeMcpServerLogger.Info($"#PlayUnityGameTool: Restored InputSystem.settings.backgroundBehavior to {previousBackgroundBehavior}.");
-            InputSystem.settings.editorInputBehaviorInPlayMode = previousEditorInputBehavior;
-            UnityCodeMcpServerLogger.Info($"#PlayUnityGameTool: Restored InputSystem.settings.editorInputBehaviorInPlayMode to {previousEditorInputBehavior}.");
-            logCapture.Stop();
-            logCapture.Dispose();
-            Time.timeScale = 0f;
             // Release actions and reset devices BEFORE restoring InputSettings.
             // Restoring settings first re-enables focus gating, which may silently
             // drop the queued release/reset events, leaving keys stuck pressed.
             ReleaseActions(actions_to_release);
             ReleaseActions(held_actions);
             ResetAllInputDevices();
+            Time.timeScale = 0f;
+            EditorApplication.isPaused = previousEditorPaused;
+            RestoreRuntimeInputOverrides(runtime_input_settings_snapshot);
+            logCapture.Stop();
+            logCapture.Dispose();
+        }
+    }
+
+    private static RuntimeInputSettingsSnapshot CaptureRuntimeInputSettings()
+    {
+        return new RuntimeInputSettingsSnapshot(
+            Application.runInBackground,
+            InputSystem.settings.backgroundBehavior,
+            InputSystem.settings.editorInputBehaviorInPlayMode);
+    }
+
+    private static void ApplyRuntimeInputOverrides(RuntimeInputSettingsSnapshot snapshot)
+    {
+        Application.runInBackground = true;
+        UnityCodeMcpServerLogger.Info($"#PlayUnityGameTool: Set Application.runInBackground=true to allow input without focus. Previous value was {snapshot.ApplicationRunInBackground}.");
+        InputSystem.settings.backgroundBehavior = InputSettings.BackgroundBehavior.IgnoreFocus;
+        UnityCodeMcpServerLogger.Info($"#PlayUnityGameTool: Set InputSystem.settings.backgroundBehavior=IgnoreFocus to bypass focus gating. Previous value was {snapshot.BackgroundBehavior}.");
+        InputSystem.settings.editorInputBehaviorInPlayMode = InputSettings.EditorInputBehaviorInPlayMode.AllDeviceInputAlwaysGoesToGameView;
+        UnityCodeMcpServerLogger.Info($"#PlayUnityGameTool: Set InputSystem.settings.editorInputBehaviorInPlayMode=AllDeviceInputAlwaysGoesToGameView to ensure input is sent to game view. Previous value was {snapshot.EditorInputBehavior}.");
+    }
+
+    private static void RestoreRuntimeInputOverrides(RuntimeInputSettingsSnapshot snapshot)
+    {
+        Application.runInBackground = snapshot.ApplicationRunInBackground;
+        UnityCodeMcpServerLogger.Info($"#PlayUnityGameTool: Restored Application.runInBackground to {snapshot.ApplicationRunInBackground}.");
+        InputSystem.settings.backgroundBehavior = snapshot.BackgroundBehavior;
+        UnityCodeMcpServerLogger.Info($"#PlayUnityGameTool: Restored InputSystem.settings.backgroundBehavior to {snapshot.BackgroundBehavior}.");
+        InputSystem.settings.editorInputBehaviorInPlayMode = snapshot.EditorInputBehavior;
+        UnityCodeMcpServerLogger.Info($"#PlayUnityGameTool: Restored InputSystem.settings.editorInputBehaviorInPlayMode to {snapshot.EditorInputBehavior}.");
+    }
+
+    private static void ReenableDevicesDisabledByFocusLoss()
+    {
+        // OnFocusChanged(false) marks keyboard/pointer devices as DisabledWhileInBackground
+        // before play_unity_game can switch to IgnoreFocus. In the editor, device.enabled can
+        // still report true during editor updates, so check the internal focus flag as well.
+        int reenabledCount = 0;
+        foreach (InputDevice device in InputSystem.devices)
+        {
+            if (device == null)
+            {
+                continue;
+            }
+
+            if (!device.enabled || IsDisabledWhileInBackground(device))
+            {
+                UnityCodeMcpServerLogger.Debug($"#PlayUnityGameTool: re-enabling focus-disabled device: {device.name} (id={device.deviceId})");
+                InputSystem.EnableDevice(device);
+                reenabledCount++;
+            }
+        }
+
+        if (reenabledCount > 0)
+        {
+            UnityCodeMcpServerLogger.Debug($"#PlayUnityGameTool: re-enabled {reenabledCount} focus-disabled device(s).");
+        }
+    }
+
+    private static bool IsDisabledWhileInBackground(InputDevice device)
+    {
+        try
+        {
+            System.Reflection.PropertyInfo property = typeof(InputDevice).GetProperty(
+                "disabledWhileInBackground",
+                System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
+            return property != null && (bool)property.GetValue(device);
+        }
+        catch (Exception ex)
+        {
+            UnityCodeMcpServerLogger.Warn($"#PlayUnityGameTool: Could not inspect DisabledWhileInBackground for {device?.name ?? "null"}: {ex.Message}");
+            return false;
         }
     }
 
@@ -224,7 +290,7 @@ SIDE EFFECTS: Alters Time.timeScale, overrides active Input System states, and c
 
             else
             {
-                UniTask.DelayFrame(1).ContinueWith(() => TriggerAction(action, 0.0f)).Forget();
+                ReleasePressedActionNextFrameAsync(action).Forget("play-unity-game-release-press");
             }
         }
     }
@@ -334,7 +400,14 @@ SIDE EFFECTS: Alters Time.timeScale, overrides active Input System states, and c
 
         _active_keys_by_keyboard.Clear();
     }
-    public static bool TryParseArguments(JsonElement arguments, out PlayOptions options, out string errorMessage)
+
+    private async Task ReleasePressedActionNextFrameAsync(InputAction action)
+    {
+        await UnityEditorAsync.DelayFramesAsync(1);
+        TriggerAction(action, 0.0f);
+    }
+
+    public static bool TryParseArguments(JToken arguments, out PlayOptions options, out string errorMessage)
     {
         options = default;
         errorMessage = null;
@@ -359,64 +432,65 @@ SIDE EFFECTS: Alters Time.timeScale, overrides active Input System states, and c
         return true;
     }
 
-    private static bool TryGetRequiredInt(JsonElement arguments, string propertyName, out int value, out string errorMessage)
+    private static bool TryGetRequiredInt(JToken arguments, string propertyName, out int value, out string errorMessage)
     {
         value = default;
         errorMessage = null;
 
-        if (!arguments.TryGetProperty(propertyName, out JsonElement element))
+        if (!arguments.TryGetProperty(propertyName, out JToken element))
         {
             errorMessage = $"Missing required parameter: '{propertyName}'.";
             return false;
         }
 
-        if (element.ValueKind != JsonValueKind.Number || !element.TryGetInt32(out value))
+        if (element.Type != JTokenType.Integer)
         {
             errorMessage = $"Parameter '{propertyName}' must be an integer.";
             return false;
         }
 
+        value = element.Value<int>();
         return true;
     }
 
-    private static bool TryParseInputs(JsonElement arguments, out List<InputRequest> inputs, out string errorMessage)
+    private static bool TryParseInputs(JToken arguments, out List<InputRequest> inputs, out string errorMessage)
     {
         inputs = new List<InputRequest>();
         errorMessage = null;
 
-        if (!arguments.TryGetProperty("input", out JsonElement inputElement))
+        if (!arguments.TryGetProperty("input", out JToken inputElement))
         {
             return true;
         }
 
-        if (inputElement.ValueKind != JsonValueKind.Array)
+        if (inputElement.Type != JTokenType.Array)
         {
             errorMessage = "Parameter 'input' must be an array.";
             return false;
         }
 
-        foreach (JsonElement item in inputElement.EnumerateArray())
+        foreach (JToken item in inputElement)
         {
-            if (item.ValueKind != JsonValueKind.Object)
+            if (item.Type != JTokenType.Object)
             {
                 errorMessage = "Each input entry must be an object with 'action' and 'type'.";
                 return false;
             }
 
-            if (!item.TryGetProperty("action", out JsonElement actionElement) || actionElement.ValueKind != JsonValueKind.String)
+            if (!item.TryGetProperty("action", out JToken actionElement) || actionElement.Type != JTokenType.String)
             {
                 errorMessage = "Each input entry must contain string property 'action'.";
                 return false;
             }
 
-            if (!item.TryGetProperty("type", out JsonElement typeElement) || typeElement.ValueKind != JsonValueKind.String)
+            if (!item.TryGetProperty("type", out JToken typeElement) || typeElement.Type != JTokenType.String)
             {
                 errorMessage = "Each input entry must contain string property 'type'.";
                 return false;
             }
 
-            string actionName = (actionElement.GetString() ?? string.Empty).Trim();
-            string typeRaw = (typeElement.GetString() ?? string.Empty).Trim();
+            string actionName = (actionElement.Value<string>() ?? string.Empty).Trim();
+            string typeRaw = (typeElement.Value<string>() ?? string.Empty).Trim();
 
             if (string.IsNullOrWhiteSpace(actionName))
             {

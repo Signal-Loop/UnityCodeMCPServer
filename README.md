@@ -69,12 +69,6 @@ Returns information about the current Unity Editor project and the UnityCodeMcpS
 ## Security considerations
 
 This package executes LLM-generated C# code (including reflection code) with the same privileges as the Unity Editor process.
-
-Recommendations:
-
-- Review scripts before executing them.
-- Use a separate Unity project and/or run Unity in an isolated environment (VM/container).
-
 You are responsible for securing your environment and for any changes or data loss caused by executed scripts.
 
 ## Architecture
@@ -99,26 +93,20 @@ graph LR
 ### Requirements
 
 - Unity 2022.3 LTS or higher (tested on 2022.3.62f3 and 6000.2.7f2)
-- UniTask (async/await integration): https://github.com/Cysharp/UniTask
 - `uv` (Python package manager) for the bundled STDIO bridge: https://docs.astral.sh/uv/.
 
 ### Installation
 
 1. Install `uv`:
    - Follow instructions at https://docs.astral.sh/uv/getting-started/installation
-2. Install UniTask in your Unity project. Open **Window > Package Manager**, click the **+** button, select **Add package from git URL...**, and enter:
 
-```
-https://github.com/Cysharp/UniTask.git?path=src/UniTask/Assets/Plugins/UniTask
-```
-
-3. Install Unity Code MCP Server from Unity Package Manager. Open **Window > Package Manager**, click the **+** button, select **Add package from git URL...**, and enter:
+2. Install Unity Code MCP Server from Unity Package Manager. Open **Window > Package Manager**, click the **+** button, select **Add package from git URL...**, and enter:
 
 ```
 https://github.com/Signal-Loop/UnityCodeMCPServer.git?path=Assets/Plugins/UnityCodeMcpServer
 ```
 
-4. Configure the skill install location. Open **Tools/UnityCodeMcpServer/Show or Create Settings**, scroll to the **Skills** section, and confirm or change the install directory. By default, first-time installs target `.agents/skills/`. Skills are installed and updated automatically when the package is installed or updated.
+3. Configure the skill install location. Open **Tools/UnityCodeMcpServer/Show or Create Settings**, scroll to the **Skills** section, and confirm or change the install directory. By default, first-time installs target `.agents/skills/`. Skills are installed and updated automatically when the package is installed or updated.
 
 ### First Run
 
@@ -135,7 +123,7 @@ The `unity-code-mcp-stdio` bridge forwards STDIO traffic to Unity through `.unit
 
 ```json
 {
-  "servers": {
+  "mcpServers": {
     "unity-code-mcp-stdio": {
       "command": "uv",
       "args": [
@@ -198,7 +186,7 @@ Add Tools, Prompts, Resources, or Async Tools by implementing the relevant inter
 
 ```csharp
 using System.Collections.Generic;
-using System.Text.Json;
+using Newtonsoft.Json.Linq;
 using UnityCodeMcpServer.Interfaces;
 using UnityCodeMcpServer.Protocol;
 
@@ -208,7 +196,7 @@ public class EchoTool : ITool
 
     public string Description => "Echoes the input text back to the caller";
 
-    public JsonElement InputSchema => JsonHelper.ParseElement(@"{
+    public JToken InputSchema => JsonHelper.ParseElement(@"{
             ""type"": ""object"",
             ""properties"": {
                 ""text"": {
@@ -219,7 +207,7 @@ public class EchoTool : ITool
             ""required"": [""text""]
         }");
 
-    public ToolsCallResult Execute(JsonElement arguments)
+    public ToolsCallResult Execute(JToken arguments)
     {
         var text = arguments.GetStringOrDefault("text", "");
 
@@ -232,10 +220,10 @@ public class EchoTool : ITool
 
 ```csharp
 using System.Collections.Generic;
-using System.Text.Json;
+using Newtonsoft.Json.Linq;
 using UnityCodeMcpServer.Interfaces;
 using UnityCodeMcpServer.Protocol;
-using Cysharp.Threading.Tasks;
+using System.Threading.Tasks;
 
 public class DelayedEchoTool : IToolAsync
 {
@@ -243,7 +231,7 @@ public class DelayedEchoTool : IToolAsync
 
     public string Description => "Echoes the input text after a specified delay (demonstrates async tool)";
 
-    public JsonElement InputSchema => JsonHelper.ParseElement(@"{
+    public JToken InputSchema => JsonHelper.ParseElement(@"{
             ""type"": ""object"",
             ""properties"": {
                 ""text"": {
@@ -259,12 +247,12 @@ public class DelayedEchoTool : IToolAsync
             ""required"": [""text""]
         }");
 
-    public async UniTask<ToolsCallResult> ExecuteAsync(JsonElement arguments)
+    public async Task<ToolsCallResult> ExecuteAsync(JToken arguments)
     {
         var text = arguments.GetStringOrDefault("text", "");
         var delayMs = arguments.GetIntOrDefault("delayMs", 1000);
 
-        await UniTask.Delay(delayMs);
+        await Task.Delay(delayMs);
 
         return ToolsCallResult.TextResult($"Delayed Echo (after {delayMs}ms): {text}");
     }

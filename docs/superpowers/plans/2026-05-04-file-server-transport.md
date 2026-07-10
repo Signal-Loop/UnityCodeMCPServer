@@ -6,7 +6,7 @@
 
 **Architecture:** Mirror the current Python bridge surface with a new file-backed client and keep the Unity side thin by reusing `McpMessageHandler` after reading raw JSON-RPC request files. Preserve FIFO ordering on disk by having the Unity side re-scan the directory for the oldest pending request whenever it becomes idle, with a file watcher used only as the idle wake-up signal.
 
-**Tech Stack:** Python 3.10+, pytest, anyio, Unity Editor C#, NUnit, Cysharp UniTask, System.IO.FileSystemWatcher, System.Text.Json.
+**Tech Stack:** Python 3.10+, pytest, anyio, Unity Editor C#, NUnit, Cysharp UniTask, System.IO.FileSystemWatcher, Newtonsoft.Json.
 
 ---
 

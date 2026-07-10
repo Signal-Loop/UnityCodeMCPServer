@@ -2,9 +2,7 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Text;
-using System.Text.Encodings.Web;
-using System.Text.Json;
-using System.Text.Json.Serialization;
+using Newtonsoft.Json;
 using UnityCodeMcpServer.Helpers;
 using UnityCodeMcpServer.Services;
 using UnityEditor;
@@ -16,10 +14,10 @@ namespace UnityCodeMcpServer.Editor.EditorTools
     {
         private const float MinimumScriptAreaHeight = 100f;
 
-        private static readonly JsonSerializerOptions JsonOptions = new()
+        private static readonly JsonSerializerSettings JsonOptions = new()
         {
-            WriteIndented = true,
-            Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping
+            Formatting = Formatting.Indented,
+            NullValueHandling = NullValueHandling.Ignore
         };
 
         private readonly List<FavouriteScript> _favourites = new();
@@ -253,7 +251,7 @@ namespace UnityCodeMcpServer.Editor.EditorTools
                 try
                 {
                     string json = File.ReadAllText(FavouritesPath);
-                    List<FavouriteScript> loaded = JsonSerializer.Deserialize<List<FavouriteScript>>(json);
+                    List<FavouriteScript> loaded = JsonConvert.DeserializeObject<List<FavouriteScript>>(json, JsonOptions);
                     if (loaded != null)
                     {
                         _favourites.AddRange(loaded);
@@ -324,7 +322,7 @@ namespace UnityCodeMcpServer.Editor.EditorTools
         private void PersistFavourites()
         {
             EnsureDirectoryExists();
-            string json = JsonSerializer.Serialize(_favourites, JsonOptions);
+            string json = JsonConvert.SerializeObject(_favourites, JsonOptions);
             File.WriteAllText(FavouritesPath, json);
         }
 
@@ -380,10 +378,10 @@ namespace UnityCodeMcpServer.Editor.EditorTools
         [Serializable]
         public class FavouriteScript
         {
-            [JsonPropertyName("name")]
+            [JsonProperty("name")]
             public string Name { get; set; }
 
-            [JsonPropertyName("script")]
+            [JsonProperty("script")]
             public string Script { get; set; }
         }
     }

@@ -1,4 +1,4 @@
-﻿using System.Text.Json;
+using Newtonsoft.Json.Linq;
 using NUnit.Framework;
 using UnityCodeMcpServer.Protocol;
 
@@ -25,13 +25,13 @@ namespace UnityCodeMcpServer.Tests.EditMode
             ContentItem contentItem = ContentItem.ResourceTextContent("resource://test-file", "text/plain", "hello world");
             string json = JsonHelper.Serialize(contentItem);
 
-            using JsonDocument document = JsonDocument.Parse(json);
-            JsonElement resource = document.RootElement.GetProperty("resource");
+            JObject document = JObject.Parse(json);
+            JToken resource = document["resource"];
 
-            Assert.That(resource.GetProperty("uri").GetString(), Is.EqualTo("resource://test-file"));
-            Assert.That(resource.GetProperty("mimeType").GetString(), Is.EqualTo("text/plain"));
-            Assert.That(resource.GetProperty("text").GetString(), Is.EqualTo("hello world"));
-            Assert.That(resource.TryGetProperty("blob", out _), Is.False, "`blob` must not be present in serialized JSON");
+            Assert.That(resource["uri"]?.Value<string>(), Is.EqualTo("resource://test-file"));
+            Assert.That(resource["mimeType"]?.Value<string>(), Is.EqualTo("text/plain"));
+            Assert.That(resource["text"]?.Value<string>(), Is.EqualTo("hello world"));
+            Assert.That(resource["blob"], Is.Null, "`blob` must not be present in serialized JSON");
         }
     }
 }

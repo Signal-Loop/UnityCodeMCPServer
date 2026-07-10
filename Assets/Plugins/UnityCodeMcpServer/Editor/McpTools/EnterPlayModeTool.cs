@@ -1,9 +1,10 @@
-﻿using System.Text.Json;
+using Newtonsoft.Json.Linq;
 using UnityCodeMcpServer.Helpers;
 using UnityCodeMcpServer.Interfaces;
 using UnityCodeMcpServer.Protocol;
 using UnityEditor;
 using UnityEngine;
+
 /// <summary>
 /// Tool that enters Unity Play Mode in the Editor.
 /// NOTE: This is a synchronous tool that returns immediately after triggering play mode.
@@ -16,14 +17,14 @@ public class EnterPlayModeTool : ITool
 
     public string Description => "Enters Unity Play Mode in the Editor.";
 
-    public JsonElement InputSchema => JsonHelper.ParseElement(@"
+    public JToken InputSchema => JsonHelper.ParseElement(@"
         {
             ""type"": ""object"",
             ""properties"": {}
         }
         ");
 
-    public ToolsCallResult Execute(JsonElement arguments)
+    public ToolsCallResult Execute(JToken arguments)
     {
         if (EditorApplication.isPlaying)
         {
@@ -40,14 +41,9 @@ public class EnterPlayModeTool : ITool
             return ToolsCallResult.ErrorResult("Unity is compiling or updating. Try again once the Editor is idle.");
         }
 
-        UnityCodeMcpServerLogger.Debug($"EnterPlayModeTool: triggering play mode.");
+        UnityCodeMcpServerLogger.Debug("EnterPlayModeTool: triggering play mode.");
 
-        // Set isPlaying directly. The property assignment is synchronous but the actual
-        // play mode transition (and domain reload) happens on the next editor update.
-        // This gives time for the response to be sent before the connection drops.
-        // Note: delayCall was avoided because it requires editor focus to execute.
         EditorApplication.isPlaying = true;
-
         Time.timeScale = 0;
 
         return ToolsCallResult.TextResult("Play Mode transition initiated.");

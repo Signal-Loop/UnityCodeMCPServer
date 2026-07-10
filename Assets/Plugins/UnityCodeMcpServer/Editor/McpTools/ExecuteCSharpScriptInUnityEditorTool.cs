@@ -1,6 +1,6 @@
 ﻿using System.Text;
-using System.Text.Json;
-using Cysharp.Threading.Tasks;
+using System.Threading.Tasks;
+using Newtonsoft.Json.Linq;
 using UnityCodeMcpServer.Helpers;
 using UnityCodeMcpServer.Interfaces;
 using UnityCodeMcpServer.Protocol;
@@ -17,58 +17,10 @@ namespace UnityCodeMcpServer.McpTools
     {
         public string Name => "execute_csharp_script_in_unity_editor";
 
-        // Engineered Prompt: Uses XML structure for progressive disclosure, explicitly lists
-        // pre-imported namespaces, and enforces strict behavioral rules for the LLM.
         public string Description =>
-    @"<tool_description>
-Executes a C# script in the Unity Editor context using Roslyn scripting. Use this tool to interact with, query, or modify the Unity Editor and its loaded project.
-</tool_description>
+    @"Executes a C# script in the Unity Editor context using Roslyn. Use this for scene, GameObject, component, prefab, asset and Unity Editor modifications or automation. Provide raw C# top-level statements in the script argument.";
 
-<when_to_use>
-- Modifying scene objects, GameObjects, Components, Transforms, or UI elements.
-- Querying the current Editor or scene state (e.g., listing objects, reading component values).
-- Creating or modifying Prefabs, ScriptableObjects, or other assets via AssetDatabase.
-- Batch-processing or automating Editor tasks.
-- Computing values using Unity math APIs (Mathf, Vector3, Quaternion, Physics) to avoid calculation errors.
-</when_to_use>
-
-<when_not_to_use>
-- Do NOT use to edit C# source files — use file editing tools instead.
-- Do NOT use to read/write plain text/JSON/YAML files — use file tools instead.
-- Do NOT use to install packages or change ProjectSettings — requires dedicated tools.
-</when_not_to_use>
-
-<environment>
-- PRE-IMPORTED NAMESPACES: `System`, `System.Collections.Generic`, `System.Linq`, `UnityEngine`, `UnityEditor`. Do NOT add `using` statements for these.
-- Full access to all project assemblies is available.
-- Synchronous host environment (Main Thread).
-- The active scene is automatically marked dirty after successful execution in edit mode.
-</environment>
-
-<rules>
-1. TOP-LEVEL STATEMENTS ONLY: Write flat code. Do not wrap code in a class or a method body.
-2. EXPLICIT USINGS: Only declare namespaces NOT in the pre-imported list (e.g., `using UnityEngine.UI;`).
-3. NO ASYNC/AWAIT: Do not use async methods or Task-based APIs.
-4. NO BACKGROUND THREADS: All Editor API calls must occur on the main thread. Do not use Task.Run.
-5. OUTPUT CAPTURE: The tool captures `Debug.Log()`, `Debug.LogError()`, and the final evaluated expression. Rely primarily on `Debug.Log()` to return structured data to yourself.
-</rules>
-
-<examples>
-<example>
-<intent>Find a player, handle null, and get position</intent>
-<script>
-var go = GameObject.Find(""Player"");
-if (go == null) {
-    Debug.LogError(""Player not found"");
-    return;
-}
-Debug.Log($""Player position: {go.transform.position}"");
-</script>
-</example>
-</examples>";
-
-        // Explicit JSON schema instruction to prevent markdown wrapping
-        public JsonElement InputSchema => JsonHelper.ParseElement(@"
+        public JToken InputSchema => JsonHelper.ParseElement(@"
         {
             ""type"": ""object"",
             ""properties"": {
@@ -81,7 +33,7 @@ Debug.Log($""Player position: {go.transform.position}"");
         }
         ");
 
-        public async UniTask<ToolsCallResult> ExecuteAsync(JsonElement arguments)
+        public async Task<ToolsCallResult> ExecuteAsync(JToken arguments)
         {
             string script = arguments.GetStringOrDefault("script", string.Empty)?.Trim();
             if (string.IsNullOrWhiteSpace(script))
@@ -125,7 +77,6 @@ Debug.Log($""Player position: {go.transform.position}"");
 
             return CreateToolCallResult(isError: true, status: "error", resultText: null, logs: null, errors: message);
         }
-
 
         private static ToolsCallResult CreateToolCallResult(bool isError, string status, string resultText, string logs, string errors, string[] assemblies = null)
         {

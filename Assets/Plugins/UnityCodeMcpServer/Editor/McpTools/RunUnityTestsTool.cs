@@ -1,9 +1,9 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
-using System.Text.Json;
-using Cysharp.Threading.Tasks;
+using System.Threading.Tasks;
+using Newtonsoft.Json.Linq;
 using UnityCodeMcpServer.Helpers;
 using UnityCodeMcpServer.Interfaces;
 using UnityCodeMcpServer.Protocol;
@@ -35,7 +35,7 @@ namespace UnityCodeMcpServer.McpTools
 **OUTPUT:**
 Returns pass/fail status, total execution time, and detailed stack traces for any test failures.";
 
-        public JsonElement InputSchema => JsonHelper.ParseElement(@"
+        public JToken InputSchema => JsonHelper.ParseElement(@"
         {
             ""type"": ""object"",
             ""properties"": {
@@ -55,7 +55,7 @@ Returns pass/fail status, total execution time, and detailed stack traces for an
         }
         ");
 
-        public async UniTask<ToolsCallResult> ExecuteAsync(JsonElement arguments)
+        public async Task<ToolsCallResult> ExecuteAsync(JToken arguments)
         {
             TestOptions options = ParseArguments(arguments);
 
@@ -70,7 +70,6 @@ Returns pass/fail status, total execution time, and detailed stack traces for an
                 return BuildEditModeBlockedResult();
             }
 
-            // Save dirty scenes and capture current scene state before running tests
             EditorSceneStateRestorer.SaveDirtyScenes();
             List<string> sceneState = EditorSceneStateRestorer.CaptureCurrentSceneState();
 
@@ -80,7 +79,6 @@ Returns pass/fail status, total execution time, and detailed stack traces for an
             {
                 if (options.Mode == (TestMode.EditMode | TestMode.PlayMode))
                 {
-                    // Run both modes sequentially
                     compilationBlockResult = GetCompilationBlockedResult();
                     if (compilationBlockResult != null)
                     {
@@ -98,17 +96,15 @@ Returns pass/fail status, total execution time, and detailed stack traces for an
                     ITestResultAdaptor playResult = await RunModeAsync(api, TestMode.PlayMode, options.TestNames);
                     return BuildCombinedResult(editResult, playResult);
                 }
-                else
-                {
-                    compilationBlockResult = GetCompilationBlockedResult();
-                    if (compilationBlockResult != null)
-                    {
-                        return compilationBlockResult;
-                    }
 
-                    ITestResultAdaptor result = await RunModeAsync(api, options.Mode, options.TestNames);
-                    return BuildResult(result);
+                compilationBlockResult = GetCompilationBlockedResult();
+                if (compilationBlockResult != null)
+                {
+                    return compilationBlockResult;
                 }
+
+                ITestResultAdaptor result = await RunModeAsync(api, options.Mode, options.TestNames);
+                return BuildResult(result);
             }
             catch (Exception ex)
             {
@@ -121,7 +117,7 @@ Returns pass/fail status, total execution time, and detailed stack traces for an
             }
         }
 
-        private async UniTask<ITestResultAdaptor> RunModeAsync(TestRunnerApi api, TestMode mode, string[] testNames)
+        private async Task<ITestResultAdaptor> RunModeAsync(TestRunnerApi api, TestMode mode, string[] testNames)
         {
             TestCallbacks callbacks = new();
             api.RegisterCallbacks(callbacks);
@@ -192,20 +188,19 @@ Returns pass/fail status, total execution time, and detailed stack traces for an
             return ToolsCallResult.ErrorResult(message);
         }
 
-        public static TestOptions ParseArguments(JsonElement arguments)
+        public static TestOptions ParseArguments(JToken arguments)
         {
             List<string> testNames = null;
-            if (arguments.TryGetProperty("tests", out JsonElement testsElement) && testsElement.ValueKind == JsonValueKind.Array)
+            if (arguments.TryGetProperty("tests", out JToken testsElement) && testsElement.Type == JTokenType.Array)
             {
-                testNames = testsElement.EnumerateArray()
-                    .Select(x => x.GetString())
+                testNames = testsElement.Values<string>()
                     .Where(x => !string.IsNullOrWhiteSpace(x))
                     .ToList();
             }
 
             string testModeStr = arguments.GetStringOrDefault("test_mode", "EditMode");
             TestMode testMode = TestMode.EditMode;
-            if (Enum.TryParse<TestMode>(testModeStr, true, out TestMode parsedMode))
+            if (Enum.TryParse(testModeStr, true, out TestMode parsedMode))
             {
                 testMode = parsedMode;
             }
@@ -282,7 +277,7 @@ Returns pass/fail status, total execution time, and detailed stack traces for an
             return ToolsCallResult.TextResult(sb.ToString(), editResult.FailCount > 0 || playResult.FailCount > 0);
         }
 
-        internal static void AppendFailedTests(System.Text.StringBuilder sb, ITestResultAdaptor result)
+        internal static void AppendFailedTests(StringBuilder sb, ITestResultAdaptor result)
         {
             if (result.TestStatus == TestStatus.Failed)
             {
@@ -312,9 +307,9 @@ Returns pass/fail status, total execution time, and detailed stack traces for an
 
         private class TestCallbacks : ICallbacks
         {
-            private readonly UniTaskCompletionSource<ITestResultAdaptor> _completionSource = new();
+            private readonly TaskCompletionSource<ITestResultAdaptor> _completionSource = new();
 
-            public UniTask<ITestResultAdaptor> ResultTask => _completionSource.Task;
+            public Task<ITestResultAdaptor> ResultTask => _completionSource.Task;
 
             public void RunStarted(ITestAdaptor testsToRun)
             {

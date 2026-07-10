@@ -2,15 +2,16 @@
 using System.Collections;
 using System.IO;
 using System.Reflection;
-using Cysharp.Threading.Tasks;
+using System.Threading.Tasks;
 using NUnit.Framework;
+using UnityCodeMcpServer.AsyncAwait;
 using UnityCodeMcpServer.Protocol;
 using UnityEngine;
 using UnityEngine.TestTools;
 
 public class GetUnityGameViewWindowScreenshotToolPlayModeTests
 {
-    private static UniTask<ToolsCallResult> ExecuteWithEmptyArgumentsAsync(GetUnityGameViewWindowScreenshotTool tool)
+    private static Task<ToolsCallResult> ExecuteWithEmptyArgumentsAsync(GetUnityGameViewWindowScreenshotTool tool)
     {
         MethodInfo executeMethod = typeof(GetUnityGameViewWindowScreenshotTool).GetMethod(nameof(GetUnityGameViewWindowScreenshotTool.ExecuteAsync));
         Assert.IsNotNull(executeMethod, "Could not find ExecuteAsync method.");
@@ -18,11 +19,11 @@ public class GetUnityGameViewWindowScreenshotToolPlayModeTests
         ParameterInfo[] parameters = executeMethod.GetParameters();
         Assert.AreEqual(1, parameters.Length, "ExecuteAsync signature changed unexpectedly.");
 
-        object emptyArguments = Activator.CreateInstance(parameters[0].ParameterType);
+        object emptyArguments = JsonHelper.ParseElement("{}");
         object invocationResult = executeMethod.Invoke(tool, new[] { emptyArguments });
         Assert.IsNotNull(invocationResult, "ExecuteAsync returned null.");
 
-        return (UniTask<ToolsCallResult>)invocationResult;
+        return (Task<ToolsCallResult>)invocationResult;
     }
 
     private static byte[] CreateTestPngBytes()
@@ -47,7 +48,7 @@ public class GetUnityGameViewWindowScreenshotToolPlayModeTests
     }
 
     [UnityTest]
-    public IEnumerator ExecuteAsync_AllowsCaptureWhenTimeScaleIsZeroInPlayMode() => UniTask.ToCoroutine(async () =>
+    public IEnumerator ExecuteAsync_AllowsCaptureWhenTimeScaleIsZeroInPlayMode() => TaskCoroutine.ToCoroutine(async () =>
     {
         string tempPath = Path.Combine(Application.temporaryCachePath, $"paused-screenshot-{System.Guid.NewGuid():N}.png");
         byte[] pngBytes = CreateTestPngBytes();

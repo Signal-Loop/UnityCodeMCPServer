@@ -10,6 +10,10 @@ using UnityEngine.InputSystem;
 /// </summary>
 public class PlayUnityGameToolTests
 {
+    private bool previous_run_in_background;
+    private InputSettings.BackgroundBehavior previous_background_behavior;
+    private InputSettings.EditorInputBehaviorInPlayMode previous_editor_input_behavior;
+
     private static MethodInfo GetPrivateMethod(string name) =>
         typeof(PlayUnityGameTool).GetMethod(name, BindingFlags.Instance | BindingFlags.NonPublic);
 
@@ -38,6 +42,54 @@ public class PlayUnityGameToolTests
         map.AddAction("Player2Up", InputActionType.Button, "<Keyboard>/upArrow");
         asset.AddActionMap(map);
         return asset;
+    }
+
+    private static void InvokeInputSystemFocusChanged(bool focused)
+    {
+        Type inputSystemType = typeof(InputSystem);
+        FieldInfo managerField = inputSystemType.GetField("s_Manager", BindingFlags.Static | BindingFlags.NonPublic);
+        Assert.IsNotNull(managerField, "Could not find InputSystem.s_Manager.");
+
+        object manager = managerField.GetValue(null);
+        MethodInfo onFocusChanged = manager.GetType().GetMethod("OnFocusChanged", BindingFlags.Instance | BindingFlags.NonPublic);
+        Assert.IsNotNull(onFocusChanged, "Could not find InputManager.OnFocusChanged.");
+
+        onFocusChanged.Invoke(manager, new object[] { focused });
+    }
+
+    [SetUp]
+    public void SetUpInputRuntime()
+    {
+        previous_run_in_background = Application.runInBackground;
+        previous_background_behavior = InputSystem.settings.backgroundBehavior;
+        previous_editor_input_behavior = InputSystem.settings.editorInputBehaviorInPlayMode;
+
+        Application.runInBackground = true;
+        InputSystem.settings.backgroundBehavior = InputSettings.BackgroundBehavior.IgnoreFocus;
+        InputSystem.settings.editorInputBehaviorInPlayMode = InputSettings.EditorInputBehaviorInPlayMode.AllDeviceInputAlwaysGoesToGameView;
+        InvokeInputSystemFocusChanged(true);
+        EnableAllInputDevices();
+    }
+
+    [TearDown]
+    public void TearDownInputRuntime()
+    {
+        InvokeInputSystemFocusChanged(true);
+        EnableAllInputDevices();
+        Application.runInBackground = previous_run_in_background;
+        InputSystem.settings.backgroundBehavior = previous_background_behavior;
+        InputSystem.settings.editorInputBehaviorInPlayMode = previous_editor_input_behavior;
+    }
+
+    private static void EnableAllInputDevices()
+    {
+        foreach (InputDevice device in InputSystem.devices)
+        {
+            if (device != null)
+            {
+                InputSystem.EnableDevice(device);
+            }
+        }
     }
 
     [Test]
@@ -303,6 +355,105 @@ public class PlayUnityGameToolTests
             action.Disable();
             action.Dispose();
             InputSystem.RemoveDevice(gamepad);
+        }
+    }
+
+    [Test]
+    public void TriggerAction_FirstInputWorksThenFocusRegainLossSecondInputWorks()
+    {
+        Keyboard keyboard = EnsureKeyboardDevice(out bool createdKeyboard);
+        Assert.IsNotNull(keyboard, "Expected a keyboard device for keyboard action tests.");
+
+        InputActionAsset asset = CreateKeyboardTestAsset();
+        InputAction player1Up = asset.FindAction("Player1Up", true);
+        InputAction player2Up = asset.FindAction("Player2Up", true);
+        player1Up.Enable();
+        player2Up.Enable();
+
+        MethodInfo triggerAction = GetPrivateMethod("TriggerAction");
+        MethodInfo applyRuntimeInputOverrides = GetPrivateStaticMethod("ApplyRuntimeInputOverrides");
+        MethodInfo captureRuntimeInputSettings = GetPrivateStaticMethod("CaptureRuntimeInputSettings");
+        MethodInfo reenableDevicesDisabledByFocusLoss = GetPrivateStaticMethod("ReenableDevicesDisabledByFocusLoss");
+        Assert.IsNotNull(triggerAction, "Could not find TriggerAction method.");
+        Assert.IsNotNull(applyRuntimeInputOverrides, "Could not find ApplyRuntimeInputOverrides method.");
+        Assert.IsNotNull(captureRuntimeInputSettings, "Could not find CaptureRuntimeInputSettings method.");
+        Assert.IsNotNull(reenableDevicesDisabledByFocusLoss, "Could not find ReenableDevicesDisabledByFocusLoss method.");
+
+        PlayUnityGameTool tool = new();
+
+        try
+        {
+            triggerAction.Invoke(tool, new object[] { player1Up, 1f });
+            InputSystem.Update();
+            Assert.IsTrue(player1Up.IsPressed(), "Expected first keyboard input to work before the focus cycle.");
+
+            triggerAction.Invoke(tool, new object[] { player1Up, 0f });
+            InputSystem.Update();
+            Assert.IsFalse(player1Up.IsPressed(), "Expected first keyboard input to release before the focus cycle.");
+
+            Application.runInBackground = false;
+            InputSystem.settings.backgroundBehavior = InputSettings.BackgroundBehavior.ResetAndDisableNonBackgroundDevices;
+            InputSystem.settings.editorInputBehaviorInPlayMode = InputSettings.EditorInputBehaviorInPlayMode.PointersAndKeyboardsRespectGameViewFocus;
+
+            InvokeInputSystemFocusChanged(true);
+            InvokeInputSystemFocusChanged(false);
+
+            object snapshot = captureRuntimeInputSettings.Invoke(null, null);
+            applyRuntimeInputOverrides.Invoke(null, new[] { snapshot });
+            reenableDevicesDisabledByFocusLoss.Invoke(null, null);
+
+            triggerAction.Invoke(tool, new object[] { player2Up, 1f });
+            InputSystem.Update();
+
+            Assert.IsTrue(player2Up.IsPressed(),
+                "Expected second keyboard input to work after Unity regains and loses focus before play_unity_game.");
+        }
+        finally
+        {
+            triggerAction.Invoke(tool, new object[] { player1Up, 0f });
+            triggerAction.Invoke(tool, new object[] { player2Up, 0f });
+            InputSystem.Update();
+            player1Up.Disable();
+            player2Up.Disable();
+            UnityEngine.Object.DestroyImmediate(asset);
+
+            if (createdKeyboard)
+            {
+                InputSystem.RemoveDevice(keyboard);
+            }
+        }
+    }
+
+    [Test]
+    public void RuntimeInputOverrides_EnableRunInBackgroundAndRestoreSnapshot()
+    {
+        bool previousRunInBackground = Application.runInBackground;
+        float previousTimeScale = Time.timeScale;
+        Application.runInBackground = false;
+
+        try
+        {
+            MethodInfo captureRuntimeInputSettings = GetPrivateStaticMethod("CaptureRuntimeInputSettings");
+            MethodInfo applyRuntimeInputOverrides = GetPrivateStaticMethod("ApplyRuntimeInputOverrides");
+            MethodInfo restoreRuntimeInputOverrides = GetPrivateStaticMethod("RestoreRuntimeInputOverrides");
+            Assert.IsNotNull(captureRuntimeInputSettings, "Could not find CaptureRuntimeInputSettings.");
+            Assert.IsNotNull(applyRuntimeInputOverrides, "Could not find ApplyRuntimeInputOverrides.");
+            Assert.IsNotNull(restoreRuntimeInputOverrides, "Could not find RestoreRuntimeInputOverrides.");
+
+            object snapshot = captureRuntimeInputSettings.Invoke(null, null);
+            applyRuntimeInputOverrides.Invoke(null, new[] { snapshot });
+
+            Assert.IsTrue(Application.runInBackground,
+                "PlayUnityGameTool must enable Application.runInBackground itself so direct execution and tests match MCP execution.");
+
+            restoreRuntimeInputOverrides.Invoke(null, new[] { snapshot });
+            Assert.IsFalse(Application.runInBackground,
+                "PlayUnityGameTool should restore the caller's Application.runInBackground value after execution.");
+        }
+        finally
+        {
+            Application.runInBackground = previousRunInBackground;
+            Time.timeScale = previousTimeScale;
         }
     }
 }

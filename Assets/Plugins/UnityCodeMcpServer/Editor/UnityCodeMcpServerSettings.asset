@@ -16,7 +16,8 @@ MonoBehaviour:
   LogToFile: 1
   AdditionalAssemblyNames:
   - Newtonsoft.Json
-  InputActionsAssetPath: 
+  - Unity.InputSystem
+  InputActionsAssetPath: Assets/Resources/PlayGameInputActions.inputactions
   SkillsInstallTarget: 2
   SkillsTargetPath: .agents/skills/
   _hasInitializedSkillsInstallTarget: 1
