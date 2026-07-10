@@ -127,31 +127,43 @@ gh release view <tag> --json tagName,url,isDraft,isPrerelease
 
 Stop if the tag or release already exists unless the user explicitly asked to repair or replace it. Never silently move an existing release tag.
 
-## Merge and Push
+## Merge the Release Branch into `main`, Then Tag
 
-Synchronize the target branch and preserve the repository's merge convention. For repositories that retain release merge commits:
+For a published release, the release branch must be merged into `main` before a tag or GitHub release is created. Do not tag the release branch, and do not create a release that targets it. If the repository uses a different default branch, substitute that branch only after confirming the repository convention.
+
+Synchronize `main` and preserve the repository's merge convention. For repositories that retain release merge commits:
 
 ```text
-git switch <target>
-git pull --ff-only origin <target>
+git switch main
+git pull --ff-only origin main
 git merge --no-ff <release-branch> -m "Merge branch '<release-branch>'"
-git push origin <target>
+git push origin main
 ```
 
-If the repository normally fast-forwards or requires pull requests, follow that policy instead. After pushing, verify that local and remote target refs identify the intended commit. Do not publish a release from an unpushed local commit.
+If the repository normally fast-forwards or requires pull requests, follow that policy instead. After pushing, verify that local and remote `main` refs identify the intended commit. Do not tag or publish a release from an unpushed local commit.
 
-## Create and Verify the GitHub Release
+Create the tag at the pushed `main` commit, then push it:
 
-Create the release with the target branch name so GitHub creates the new tag at the pushed release commit:
+```text
+git rev-parse HEAD
+git rev-parse origin/main
+git tag -a <tag> -m "<Product> <Release>"
+git push origin <tag>
+```
+
+Confirm the local tag, remote tag, and `origin/main` all resolve to the intended release commit before publishing.
+
+## Create and Verify the GitHub Release from `main`
+
+Create the GitHub release from the already-pushed tag created at `main`:
 
 ```text
 gh release create <tag> \
-  --target <target> \
-  --title "<Product> <Release>" \
+  --title "<tag>" \
   --notes-file <release-notes-path>
 ```
 
-Use the exact notes file rather than copying its contents into the command. Do not use an abbreviated commit SHA for `--target`; use the pushed branch name or a full commit hash accepted by GitHub.
+Use the exact notes file rather than copying its contents into the command. Set the release title to the exact tag name. Do not pass `--target` here: the existing remote tag is the release target. This guarantees the release is created from the commit already merged and pushed to `main`.
 
 If creation fails, inspect whether GitHub created either a tag or a release before retrying. Retry only after identifying the cause; do not create alternate tags to work around an error.
 
@@ -160,7 +172,7 @@ Verify all published state:
 ```text
 gh release view <tag> --json name,tagName,targetCommitish,isDraft,isPrerelease,url
 git ls-remote --tags origin refs/tags/<tag>
-git rev-parse origin/<target>
+git rev-parse origin/main
 git status --short
 ```
 
@@ -168,7 +180,7 @@ Confirm that:
 
 - the release is published unless draft or prerelease status was requested
 - the tag has the exact manifest-derived name
-- the tag resolves to the intended target commit
+- the tag resolves to the intended `main` commit
 - the release body came from the final notes file
 - the working tree remains clean
 
