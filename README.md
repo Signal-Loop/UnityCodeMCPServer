@@ -68,8 +68,7 @@ Returns information about the current Unity Editor project and the UnityCodeMcpS
 
 ## Security considerations
 
-This package executes LLM-generated C# code (including reflection code) with the same privileges as the Unity Editor process.
-You are responsible for securing your environment and for any changes or data loss caused by executed scripts.
+This package executes LLM-generated C# code, including reflection code, with the same privileges as the Unity Editor process. Use it at your own risk. To the fullest extent permitted by law, Signal Loop disclaims liability for any changes, damage, or data loss resulting from its use. You are responsible for securing your environment.
 
 ## Architecture
 

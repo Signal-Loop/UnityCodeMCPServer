@@ -181,6 +181,7 @@ Only loaded assemblies are available.
 - UnityEngine.CoreModule,
 - Assembly-CSharp,
 - Assembly-CSharp-Editor
+- UnityCodeMcpServer
 
 #### Loading Additional Assemblies:
 

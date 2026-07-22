@@ -185,7 +185,6 @@ Only loaded assemblies are available.
 
 #### Loading Additional Assemblies:
 
-Additional assemblies are defined in `AdditionalAssemblyNames` list in `Assets/Plugins/UnityCodeAgent/Editor/UnityCodeAgentSettings.asset`. Add any assembly name there (e.g., "MyCustomAssembly") and it will be loaded and available in the script context.
 When encountering errors about missing types or namespaces, like `error CS0234: The type or namespace name 'UI' does not exist in the namespace 'UnityEngine' (are you missing an assembly reference?)`:
 
 1. Identify the required assembly and namespace for the API you are trying to use.
