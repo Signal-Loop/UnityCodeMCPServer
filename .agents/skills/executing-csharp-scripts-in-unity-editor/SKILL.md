@@ -298,13 +298,3 @@ if (target != null) {
     UnityEngine.Debug.Log("Object not found — nothing to destroy");
 }
 ```
-
-### Missing Namespace or Assembly Errors
-
-When encountering errors about missing types or namespaces, like `error CS0234: The type or namespace name 'UI' does not exist in the namespace 'UnityEngine' (are you missing an assembly reference?)`:
-
-1. Identify the required assembly and namespace for the API you are trying to use.
-2. Check if that assembly is included in the loaded assemblies or `AdditionalAssemblyNames` in `UnityCodeMcpServerSettings.asset`.
-3. If it is not, add it to `AdditionalAssemblyNames` in `UnityCodeMcpServerSettings.asset` via file tools.
-4. **Force a settings reload** by executing the reload script from the _Forcing Settings Reload After File Edit_ section above. The new assembly will not be available until this is done.
-5. Ensure you have the correct `using` directive for the namespace at the top of your script.
